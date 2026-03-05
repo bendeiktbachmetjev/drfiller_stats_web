@@ -29,20 +29,42 @@
             </div>
         </header>
 
+        <!-- Global Date Filter -->
+        <section class="date-filter-bar">
+            <span class="date-filter-label">📅 Show data for:</span>
+            <select id="global-date-preset" class="filter-select">
+                <option value="7d" selected>Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="6m">Last 6 Months</option>
+                <option value="1y">Last 1 Year</option>
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="custom">Custom Range...</option>
+            </select>
+            <div id="custom-date-inputs" style="display:none; gap:0.5rem; align-items:center; flex-direction:row;">
+                <input type="date" id="global-start-date" class="filter-input date-wide" title="Start Date">
+                <span style="color:#9ba1b7;">—</span>
+                <input type="date" id="global-end-date" class="filter-input date-wide" title="End Date">
+                <button class="btn btn-sm" id="apply-global-dates">Apply</button>
+            </div>
+        </section>
+
         <!-- Stats Cards -->
         <section class="stats-grid">
             <div class="stat-card">
                 <div class="stat-icon">👥</div>
                 <div class="stat-content">
                     <span class="stat-value" id="stat-users">—</span>
-                    <span class="stat-label">Registered Users</span>
+                    <span class="stat-label" id="stat-users-label">Registered Users</span>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">📝</div>
                 <div class="stat-content">
                     <span class="stat-value" id="stat-requests-today">—</span>
-                    <span class="stat-label">Requests Today</span>
+                    <span class="stat-label" id="stat-requests-label">Total Requests</span>
                 </div>
             </div>
             <div class="stat-card">
@@ -72,26 +94,6 @@
                     <span class="stat-value" id="stat-active-today">—</span>
                     <span class="stat-label">Active Today</span>
                 </div>
-            </div>
-        </section>
-
-        <!-- Global Date Filter -->
-        <section class="date-filter-bar">
-            <span class="date-filter-label">📅 Show data for:</span>
-            <select id="global-date-preset" class="filter-select">
-                <option value="7d" selected>Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="6m">Last 6 Months</option>
-                <option value="1y">Last 1 Year</option>
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="custom">Custom Range...</option>
-            </select>
-            <div id="custom-date-inputs" style="display:none; gap:0.5rem; align-items:center; flex-direction:row;">
-                <input type="date" id="global-start-date" class="filter-input" title="Start Date">
-                <span style="color:#9ba1b7;">—</span>
-                <input type="date" id="global-end-date" class="filter-input" title="End Date">
-                <button class="btn btn-sm" id="apply-global-dates">Apply</button>
             </div>
         </section>
 

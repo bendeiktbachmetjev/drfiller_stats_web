@@ -173,6 +173,7 @@
         let endDate = null;
 
         const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth();
 
         if (preset === 'custom') {
             const startVal = $('#global-start-date').value;
@@ -184,29 +185,26 @@
                 endDate = endD.toISOString();
             }
         } else if (preset === 'today') {
-            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+            startDate = new Date(y, m, now.getDate(), 0, 0, 0, 0).toISOString();
         } else if (preset === '7d') {
-            const d = new Date();
-            d.setDate(d.getDate() - 6);
-            d.setHours(0, 0, 0, 0);
+            const d = new Date(); d.setDate(d.getDate() - 6); d.setHours(0, 0, 0, 0);
             startDate = d.toISOString();
         } else if (preset === '30d') {
-            const d = new Date();
-            d.setDate(d.getDate() - 29);
-            d.setHours(0, 0, 0, 0);
+            const d = new Date(); d.setDate(d.getDate() - 29); d.setHours(0, 0, 0, 0);
             startDate = d.toISOString();
+        } else if (preset === 'this_month') {
+            startDate = new Date(y, m, 1, 0, 0, 0, 0).toISOString();
+        } else if (preset === 'last_month') {
+            startDate = new Date(y, m - 1, 1, 0, 0, 0, 0).toISOString();
+            endDate = new Date(y, m, 0, 23, 59, 59, 999).toISOString();
         } else if (preset === '6m') {
-            const d = new Date();
-            d.setMonth(d.getMonth() - 6);
-            d.setHours(0, 0, 0, 0);
+            const d = new Date(); d.setMonth(d.getMonth() - 6); d.setHours(0, 0, 0, 0);
             startDate = d.toISOString();
         } else if (preset === '1y') {
-            const d = new Date();
-            d.setFullYear(d.getFullYear() - 1);
-            d.setHours(0, 0, 0, 0);
+            const d = new Date(); d.setFullYear(d.getFullYear() - 1); d.setHours(0, 0, 0, 0);
             startDate = d.toISOString();
         } else if (preset === 'all') {
-            startDate = new Date(2020, 0, 1).toISOString(); // Arbitrary old date
+            startDate = new Date(2020, 0, 1).toISOString();
         }
 
         return { startDate, endDate };
@@ -281,12 +279,30 @@
     // ===========================
     function renderStats(data) {
         if (!data) return;
+        // Registered users is always total (not range-filtered)
         $('#stat-users').textContent = formatNumber(data.totalRegisteredUsers || 0);
-        $('#stat-requests-today').textContent = formatNumber(data.today?.totalRequests || 0);
+        // Other stats come from the selected date range (overall = range scope)
+        $('#stat-requests-today').textContent = formatNumber(data.overall?.totalRequests || 0);
         $('#stat-transcriptions').textContent = formatNumber(data.overall?.totalTranscriptions || 0);
         $('#stat-ai-processing').textContent = formatNumber(data.overall?.totalAiProcessing || 0);
         $('#stat-tokens').textContent = formatTokens(data.overall?.totalTokensUsed || 0);
         $('#stat-active-today').textContent = formatNumber(data.today?.uniqueUsers || 0);
+
+        // Update dynamic label on the requests card
+        const preset = $('#global-date-preset')?.value || '';
+        const labelMap = {
+            today: 'Requests Today',
+            '7d': 'Requests (7 Days)',
+            '30d': 'Requests (30 Days)',
+            this_month: 'Requests (This Month)',
+            last_month: 'Requests (Last Month)',
+            '6m': 'Requests (6 Months)',
+            '1y': 'Requests (1 Year)',
+            all: 'Total Requests',
+            custom: 'Requests (Custom)'
+        };
+        const reqLabel = $('#stat-requests-label');
+        if (reqLabel) reqLabel.textContent = labelMap[preset] || 'Total Requests';
     }
 
     // ===========================

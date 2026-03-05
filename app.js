@@ -62,16 +62,18 @@
         ));
     });
 
-    // Log filters
-    $('#log-date-preset').addEventListener('change', (e) => {
+    // Global Date Filters
+    $('#global-date-preset').addEventListener('change', (e) => {
         const isCustom = e.target.value === 'custom';
-        $('#log-start-date').style.display = isCustom ? 'inline-block' : 'none';
-        $('#log-end-date').style.display = isCustom ? 'inline-block' : 'none';
+        $('#custom-date-inputs').style.display = isCustom ? 'flex' : 'none';
+        if (!isCustom) loadAllData();
     });
+    $('#apply-global-dates').addEventListener('click', () => loadAllData());
+
+    // Log filters
     $('#apply-log-filters').addEventListener('click', () => loadLogs());
 
     // Chart filters
-    $('#chart-timeframe').addEventListener('change', () => loadStats());
     $('#chart-type-filter').addEventListener('change', (e) => {
         if (statsData?.chartBreakdown) {
             renderChart(statsData.chartBreakdown, e.target.value);
@@ -165,6 +167,51 @@
     // ===========================
     // Data Loading
     // ===========================
+    function getGlobalDateRange() {
+        const preset = $('#global-date-preset').value;
+        let startDate = null;
+        let endDate = null;
+
+        const now = new Date();
+
+        if (preset === 'custom') {
+            const startVal = $('#global-start-date').value;
+            const endVal = $('#global-end-date').value;
+            startDate = startVal ? new Date(startVal).toISOString() : null;
+            if (endVal) {
+                const endD = new Date(endVal);
+                endD.setHours(23, 59, 59, 999);
+                endDate = endD.toISOString();
+            }
+        } else if (preset === 'today') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+        } else if (preset === '7d') {
+            const d = new Date();
+            d.setDate(d.getDate() - 6);
+            d.setHours(0, 0, 0, 0);
+            startDate = d.toISOString();
+        } else if (preset === '30d') {
+            const d = new Date();
+            d.setDate(d.getDate() - 29);
+            d.setHours(0, 0, 0, 0);
+            startDate = d.toISOString();
+        } else if (preset === '6m') {
+            const d = new Date();
+            d.setMonth(d.getMonth() - 6);
+            d.setHours(0, 0, 0, 0);
+            startDate = d.toISOString();
+        } else if (preset === '1y') {
+            const d = new Date();
+            d.setFullYear(d.getFullYear() - 1);
+            d.setHours(0, 0, 0, 0);
+            startDate = d.toISOString();
+        } else if (preset === 'all') {
+            startDate = new Date(2020, 0, 1).toISOString(); // Arbitrary old date
+        }
+
+        return { startDate, endDate };
+    }
+
     async function loadAllData() {
         $('#last-updated').textContent = 'Loading...';
         try {
@@ -178,8 +225,8 @@
 
     async function loadStats() {
         try {
-            const timeframe = $('#chart-timeframe').value;
-            const res = await apiFetch('/api/admin/stats', { timeframe });
+            const { startDate, endDate } = getGlobalDateRange();
+            const res = await apiFetch('/api/admin/stats', { startDate, endDate });
             statsData = res.data;
             renderStats(statsData);
 
@@ -219,26 +266,7 @@
         try {
             const action = $('#log-action-filter').value;
             const limit = $('#log-limit').value;
-            const preset = $('#log-date-preset').value;
-
-            let startDate = null;
-            let endDate = null;
-
-            if (preset === 'custom') {
-                startDate = $('#log-start-date').value;
-                endDate = $('#log-end-date').value;
-            } else if (preset === 'today') {
-                const now = new Date();
-                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-            } else if (preset === 'week') {
-                const d = new Date();
-                d.setDate(d.getDate() - 7);
-                startDate = d.toISOString();
-            } else if (preset === 'month') {
-                const d = new Date();
-                d.setDate(d.getDate() - 30);
-                startDate = d.toISOString();
-            }
+            const { startDate, endDate } = getGlobalDateRange();
 
             const res = await apiFetch('/api/admin/logs', { action, limit, startDate, endDate });
             logsData = res.data || [];

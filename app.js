@@ -10,7 +10,7 @@
     // ===========================
     // State
     // ===========================
-    let serverUrl = '';
+    let serverUrl = 'https://web-production-d4666.up.railway.app';
     let adminSecret = '';
     let statsData = null;
     let usersData = [];
@@ -31,7 +31,6 @@
         const errorEl = $('#login-error');
         errorEl.style.display = 'none';
 
-        serverUrl = $('#server-url').value.replace(/\/+$/, '');
         adminSecret = $('#admin-secret').value;
 
         btn.querySelector('.btn-text').textContent = 'Connecting...';
@@ -42,7 +41,6 @@
             if (!res.success) throw new Error(res.error || 'Failed to connect');
 
             // Save to localStorage for convenience
-            localStorage.setItem('drfiller_admin_url', serverUrl);
             localStorage.setItem('drfiller_admin_secret', adminSecret);
 
             // Show dashboard
@@ -60,15 +58,12 @@
         }
     });
 
-    // Auto-fill from localStorage and auto-connect if both are saved
-    const savedUrl = localStorage.getItem('drfiller_admin_url');
+    // Auto-fill from localStorage and auto-connect if saved
     const savedSecret = localStorage.getItem('drfiller_admin_secret');
-    if (savedUrl) $('#server-url').value = savedUrl;
     if (savedSecret) $('#admin-secret').value = savedSecret;
 
     // Auto-login if credentials are saved
-    if (savedUrl && savedSecret) {
-        serverUrl = savedUrl;
+    if (savedSecret) {
         adminSecret = savedSecret;
         (async () => {
             try {

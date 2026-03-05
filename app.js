@@ -277,32 +277,48 @@
     // ===========================
     // Render Stats
     // ===========================
+    function formatCost(usd) {
+        if (usd < 0.001) return '$0.000';
+        if (usd < 0.01) return `$${usd.toFixed(4)}`;
+        return `$${usd.toFixed(3)}`;
+    }
+
+    function getPeriodLabel() {
+        const preset = $('#global-date-preset')?.value || '';
+        return {
+            today: 'Today',
+            '7d': '7 Days',
+            '30d': '30 Days',
+            this_month: 'This Month',
+            last_month: 'Last Month',
+            '6m': '6 Months',
+            '1y': '1 Year',
+            all: 'Total',
+            custom: 'Custom'
+        }[preset] || 'Period';
+    }
+
     function renderStats(data) {
         if (!data) return;
-        // Registered users is always total (not range-filtered)
+        const period = getPeriodLabel();
+
+        // Registered Users is always all-time
         $('#stat-users').textContent = formatNumber(data.totalRegisteredUsers || 0);
-        // Other stats come from the selected date range (overall = range scope)
-        $('#stat-requests-today').textContent = formatNumber(data.overall?.totalRequests || 0);
+
+        // All other numbers reflect the selected date range
         $('#stat-transcriptions').textContent = formatNumber(data.overall?.totalTranscriptions || 0);
         $('#stat-ai-processing').textContent = formatNumber(data.overall?.totalAiProcessing || 0);
         $('#stat-tokens').textContent = formatTokens(data.overall?.totalTokensUsed || 0);
-        $('#stat-active-today').textContent = formatNumber(data.today?.uniqueUsers || 0);
+        $('#stat-cost').textContent = formatCost(data.overall?.estimatedCostUsd || 0);
+        $('#stat-active-today').textContent = formatNumber(data.overall?.uniqueUsers || 0);
 
-        // Update dynamic label on the requests card
-        const preset = $('#global-date-preset')?.value || '';
-        const labelMap = {
-            today: 'Requests Today',
-            '7d': 'Requests (7 Days)',
-            '30d': 'Requests (30 Days)',
-            this_month: 'Requests (This Month)',
-            last_month: 'Requests (Last Month)',
-            '6m': 'Requests (6 Months)',
-            '1y': 'Requests (1 Year)',
-            all: 'Total Requests',
-            custom: 'Requests (Custom)'
-        };
-        const reqLabel = $('#stat-requests-label');
-        if (reqLabel) reqLabel.textContent = labelMap[preset] || 'Total Requests';
+        // Update sub-labels to show selected period
+        const setLabel = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+        setLabel('#stat-transcriptions-label', `Transcriptions (${period})`);
+        setLabel('#stat-ai-label', `AI Processing (${period})`);
+        setLabel('#stat-tokens-label', `Tokens Used (${period})`);
+        setLabel('#stat-cost-label', `Est. Cost (${period})`);
+        setLabel('#stat-active-label', `Active Users (${period})`);
     }
 
     // ===========================

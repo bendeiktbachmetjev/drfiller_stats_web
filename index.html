@@ -84,6 +84,8 @@
                         <option value="all" selected>All Requests</option>
                         <option value="transcription">Transcriptions Only</option>
                         <option value="ai_processing">AI Processing Only</option>
+                        <option value="active_users">Active Users</option>
+                        <option value="new_users">New Registered Users</option>
                     </select>
                     <select id="chart-timeframe" class="filter-select">
                         <option value="1h">Last 1 Hour (5m)</option>
@@ -115,12 +117,12 @@
                 <table id="users-table">
                     <thead>
                         <tr>
-                            <th>Email</th>
-                            <th>Available</th>
-                            <th>Used</th>
-                            <th>Total</th>
-                            <th>Registered</th>
-                            <th>Last Active</th>
+                            <th class="sortable" data-sort="email" data-type="string">Email ↕</th>
+                            <th class="sortable" data-sort="availableCredits" data-type="number">Available ↕</th>
+                            <th class="sortable" data-sort="usedCredits" data-type="number">Used ↕</th>
+                            <th class="sortable" data-sort="totalCredits" data-type="number">Total ↕</th>
+                            <th class="sortable" data-sort="createdAt" data-type="date">Registered ↕</th>
+                            <th class="sortable sorted-desc" data-sort="lastSignIn" data-type="date">Last Active ↓</th>
                         </tr>
                     </thead>
                     <tbody id="users-tbody">
@@ -161,12 +163,12 @@
                 <table id="logs-table">
                     <thead>
                         <tr>
-                            <th>Time</th>
-                            <th>User</th>
-                            <th>Action</th>
-                            <th>Model</th>
-                            <th>Tokens</th>
-                            <th>Duration</th>
+                            <th class="sortable sorted-desc" data-sort="timestamp" data-type="date">Time ↓</th>
+                            <th class="sortable" data-sort="userId" data-type="string">User ↕</th>
+                            <th class="sortable" data-sort="action" data-type="string">Action ↕</th>
+                            <th class="sortable" data-sort="model" data-type="string">Model ↕</th>
+                            <th class="sortable" data-sort="totalTokens" data-type="number">Tokens ↕</th>
+                            <th class="sortable" data-sort="durationMs" data-type="number">Duration ↕</th>
                             <th>Details</th>
                         </tr>
                     </thead>

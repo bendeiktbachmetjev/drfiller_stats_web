@@ -14,6 +14,8 @@
     let statsData = null;
     let usersData = [];
     let logsData = [];
+    let usersSort = { col: 'lastSignIn', dir: 'desc', type: 'date' };
+    let logsSort = { col: 'timestamp', dir: 'desc', type: 'date' };
 
     // ===========================
     // DOM Elements
@@ -76,6 +78,64 @@
         }
     });
 
+    // Table Sorting
+    $$('th.sortable').forEach((th) => {
+        th.addEventListener('click', () => {
+            const table = th.closest('table');
+            const isUsers = table.id === 'users-table';
+            const sortState = isUsers ? usersSort : logsSort;
+            const col = th.dataset.sort;
+            const type = th.dataset.type;
+
+            if (sortState.col === col) {
+                sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.col = col;
+                sortState.dir = 'desc';
+                sortState.type = type;
+            }
+
+            // Update headers UI
+            const tr = th.closest('tr');
+            tr.querySelectorAll('th.sortable').forEach(t => {
+                t.innerHTML = t.innerHTML.replace(' ↓', ' ↕').replace(' ↑', ' ↕');
+                t.classList.remove('sorted-asc', 'sorted-desc');
+            });
+            th.classList.add(`sorted-${sortState.dir}`);
+            th.innerHTML = th.innerHTML.replace(' ↕', sortState.dir === 'asc' ? ' ↑' : ' ↓');
+
+            // Re-render table with sorted data
+            if (isUsers) renderUsersTable(usersData);
+            else renderLogsTable(logsData);
+        });
+    });
+
+    function sortData(data, sortState) {
+        if (!data || data.length === 0) return data;
+        const { col, dir, type } = sortState;
+
+        return [...data].sort((a, b) => {
+            let valA = a[col];
+            let valB = b[col];
+
+            if (valA === valB) return 0;
+            if (valA === undefined || valA === null) return dir === 'asc' ? 1 : -1;
+            if (valB === undefined || valB === null) return dir === 'asc' ? -1 : 1;
+
+            if (type === 'string') {
+                valA = String(valA).toLowerCase();
+                valB = String(valB).toLowerCase();
+            } else if (type === 'date') {
+                valA = new Date(valA).getTime() || 0;
+                valB = new Date(valB).getTime() || 0;
+            }
+
+            if (valA < valB) return dir === 'asc' ? -1 : 1;
+            if (valA > valB) return dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
     // ===========================
     // Initialize
     // ===========================
@@ -108,7 +168,8 @@
     async function loadAllData() {
         $('#last-updated').textContent = 'Loading...';
         try {
-            await Promise.all([loadStats(), loadUsers(), loadLogs()]);
+            await Promise.all([loadUsers(), loadLogs()]); // load users first so stats can use it
+            await loadStats();
             $('#last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
         } catch (err) {
             console.error('Failed to load data:', err);
@@ -121,6 +182,23 @@
             const res = await apiFetch('/api/admin/stats', { timeframe });
             statsData = res.data;
             renderStats(statsData);
+
+            // If usersData is already loaded, calculate new users
+            if (usersData && usersData.length > 0 && statsData.chartBreakdown) {
+                statsData.chartBreakdown.forEach((bucket, i) => {
+                    const bStart = new Date(bucket.date).getTime();
+                    const bEnd = i < statsData.chartBreakdown.length - 1
+                        ? new Date(statsData.chartBreakdown[i + 1].date).getTime()
+                        : Date.now();
+
+                    bucket.newUsers = usersData.filter(u => {
+                        if (!u.createdAt) return false;
+                        const t = new Date(u.createdAt).getTime();
+                        return t >= bStart && t < bEnd;
+                    }).length;
+                });
+            }
+
             renderChart(statsData.chartBreakdown || [], $('#chart-type-filter').value);
         } catch (err) {
             console.error('Stats error:', err);
@@ -218,6 +296,8 @@
         const maxVal = Math.max(...daily.map((d) => {
             if (typeFilter === 'transcription') return d.transcriptions;
             if (typeFilter === 'ai_processing') return d.aiProcessing;
+            if (typeFilter === 'active_users') return d.uniqueUsers || 0;
+            if (typeFilter === 'new_users') return d.newUsers || 0;
             return d.totalRequests;
         }), 1);
 
@@ -246,46 +326,63 @@
         // Bars
         daily.forEach((d, i) => {
             const x = padding.left + gap * i + (gap - barWidth) / 2;
+            let totalH = 0;
 
-            const transcH = (typeFilter === 'all' || typeFilter === 'transcription')
-                ? (d.transcriptions / maxVal) * chartH : 0;
-            const aiH = (typeFilter === 'all' || typeFilter === 'ai_processing')
-                ? (d.aiProcessing / maxVal) * chartH : 0;
+            if (typeFilter === 'active_users' || typeFilter === 'new_users') {
+                const val = (typeFilter === 'active_users') ? (d.uniqueUsers || 0) : (d.newUsers || 0);
+                const barColor = (typeFilter === 'active_users') ? ['#10b981', '#059669'] : ['#f59e0b', '#d97706'];
+                totalH = (val / maxVal) * chartH;
 
-            // AI Processing (purple, stacked on top)
-            if (aiH > 0) {
-                const gradient = ctx.createLinearGradient(x, padding.top + chartH - transcH - aiH, x, padding.top + chartH - transcH);
-                gradient.addColorStop(0, '#a855f7');
-                gradient.addColorStop(1, '#7c3aed');
-                ctx.fillStyle = gradient;
-                roundedRect(ctx, x, padding.top + chartH - transcH - aiH, barWidth, aiH, 4);
-                ctx.fill();
-            }
+                if (totalH > 0) {
+                    const gradient = ctx.createLinearGradient(x, padding.top + chartH - totalH, x, padding.top + chartH);
+                    gradient.addColorStop(0, barColor[0]);
+                    gradient.addColorStop(1, barColor[1]);
+                    ctx.fillStyle = gradient;
+                    roundedRect(ctx, x, padding.top + chartH - totalH, barWidth, totalH, 4);
+                    ctx.fill();
+                }
+            } else {
+                const transcH = (typeFilter === 'all' || typeFilter === 'transcription')
+                    ? (d.transcriptions / maxVal) * chartH : 0;
+                const aiH = (typeFilter === 'all' || typeFilter === 'ai_processing')
+                    ? (d.aiProcessing / maxVal) * chartH : 0;
+                totalH = transcH + aiH;
 
-            // Transcription (blue, bottom)
-            if (transcH > 0) {
-                const gradient = ctx.createLinearGradient(x, padding.top + chartH - transcH, x, padding.top + chartH);
-                gradient.addColorStop(0, '#3b82f6');
-                gradient.addColorStop(1, '#2563eb');
-                ctx.fillStyle = gradient;
-                roundedRect(ctx, x, padding.top + chartH - transcH, barWidth, transcH, 4);
-                ctx.fill();
+                // AI Processing (purple, stacked on top)
+                if (aiH > 0) {
+                    const gradient = ctx.createLinearGradient(x, padding.top + chartH - transcH - aiH, x, padding.top + chartH - transcH);
+                    gradient.addColorStop(0, '#a855f7');
+                    gradient.addColorStop(1, '#7c3aed');
+                    ctx.fillStyle = gradient;
+                    roundedRect(ctx, x, padding.top + chartH - transcH - aiH, barWidth, aiH, 4);
+                    ctx.fill();
+                }
+
+                // Transcription (blue, bottom)
+                if (transcH > 0) {
+                    const gradient = ctx.createLinearGradient(x, padding.top + chartH - transcH, x, padding.top + chartH);
+                    gradient.addColorStop(0, '#3b82f6');
+                    gradient.addColorStop(1, '#2563eb');
+                    ctx.fillStyle = gradient;
+                    roundedRect(ctx, x, padding.top + chartH - transcH, barWidth, transcH, 4);
+                    ctx.fill();
+                }
             }
 
             // Label (MM-DD or HH:mm)
             ctx.fillStyle = '#6b7194';
             ctx.font = '11px Inter, sans-serif';
             ctx.textAlign = 'center';
-            // Only draw label if gap is wide enough to avoid overlap, or draw every Nth label
             if (gap >= 30 || i % Math.ceil(30 / gap) === 0) {
                 ctx.fillText(d.label, x + barWidth / 2, padding.top + chartH + 20);
             }
 
             // Count on top of bar
-            const totalH = transcH + aiH;
             const displayTotal = (typeFilter === 'transcription') ? d.transcriptions :
                 (typeFilter === 'ai_processing') ? d.aiProcessing :
-                    d.totalRequests;
+                    (typeFilter === 'active_users') ? d.uniqueUsers :
+                        (typeFilter === 'new_users') ? d.newUsers :
+                            d.totalRequests;
 
             if (displayTotal > 0 && barWidth > 15) {
                 ctx.fillStyle = '#9ba1b7';
@@ -300,19 +397,31 @@
         ctx.font = '11px Inter, sans-serif';
         ctx.textAlign = 'left';
 
-        if (typeFilter === 'all' || typeFilter === 'transcription') {
-            ctx.fillStyle = '#3b82f6';
-            ctx.fillRect(W / 2 - 100, legendY - 8, 10, 10);
+        if (typeFilter === 'active_users') {
+            ctx.fillStyle = '#10b981';
+            ctx.fillRect(W / 2 - 45, legendY - 8, 10, 10);
             ctx.fillStyle = '#9ba1b7';
-            ctx.fillText('Transcription', W / 2 - 86, legendY);
-        }
+            ctx.fillText('Active Users', W / 2 - 31, legendY);
+        } else if (typeFilter === 'new_users') {
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillRect(W / 2 - 65, legendY - 8, 10, 10);
+            ctx.fillStyle = '#9ba1b7';
+            ctx.fillText('New Registered Users', W / 2 - 51, legendY);
+        } else {
+            if (typeFilter === 'all' || typeFilter === 'transcription') {
+                ctx.fillStyle = '#3b82f6';
+                ctx.fillRect(W / 2 - 100, legendY - 8, 10, 10);
+                ctx.fillStyle = '#9ba1b7';
+                ctx.fillText('Transcription', W / 2 - 86, legendY);
+            }
 
-        if (typeFilter === 'all' || typeFilter === 'ai_processing') {
-            const xOffset = (typeFilter === 'all') ? 10 : -100;
-            ctx.fillStyle = '#a855f7';
-            ctx.fillRect(W / 2 + xOffset, legendY - 8, 10, 10);
-            ctx.fillStyle = '#9ba1b7';
-            ctx.fillText('AI Processing', W / 2 + xOffset + 14, legendY);
+            if (typeFilter === 'all' || typeFilter === 'ai_processing') {
+                const xOffset = (typeFilter === 'all') ? 10 : -100;
+                ctx.fillStyle = '#a855f7';
+                ctx.fillRect(W / 2 + xOffset, legendY - 8, 10, 10);
+                ctx.fillStyle = '#9ba1b7';
+                ctx.fillText('AI Processing', W / 2 + xOffset + 14, legendY);
+            }
         }
     }
 
@@ -345,7 +454,9 @@
             return;
         }
 
-        tbody.innerHTML = users.map((u) => `
+        const sortedUsers = sortData(users, usersSort);
+
+        tbody.innerHTML = sortedUsers.map((u) => `
       <tr>
         <td class="email-cell">${escapeHtml(u.email)}</td>
         <td><span class="badge badge-green">${u.availableCredits}</span></td>
@@ -367,7 +478,9 @@
             return;
         }
 
-        tbody.innerHTML = logs.map((l) => {
+        const sortedLogs = sortData(logs, logsSort);
+
+        tbody.innerHTML = sortedLogs.map((l) => {
             const actionBadge = l.action === 'transcription'
                 ? '<span class="badge badge-blue">Transcription</span>'
                 : '<span class="badge badge-purple">AI Processing</span>';

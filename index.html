@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr.Filler Admin Dashboard</title>
+    <meta name="description" content="Admin dashboard for Dr.Filler usage statistics and user management">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-card">
+            <div class="login-logo">
+                <span class="logo-icon">📊</span>
+                <h1>Dr.Filler Admin</h1>
+                <p>Usage Statistics Dashboard</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="server-url">Server URL</label>
+                    <input type="url" id="server-url" placeholder="https://your-railway-app.up.railway.app" required>
+                </div>
+                <div class="form-group">
+                    <label for="admin-secret">Admin Secret</label>
+                    <input type="password" id="admin-secret" placeholder="Enter admin secret" required>
+                </div>
+                <button type="submit" class="btn btn-primary" id="login-btn">
+                    <span class="btn-text">Connect</span>
+                    <span class="btn-loader" style="display:none;">⏳</span>
+                </button>
+                <p id="login-error" class="error-text" style="display:none;"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboard-screen" class="dashboard-screen" style="display:none;">
+
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <span class="logo-icon-sm">📊</span>
+                <h1>Dr.Filler Admin</h1>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-ghost" id="refresh-btn" title="Refresh data">🔄 Refresh</button>
+                <button class="btn btn-ghost" id="logout-btn">Logout</button>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-content">
+                    <span class="stat-value" id="stat-users">—</span>
+                    <span class="stat-label">Registered Users</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📝</div>
+                <div class="stat-content">
+                    <span class="stat-value" id="stat-requests-today">—</span>
+                    <span class="stat-label">Requests Today</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🎤</div>
+                <div class="stat-content">
+                    <span class="stat-value" id="stat-transcriptions">—</span>
+                    <span class="stat-label">Total Transcriptions</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🤖</div>
+                <div class="stat-content">
+                    <span class="stat-value" id="stat-ai-processing">—</span>
+                    <span class="stat-label">Total AI Processing</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🪙</div>
+                <div class="stat-content">
+                    <span class="stat-value" id="stat-tokens">—</span>
+                    <span class="stat-label">Total Tokens Used</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">👤</div>
+                <div class="stat-content">
+                    <span class="stat-value" id="stat-active-today">—</span>
+                    <span class="stat-label">Active Today</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Chart Section -->
+        <section class="chart-section">
+            <div class="section-header">
+                <h2>Activity — Last 7 Days</h2>
+            </div>
+            <div class="chart-container">
+                <canvas id="activity-chart"></canvas>
+            </div>
+        </section>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="users">👥 Users</button>
+            <button class="tab" data-tab="logs">📋 Logs</button>
+        </div>
+
+        <!-- Users Table -->
+        <section class="table-section" id="tab-users">
+            <div class="section-header">
+                <h2>Users</h2>
+                <input type="text" id="user-search" class="search-input" placeholder="Search by email...">
+            </div>
+            <div class="table-wrapper">
+                <table id="users-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Available</th>
+                            <th>Used</th>
+                            <th>Total</th>
+                            <th>Registered</th>
+                            <th>Last Active</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-tbody">
+                        <tr>
+                            <td colspan="6" class="loading-cell">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Logs Table -->
+        <section class="table-section" id="tab-logs" style="display:none;">
+            <div class="section-header">
+                <h2>Usage Logs</h2>
+                <div class="log-filters">
+                    <select id="log-action-filter" class="filter-select">
+                        <option value="">All Actions</option>
+                        <option value="transcription">Transcription</option>
+                        <option value="ai_processing">AI Processing</option>
+                    </select>
+                    <input type="number" id="log-limit" class="filter-input" placeholder="Limit" value="50" min="1"
+                        max="500">
+                    <button class="btn btn-sm" id="apply-log-filters">Apply</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table id="logs-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Model</th>
+                            <th>Tokens</th>
+                            <th>Duration</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-tbody">
+                        <tr>
+                            <td colspan="7" class="loading-cell">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Last updated -->
+        <footer class="footer">
+            <span id="last-updated">—</span>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

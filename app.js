@@ -11,7 +11,6 @@
     // State
     // ===========================
     let serverUrl = 'https://web-production-d4666.up.railway.app';
-    let adminSecret = '';
     let statsData = null;
     let usersData = [];
     let logsData = [];
@@ -23,71 +22,18 @@
     const $$ = (sel) => document.querySelectorAll(sel);
 
     // ===========================
-    // Login
+    // Initialize
     // ===========================
-    $('#login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = $('#login-btn');
-        const errorEl = $('#login-error');
-        errorEl.style.display = 'none';
+    // Immediately show the dashboard and fetch data
+    $('#dashboard-screen').style.display = 'block';
+    loadAllData();
 
-        adminSecret = $('#admin-secret').value;
-
-        btn.querySelector('.btn-text').textContent = 'Connecting...';
-        btn.disabled = true;
-
-        try {
-            const res = await apiFetch('/api/admin/stats');
-            if (!res.success) throw new Error(res.error || 'Failed to connect');
-
-            // Save to localStorage for convenience
-            localStorage.setItem('drfiller_admin_secret', adminSecret);
-
-            // Show dashboard
-            $('#login-screen').style.display = 'none';
-            $('#dashboard-screen').style.display = 'block';
-
-            // Load all data
-            await loadAllData();
-        } catch (err) {
-            errorEl.textContent = err.message || 'Connection failed';
-            errorEl.style.display = 'block';
-        } finally {
-            btn.querySelector('.btn-text').textContent = 'Connect';
-            btn.disabled = false;
-        }
-    });
-
-    // Auto-fill from localStorage and auto-connect if saved
-    const savedSecret = localStorage.getItem('drfiller_admin_secret');
-    if (savedSecret) $('#admin-secret').value = savedSecret;
-
-    // Auto-login if credentials are saved
-    if (savedSecret) {
-        adminSecret = savedSecret;
-        (async () => {
-            try {
-                const res = await apiFetch('/api/admin/stats');
-                if (res.success) {
-                    $('#login-screen').style.display = 'none';
-                    $('#dashboard-screen').style.display = 'block';
-                    await loadAllData();
-                }
-            } catch (err) {
-                console.log('Auto-login failed, showing login form:', err.message);
-            }
-        })();
+    // ===========================
+    // Logout (Hidden/Removed)
+    // ===========================
+    if ($('#logout-btn')) {
+        $('#logout-btn').style.display = 'none';
     }
-
-    // ===========================
-    // Logout
-    // ===========================
-    $('#logout-btn').addEventListener('click', () => {
-        localStorage.removeItem('drfiller_admin_secret');
-        $('#dashboard-screen').style.display = 'none';
-        $('#login-screen').style.display = 'flex';
-        $('#admin-secret').value = '';
-    });
 
     // ===========================
     // Refresh
@@ -128,7 +74,6 @@
     // ===========================
     async function apiFetch(path, params = {}) {
         const url = new URL(serverUrl + path);
-        url.searchParams.set('secret', adminSecret);
         Object.entries(params).forEach(([k, v]) => {
             if (v !== null && v !== undefined && v !== '') {
                 url.searchParams.set(k, v);

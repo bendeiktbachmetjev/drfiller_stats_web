@@ -464,6 +464,12 @@
 
             // Line stroke
             ctx.beginPath();
+            if (s.axis === 'right') {
+                ctx.setLineDash([5, 5]); // Make transcripts dashed if dual
+            } else {
+                ctx.setLineDash([]);
+            }
+
             ctx.moveTo(getX(0), getY(vals[0], max));
             for (let i = 1; i < daily.length; i++) {
                 const x0 = getX(i - 1), y0 = getY(vals[i - 1], max);
@@ -475,6 +481,7 @@
             ctx.lineWidth = 2.5;
             ctx.lineJoin = 'round';
             ctx.stroke();
+            ctx.setLineDash([]); // Reset for dots
 
             // Dots at data points + tooltip labels for small datasets
             const showLabels = daily.length <= 30;
@@ -519,34 +526,43 @@
         const legendY = H - 10;
         ctx.font = '11px Inter, sans-serif';
         const legendItems = series;
-        const totalLegendWidth = legendItems.reduce((sum, s) => sum + ctx.measureText(s.label).width + 20, 0);
+        const totalLegendWidth = legendItems.reduce((sum, s) => {
+            const labelText = isDual ? `${s.label} (${s.axis === 'left' ? 'L' : 'R'})` : s.label;
+            return sum + ctx.measureText(labelText).width + 38;
+        }, 0);
         let lx = W / 2 - totalLegendWidth / 2;
 
         legendItems.forEach(s => {
+            const labelText = isDual ? `${s.label} (${s.axis === 'left' ? 'L' : 'R'})` : s.label;
+
             // Line segment
             ctx.strokeStyle = s.color;
             ctx.lineWidth = 2;
+            if (s.axis === 'right') ctx.setLineDash([3, 3]);
             ctx.beginPath();
             ctx.moveTo(lx, legendY - 4);
             ctx.lineTo(lx + 14, legendY - 4);
             ctx.stroke();
+            ctx.setLineDash([]);
+
             // Dot on line
             ctx.beginPath();
             ctx.arc(lx + 7, legendY - 4, 3, 0, Math.PI * 2);
             ctx.fillStyle = s.color;
             ctx.fill();
+
             // Label
             ctx.fillStyle = '#9ba1b7';
             ctx.textAlign = 'left';
-            ctx.fillText(s.label, lx + 18, legendY);
-            lx += ctx.measureText(s.label).width + 38;
+            ctx.fillText(labelText, lx + 18, legendY);
+            lx += ctx.measureText(labelText).width + 38;
         });
     }
 
     // Redraw chart on resize
     window.addEventListener('resize', () => {
-        if (statsData && statsData.dailyBreakdown) {
-            renderChart(statsData.dailyBreakdown);
+        if (statsData && statsData.chartBreakdown) {
+            renderChart(statsData.chartBreakdown, $('#chart-type-filter').value);
         }
     });
 

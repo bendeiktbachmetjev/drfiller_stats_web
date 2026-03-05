@@ -290,14 +290,13 @@
     }
 
     // ===========================
-    // Render Chart (Canvas)
+    // Render Chart (Canvas) — Dual-axis Line Chart
     // ===========================
     function renderChart(daily, typeFilter = 'all') {
         const canvas = $('#activity-chart');
         const ctx = canvas.getContext('2d');
         const container = canvas.parentElement;
 
-        // Set canvas size
         const dpr = window.devicePixelRatio || 1;
         canvas.width = container.clientWidth * dpr;
         canvas.height = container.clientHeight * dpr;
@@ -305,7 +304,6 @@
         const W = container.clientWidth;
         const H = container.clientHeight;
 
-        // Clear
         ctx.clearRect(0, 0, W, H);
 
         if (!daily || daily.length === 0) {
@@ -316,153 +314,201 @@
             return;
         }
 
-        const padding = { top: 20, right: 20, bottom: 50, left: 50 };
+        // Dual-axis mode when showing "all" (AI left, Transcriptions right)
+        const isDual = (typeFilter === 'all');
+
+        // Padding: extra right space for right-axis labels when dual
+        const padding = { top: 30, right: isDual ? 65 : 20, bottom: 50, left: 60 };
         const chartW = W - padding.left - padding.right;
         const chartH = H - padding.top - padding.bottom;
 
-        // Determine max value taking filter into account
-        const maxVal = Math.max(...daily.map((d) => {
-            if (typeFilter === 'transcription') return d.transcriptions;
-            if (typeFilter === 'ai_processing') return d.aiProcessing;
-            if (typeFilter === 'active_users') return d.uniqueUsers || 0;
-            if (typeFilter === 'new_users') return d.newUsers || 0;
-            return d.totalRequests;
+        // ---- Series data ----
+        let series = [];
+
+        if (typeFilter === 'all') {
+            series = [
+                { key: 'aiProcessing', color: '#a855f7', label: 'AI Processing', axis: 'left' },
+                { key: 'transcriptions', color: '#3b82f6', label: 'Transcription', axis: 'right' }
+            ];
+        } else if (typeFilter === 'transcription') {
+            series = [{ key: 'transcriptions', color: '#3b82f6', label: 'Transcription', axis: 'left' }];
+        } else if (typeFilter === 'ai_processing') {
+            series = [{ key: 'aiProcessing', color: '#a855f7', label: 'AI Processing', axis: 'left' }];
+        } else if (typeFilter === 'active_users') {
+            series = [{ key: 'uniqueUsers', color: '#10b981', label: 'Active Users', axis: 'left' }];
+        } else if (typeFilter === 'new_users') {
+            series = [{ key: 'newUsers', color: '#f59e0b', label: 'New Registered Users', axis: 'left' }];
+        }
+
+        // ---- Axis scales ----
+        const leftMax = Math.max(...daily.map(d => {
+            const leftSeries = series.filter(s => s.axis === 'left');
+            return Math.max(...leftSeries.map(s => d[s.key] || 0));
         }), 1);
+        const rightMax = isDual ? Math.max(...daily.map(d => d.transcriptions || 0), 1) : null;
 
-        const barWidth = Math.min(chartW / daily.length * 0.6, 50);
-        const gap = chartW / daily.length;
+        // Helper: get Y position for a value
+        function getY(val, max) {
+            return padding.top + chartH - (val / max) * chartH;
+        }
 
-        // Grid lines
+        // Helper: get X position for data point i
+        function getX(i) {
+            if (daily.length === 1) return padding.left + chartW / 2;
+            return padding.left + (i / (daily.length - 1)) * chartW;
+        }
+
+        // ---- Grid lines + left axis labels ----
+        const gridLines = 5;
         ctx.strokeStyle = '#2d3148';
         ctx.lineWidth = 1;
-        const gridLines = 4;
+
         for (let i = 0; i <= gridLines; i++) {
             const y = padding.top + (chartH / gridLines) * i;
+
             ctx.beginPath();
             ctx.moveTo(padding.left, y);
             ctx.lineTo(W - padding.right, y);
             ctx.stroke();
 
-            // Grid labels
-            const val = Math.round(maxVal - (maxVal / gridLines) * i);
+            const leftVal = Math.round(leftMax - (leftMax / gridLines) * i);
             ctx.fillStyle = '#6b7194';
-            ctx.font = '11px Inter, sans-serif';
+            ctx.font = '10px Inter, sans-serif';
             ctx.textAlign = 'right';
-            ctx.fillText(val.toString(), padding.left - 8, y + 4);
+            ctx.fillText(leftVal, padding.left - 8, y + 4);
+
+            if (isDual && rightMax !== null) {
+                const rightVal = Math.round(rightMax - (rightMax / gridLines) * i);
+                ctx.textAlign = 'left';
+                ctx.fillText(rightVal, W - padding.right + 8, y + 4);
+            }
         }
 
-        // Bars
-        daily.forEach((d, i) => {
-            const x = padding.left + gap * i + (gap - barWidth) / 2;
-            let totalH = 0;
+        // Left axis label
+        ctx.save();
+        ctx.translate(14, padding.top + chartH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillStyle = '#a855f7';
+        ctx.font = '10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(isDual ? 'AI Processing' : (series[0]?.label || ''), 0, 0);
+        ctx.restore();
 
-            if (typeFilter === 'active_users' || typeFilter === 'new_users') {
-                const val = (typeFilter === 'active_users') ? (d.uniqueUsers || 0) : (d.newUsers || 0);
-                const barColor = (typeFilter === 'active_users') ? ['#10b981', '#059669'] : ['#f59e0b', '#d97706'];
-                totalH = (val / maxVal) * chartH;
-
-                if (totalH > 0) {
-                    const gradient = ctx.createLinearGradient(x, padding.top + chartH - totalH, x, padding.top + chartH);
-                    gradient.addColorStop(0, barColor[0]);
-                    gradient.addColorStop(1, barColor[1]);
-                    ctx.fillStyle = gradient;
-                    roundedRect(ctx, x, padding.top + chartH - totalH, barWidth, totalH, 4);
-                    ctx.fill();
-                }
-            } else {
-                const transcH = (typeFilter === 'all' || typeFilter === 'transcription')
-                    ? (d.transcriptions / maxVal) * chartH : 0;
-                const aiH = (typeFilter === 'all' || typeFilter === 'ai_processing')
-                    ? (d.aiProcessing / maxVal) * chartH : 0;
-                totalH = transcH + aiH;
-
-                // AI Processing (purple, stacked on top)
-                if (aiH > 0) {
-                    const gradient = ctx.createLinearGradient(x, padding.top + chartH - transcH - aiH, x, padding.top + chartH - transcH);
-                    gradient.addColorStop(0, '#a855f7');
-                    gradient.addColorStop(1, '#7c3aed');
-                    ctx.fillStyle = gradient;
-                    roundedRect(ctx, x, padding.top + chartH - transcH - aiH, barWidth, aiH, 4);
-                    ctx.fill();
-                }
-
-                // Transcription (blue, bottom)
-                if (transcH > 0) {
-                    const gradient = ctx.createLinearGradient(x, padding.top + chartH - transcH, x, padding.top + chartH);
-                    gradient.addColorStop(0, '#3b82f6');
-                    gradient.addColorStop(1, '#2563eb');
-                    ctx.fillStyle = gradient;
-                    roundedRect(ctx, x, padding.top + chartH - transcH, barWidth, transcH, 4);
-                    ctx.fill();
-                }
-            }
-
-            // Label (MM-DD or HH:mm)
-            ctx.fillStyle = '#6b7194';
-            ctx.font = '11px Inter, sans-serif';
+        // Right axis label (dual)
+        if (isDual) {
+            ctx.save();
+            ctx.translate(W - 14, padding.top + chartH / 2);
+            ctx.rotate(Math.PI / 2);
+            ctx.fillStyle = '#3b82f6';
+            ctx.font = '10px Inter, sans-serif';
             ctx.textAlign = 'center';
-            if (gap >= 30 || i % Math.ceil(30 / gap) === 0) {
-                ctx.fillText(d.label, x + barWidth / 2, padding.top + chartH + 20);
+            ctx.fillText('Transcription', 0, 0);
+            ctx.restore();
+        }
+
+        // ---- Draw a smooth line for each series ----
+        series.forEach(s => {
+            const max = (s.axis === 'right' && isDual) ? rightMax : leftMax;
+            const vals = daily.map(d => d[s.key] || 0);
+
+            // Area fill (gradient under the line)
+            const areaGrad = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+            areaGrad.addColorStop(0, s.color + '33'); // ~20% opacity
+            areaGrad.addColorStop(1, s.color + '00');
+
+            ctx.beginPath();
+            ctx.moveTo(getX(0), getY(vals[0], max));
+            for (let i = 1; i < daily.length; i++) {
+                const x0 = getX(i - 1), y0 = getY(vals[i - 1], max);
+                const x1 = getX(i), y1 = getY(vals[i], max);
+                const cpx = (x0 + x1) / 2;
+                ctx.bezierCurveTo(cpx, y0, cpx, y1, x1, y1);
             }
+            ctx.lineTo(getX(daily.length - 1), padding.top + chartH);
+            ctx.lineTo(getX(0), padding.top + chartH);
+            ctx.closePath();
+            ctx.fillStyle = areaGrad;
+            ctx.fill();
 
-            // Count on top of bar
-            const displayTotal = (typeFilter === 'transcription') ? d.transcriptions :
-                (typeFilter === 'ai_processing') ? d.aiProcessing :
-                    (typeFilter === 'active_users') ? d.uniqueUsers :
-                        (typeFilter === 'new_users') ? d.newUsers :
-                            d.totalRequests;
+            // Line stroke
+            ctx.beginPath();
+            ctx.moveTo(getX(0), getY(vals[0], max));
+            for (let i = 1; i < daily.length; i++) {
+                const x0 = getX(i - 1), y0 = getY(vals[i - 1], max);
+                const x1 = getX(i), y1 = getY(vals[i], max);
+                const cpx = (x0 + x1) / 2;
+                ctx.bezierCurveTo(cpx, y0, cpx, y1, x1, y1);
+            }
+            ctx.strokeStyle = s.color;
+            ctx.lineWidth = 2.5;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
 
-            if (displayTotal > 0 && barWidth > 15) {
-                ctx.fillStyle = '#9ba1b7';
-                ctx.font = 'bold 11px Inter, sans-serif';
+            // Dots at data points + tooltip labels for small datasets
+            const showLabels = daily.length <= 30;
+            vals.forEach((v, i) => {
+                const px = getX(i), py = getY(v, max);
+
+                // Outer glow dot
+                ctx.beginPath();
+                ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+                ctx.fillStyle = s.color + '44';
+                ctx.fill();
+
+                // Inner dot
+                ctx.beginPath();
+                ctx.arc(px, py, 3, 0, Math.PI * 2);
+                ctx.fillStyle = s.color;
+                ctx.fill();
+
+                // Value label on top of dot
+                if (showLabels && v > 0) {
+                    ctx.fillStyle = s.color;
+                    ctx.font = 'bold 10px Inter, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(v, px, py - 10);
+                }
+            });
+        });
+
+        // ---- X-axis labels ----
+        const minGap = 30;
+        const nth = daily.length > 1 ? Math.ceil(minGap / (chartW / (daily.length - 1))) : 1;
+        ctx.fillStyle = '#6b7194';
+        ctx.font = '11px Inter, sans-serif';
+        daily.forEach((d, i) => {
+            if (i % nth === 0 || i === daily.length - 1) {
                 ctx.textAlign = 'center';
-                ctx.fillText(displayTotal.toString(), x + barWidth / 2, padding.top + chartH - totalH - 6);
+                ctx.fillText(d.label, getX(i), padding.top + chartH + 20);
             }
         });
 
-        // Legend
-        const legendY = H - 12;
+        // ---- Legend ----
+        const legendY = H - 10;
         ctx.font = '11px Inter, sans-serif';
-        ctx.textAlign = 'left';
+        const legendItems = series;
+        const totalLegendWidth = legendItems.reduce((sum, s) => sum + ctx.measureText(s.label).width + 20, 0);
+        let lx = W / 2 - totalLegendWidth / 2;
 
-        if (typeFilter === 'active_users') {
-            ctx.fillStyle = '#10b981';
-            ctx.fillRect(W / 2 - 45, legendY - 8, 10, 10);
+        legendItems.forEach(s => {
+            // Line segment
+            ctx.strokeStyle = s.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(lx, legendY - 4);
+            ctx.lineTo(lx + 14, legendY - 4);
+            ctx.stroke();
+            // Dot on line
+            ctx.beginPath();
+            ctx.arc(lx + 7, legendY - 4, 3, 0, Math.PI * 2);
+            ctx.fillStyle = s.color;
+            ctx.fill();
+            // Label
             ctx.fillStyle = '#9ba1b7';
-            ctx.fillText('Active Users', W / 2 - 31, legendY);
-        } else if (typeFilter === 'new_users') {
-            ctx.fillStyle = '#f59e0b';
-            ctx.fillRect(W / 2 - 65, legendY - 8, 10, 10);
-            ctx.fillStyle = '#9ba1b7';
-            ctx.fillText('New Registered Users', W / 2 - 51, legendY);
-        } else {
-            if (typeFilter === 'all' || typeFilter === 'transcription') {
-                ctx.fillStyle = '#3b82f6';
-                ctx.fillRect(W / 2 - 100, legendY - 8, 10, 10);
-                ctx.fillStyle = '#9ba1b7';
-                ctx.fillText('Transcription', W / 2 - 86, legendY);
-            }
-
-            if (typeFilter === 'all' || typeFilter === 'ai_processing') {
-                const xOffset = (typeFilter === 'all') ? 10 : -100;
-                ctx.fillStyle = '#a855f7';
-                ctx.fillRect(W / 2 + xOffset, legendY - 8, 10, 10);
-                ctx.fillStyle = '#9ba1b7';
-                ctx.fillText('AI Processing', W / 2 + xOffset + 14, legendY);
-            }
-        }
-    }
-
-    function roundedRect(ctx, x, y, w, h, r) {
-        if (h < r * 2) r = h / 2;
-        if (w < r * 2) r = w / 2;
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.arcTo(x + w, y, x + w, y + h, r);
-        ctx.arcTo(x + w, y + h, x, y + h, 0);
-        ctx.arcTo(x, y + h, x, y, 0);
-        ctx.arcTo(x, y, x + w, y, r);
-        ctx.closePath();
+            ctx.textAlign = 'left';
+            ctx.fillText(s.label, lx + 18, legendY);
+            lx += ctx.measureText(s.label).width + 38;
+        });
     }
 
     // Redraw chart on resize

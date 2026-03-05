@@ -346,11 +346,8 @@
             return;
         }
 
-        // Dual-axis mode when showing "all" (AI left, Transcriptions right)
-        const isDual = (typeFilter === 'all');
-
-        // Padding: extra right space for right-axis labels when dual
-        const padding = { top: 30, right: isDual ? 65 : 20, bottom: 50, left: 60 };
+        // Single-axis mode (quantitative for all series)
+        const padding = { top: 30, right: 20, bottom: 50, left: 60 };
         const chartW = W - padding.left - padding.right;
         const chartH = H - padding.top - padding.bottom;
 
@@ -359,25 +356,23 @@
 
         if (typeFilter === 'all') {
             series = [
-                { key: 'aiProcessing', color: '#a855f7', label: 'AI Processing', axis: 'left' },
-                { key: 'transcriptions', color: '#3b82f6', label: 'Transcription', axis: 'right' }
+                { key: 'aiProcessing', color: '#a855f7', label: 'AI Processing' },
+                { key: 'transcriptions', color: '#3b82f6', label: 'Transcription' }
             ];
         } else if (typeFilter === 'transcription') {
-            series = [{ key: 'transcriptions', color: '#3b82f6', label: 'Transcription', axis: 'left' }];
+            series = [{ key: 'transcriptions', color: '#3b82f6', label: 'Transcription' }];
         } else if (typeFilter === 'ai_processing') {
-            series = [{ key: 'aiProcessing', color: '#a855f7', label: 'AI Processing', axis: 'left' }];
+            series = [{ key: 'aiProcessing', color: '#a855f7', label: 'AI Processing' }];
         } else if (typeFilter === 'active_users') {
-            series = [{ key: 'uniqueUsers', color: '#10b981', label: 'Active Users', axis: 'left' }];
+            series = [{ key: 'uniqueUsers', color: '#10b981', label: 'Active Users' }];
         } else if (typeFilter === 'new_users') {
-            series = [{ key: 'newUsers', color: '#f59e0b', label: 'New Registered Users', axis: 'left' }];
+            series = [{ key: 'newUsers', color: '#f59e0b', label: 'New Registered Users' }];
         }
 
         // ---- Axis scales ----
-        const leftMax = Math.max(...daily.map(d => {
-            const leftSeries = series.filter(s => s.axis === 'left');
-            return Math.max(...leftSeries.map(s => d[s.key] || 0));
+        const maxVal = Math.max(...daily.map(d => {
+            return Math.max(...series.map(s => d[s.key] || 0));
         }), 1);
-        const rightMax = isDual ? Math.max(...daily.map(d => d.transcriptions || 0), 1) : null;
 
         // Helper: get Y position for a value
         function getY(val, max) {
@@ -403,44 +398,25 @@
             ctx.lineTo(W - padding.right, y);
             ctx.stroke();
 
-            const leftVal = Math.round(leftMax - (leftMax / gridLines) * i);
+            const val = Math.round(maxVal - (maxVal / gridLines) * i);
             ctx.fillStyle = '#6b7194';
             ctx.font = '10px Inter, sans-serif';
             ctx.textAlign = 'right';
-            ctx.fillText(leftVal, padding.left - 8, y + 4);
-
-            if (isDual && rightMax !== null) {
-                const rightVal = Math.round(rightMax - (rightMax / gridLines) * i);
-                ctx.textAlign = 'left';
-                ctx.fillText(rightVal, W - padding.right + 8, y + 4);
-            }
+            ctx.fillText(val, padding.left - 8, y + 4);
         }
 
         // Left axis label
         ctx.save();
         ctx.translate(14, padding.top + chartH / 2);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = '#a855f7';
+        ctx.fillStyle = '#6b7194';
         ctx.font = '10px Inter, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(isDual ? 'AI Processing' : (series[0]?.label || ''), 0, 0);
+        ctx.fillText(series.length > 1 ? 'Quantities' : (series[0]?.label || ''), 0, 0);
         ctx.restore();
-
-        // Right axis label (dual)
-        if (isDual) {
-            ctx.save();
-            ctx.translate(W - 14, padding.top + chartH / 2);
-            ctx.rotate(Math.PI / 2);
-            ctx.fillStyle = '#3b82f6';
-            ctx.font = '10px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('Transcription', 0, 0);
-            ctx.restore();
-        }
 
         // ---- Draw a smooth line for each series ----
         series.forEach(s => {
-            const max = (s.axis === 'right' && isDual) ? rightMax : leftMax;
             const vals = daily.map(d => d[s.key] || 0);
 
             // Area fill (gradient under the line)
@@ -449,10 +425,10 @@
             areaGrad.addColorStop(1, s.color + '00');
 
             ctx.beginPath();
-            ctx.moveTo(getX(0), getY(vals[0], max));
+            ctx.moveTo(getX(0), getY(vals[0], maxVal));
             for (let i = 1; i < daily.length; i++) {
-                const x0 = getX(i - 1), y0 = getY(vals[i - 1], max);
-                const x1 = getX(i), y1 = getY(vals[i], max);
+                const x0 = getX(i - 1), y0 = getY(vals[i - 1], maxVal);
+                const x1 = getX(i), y1 = getY(vals[i], maxVal);
                 const cpx = (x0 + x1) / 2;
                 ctx.bezierCurveTo(cpx, y0, cpx, y1, x1, y1);
             }
@@ -460,33 +436,28 @@
             ctx.lineTo(getX(0), padding.top + chartH);
             ctx.closePath();
             ctx.fillStyle = areaGrad;
+            ctx.globalAlpha = 0.5; // Slightly lower alpha for areas to blend better
             ctx.fill();
+            ctx.globalAlpha = 1.0;
 
             // Line stroke
             ctx.beginPath();
-            if (s.axis === 'right') {
-                ctx.setLineDash([5, 5]); // Make transcripts dashed if dual
-            } else {
-                ctx.setLineDash([]);
-            }
-
-            ctx.moveTo(getX(0), getY(vals[0], max));
+            ctx.moveTo(getX(0), getY(vals[0], maxVal));
             for (let i = 1; i < daily.length; i++) {
-                const x0 = getX(i - 1), y0 = getY(vals[i - 1], max);
-                const x1 = getX(i), y1 = getY(vals[i], max);
+                const x0 = getX(i - 1), y0 = getY(vals[i - 1], maxVal);
+                const x1 = getX(i), y1 = getY(vals[i], maxVal);
                 const cpx = (x0 + x1) / 2;
                 ctx.bezierCurveTo(cpx, y0, cpx, y1, x1, y1);
             }
             ctx.strokeStyle = s.color;
-            ctx.lineWidth = 2.5;
+            ctx.lineWidth = 3; // Thicker lines
             ctx.lineJoin = 'round';
             ctx.stroke();
-            ctx.setLineDash([]); // Reset for dots
 
-            // Dots at data points + tooltip labels for small datasets
+            // Dots at data points
             const showLabels = daily.length <= 30;
             vals.forEach((v, i) => {
-                const px = getX(i), py = getY(v, max);
+                const px = getX(i), py = getY(v, maxVal);
 
                 // Outer glow dot
                 ctx.beginPath();
@@ -526,24 +497,17 @@
         const legendY = H - 10;
         ctx.font = '11px Inter, sans-serif';
         const legendItems = series;
-        const totalLegendWidth = legendItems.reduce((sum, s) => {
-            const labelText = isDual ? `${s.label} (${s.axis === 'left' ? 'L' : 'R'})` : s.label;
-            return sum + ctx.measureText(labelText).width + 38;
-        }, 0);
+        const totalLegendWidth = legendItems.reduce((sum, s) => sum + ctx.measureText(s.label).width + 38, 0);
         let lx = W / 2 - totalLegendWidth / 2;
 
         legendItems.forEach(s => {
-            const labelText = isDual ? `${s.label} (${s.axis === 'left' ? 'L' : 'R'})` : s.label;
-
             // Line segment
             ctx.strokeStyle = s.color;
             ctx.lineWidth = 2;
-            if (s.axis === 'right') ctx.setLineDash([3, 3]);
             ctx.beginPath();
             ctx.moveTo(lx, legendY - 4);
             ctx.lineTo(lx + 14, legendY - 4);
             ctx.stroke();
-            ctx.setLineDash([]);
 
             // Dot on line
             ctx.beginPath();
@@ -554,8 +518,8 @@
             // Label
             ctx.fillStyle = '#9ba1b7';
             ctx.textAlign = 'left';
-            ctx.fillText(labelText, lx + 18, legendY);
-            lx += ctx.measureText(labelText).width + 38;
+            ctx.fillText(s.label, lx + 18, legendY);
+            lx += ctx.measureText(s.label).width + 38;
         });
     }
 

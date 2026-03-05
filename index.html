@@ -78,7 +78,21 @@
         <!-- Chart Section -->
         <section class="chart-section">
             <div class="section-header">
-                <h2>Activity — Last 7 Days</h2>
+                <h2>Activity Chart</h2>
+                <div class="log-filters">
+                    <select id="chart-type-filter" class="filter-select">
+                        <option value="all" selected>All Requests</option>
+                        <option value="transcription">Transcriptions Only</option>
+                        <option value="ai_processing">AI Processing Only</option>
+                    </select>
+                    <select id="chart-timeframe" class="filter-select">
+                        <option value="1h">Last 1 Hour (5m)</option>
+                        <option value="12h">Last 12 Hours (1h)</option>
+                        <option value="24h">Last 24 Hours (1h)</option>
+                        <option value="7d" selected>Last 7 Days (1d)</option>
+                        <option value="30d">Last 30 Days (1d)</option>
+                    </select>
+                </div>
             </div>
             <div class="chart-container">
                 <canvas id="activity-chart"></canvas>
@@ -123,6 +137,16 @@
             <div class="section-header">
                 <h2>Usage Logs</h2>
                 <div class="log-filters">
+                    <select id="log-date-preset" class="filter-select">
+                        <option value="">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">Past 7 Days</option>
+                        <option value="month">Past 30 Days</option>
+                        <option value="custom">Custom Range...</option>
+                    </select>
+                    <input type="date" id="log-start-date" class="filter-input" style="display:none;"
+                        title="Start Date">
+                    <input type="date" id="log-end-date" class="filter-input" style="display:none;" title="End Date">
                     <select id="log-action-filter" class="filter-select">
                         <option value="">All Actions</option>
                         <option value="transcription">Transcription</option>
@@ -130,7 +154,7 @@
                     </select>
                     <input type="number" id="log-limit" class="filter-input" placeholder="Limit" value="50" min="1"
                         max="500">
-                    <button class="btn btn-sm" id="apply-log-filters">Apply</button>
+                    <button class="btn btn-sm" id="apply-log-filters">Apply Filters</button>
                 </div>
             </div>
             <div class="table-wrapper">

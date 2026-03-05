@@ -36,13 +36,11 @@
     }
 
     // ===========================
-    // Refresh
+    // UI Event Listeners
     // ===========================
     $('#refresh-btn').addEventListener('click', () => loadAllData());
 
-    // ===========================
     // Tabs
-    // ===========================
     $$('.tab').forEach((tab) => {
         tab.addEventListener('click', () => {
             $$('.tab').forEach((t) => t.classList.remove('active'));
@@ -53,9 +51,7 @@
         });
     });
 
-    // ===========================
     // User search
-    // ===========================
     $('#user-search').addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase();
         renderUsersTable(usersData.filter((u) =>
@@ -64,10 +60,28 @@
         ));
     });
 
-    // ===========================
     // Log filters
-    // ===========================
+    $('#log-date-preset').addEventListener('change', (e) => {
+        const isCustom = e.target.value === 'custom';
+        $('#log-start-date').style.display = isCustom ? 'inline-block' : 'none';
+        $('#log-end-date').style.display = isCustom ? 'inline-block' : 'none';
+    });
     $('#apply-log-filters').addEventListener('click', () => loadLogs());
+
+    // Chart filters
+    $('#chart-timeframe').addEventListener('change', () => loadStats());
+    $('#chart-type-filter').addEventListener('change', (e) => {
+        if (statsData?.chartBreakdown) {
+            renderChart(statsData.chartBreakdown, e.target.value);
+        }
+    });
+
+    // ===========================
+    // Initialize
+    // ===========================
+    // Immediately show the dashboard and fetch data
+    $('#dashboard-screen').style.display = 'block';
+    loadAllData();
 
     // ===========================
     // API Helper
@@ -92,6 +106,7 @@
     // Data Loading
     // ===========================
     async function loadAllData() {
+        $('#last-updated').textContent = 'Loading...';
         try {
             await Promise.all([loadStats(), loadUsers(), loadLogs()]);
             $('#last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
@@ -102,10 +117,11 @@
 
     async function loadStats() {
         try {
-            const res = await apiFetch('/api/admin/stats');
+            const timeframe = $('#chart-timeframe').value;
+            const res = await apiFetch('/api/admin/stats', { timeframe });
             statsData = res.data;
             renderStats(statsData);
-            renderChart(statsData.dailyBreakdown || []);
+            renderChart(statsData.chartBreakdown || [], $('#chart-type-filter').value);
         } catch (err) {
             console.error('Stats error:', err);
         }
@@ -125,7 +141,28 @@
         try {
             const action = $('#log-action-filter').value;
             const limit = $('#log-limit').value;
-            const res = await apiFetch('/api/admin/logs', { action, limit });
+            const preset = $('#log-date-preset').value;
+
+            let startDate = null;
+            let endDate = null;
+
+            if (preset === 'custom') {
+                startDate = $('#log-start-date').value;
+                endDate = $('#log-end-date').value;
+            } else if (preset === 'today') {
+                const now = new Date();
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+            } else if (preset === 'week') {
+                const d = new Date();
+                d.setDate(d.getDate() - 7);
+                startDate = d.toISOString();
+            } else if (preset === 'month') {
+                const d = new Date();
+                d.setDate(d.getDate() - 30);
+                startDate = d.toISOString();
+            }
+
+            const res = await apiFetch('/api/admin/logs', { action, limit, startDate, endDate });
             logsData = res.data || [];
             renderLogsTable(logsData);
         } catch (err) {
@@ -149,7 +186,7 @@
     // ===========================
     // Render Chart (Canvas)
     // ===========================
-    function renderChart(daily) {
+    function renderChart(daily, typeFilter = 'all') {
         const canvas = $('#activity-chart');
         const ctx = canvas.getContext('2d');
         const container = canvas.parentElement;
@@ -177,7 +214,13 @@
         const chartW = W - padding.left - padding.right;
         const chartH = H - padding.top - padding.bottom;
 
-        const maxVal = Math.max(...daily.map((d) => d.totalRequests), 1);
+        // Determine max value taking filter into account
+        const maxVal = Math.max(...daily.map((d) => {
+            if (typeFilter === 'transcription') return d.transcriptions;
+            if (typeFilter === 'ai_processing') return d.aiProcessing;
+            return d.totalRequests;
+        }), 1);
+
         const barWidth = Math.min(chartW / daily.length * 0.6, 50);
         const gap = chartW / daily.length;
 
@@ -204,9 +247,10 @@
         daily.forEach((d, i) => {
             const x = padding.left + gap * i + (gap - barWidth) / 2;
 
-            // Transcription bar (blue)
-            const transcH = (d.transcriptions / maxVal) * chartH;
-            const aiH = (d.aiProcessing / maxVal) * chartH;
+            const transcH = (typeFilter === 'all' || typeFilter === 'transcription')
+                ? (d.transcriptions / maxVal) * chartH : 0;
+            const aiH = (typeFilter === 'all' || typeFilter === 'ai_processing')
+                ? (d.aiProcessing / maxVal) * chartH : 0;
 
             // AI Processing (purple, stacked on top)
             if (aiH > 0) {
@@ -228,20 +272,26 @@
                 ctx.fill();
             }
 
-            // Day label
-            const dayLabel = d.date.slice(5); // MM-DD
+            // Label (MM-DD or HH:mm)
             ctx.fillStyle = '#6b7194';
             ctx.font = '11px Inter, sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText(dayLabel, x + barWidth / 2, padding.top + chartH + 20);
+            // Only draw label if gap is wide enough to avoid overlap, or draw every Nth label
+            if (gap >= 30 || i % Math.ceil(30 / gap) === 0) {
+                ctx.fillText(d.label, x + barWidth / 2, padding.top + chartH + 20);
+            }
 
             // Count on top of bar
             const totalH = transcH + aiH;
-            if (d.totalRequests > 0) {
+            const displayTotal = (typeFilter === 'transcription') ? d.transcriptions :
+                (typeFilter === 'ai_processing') ? d.aiProcessing :
+                    d.totalRequests;
+
+            if (displayTotal > 0 && barWidth > 15) {
                 ctx.fillStyle = '#9ba1b7';
                 ctx.font = 'bold 11px Inter, sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText(d.totalRequests.toString(), x + barWidth / 2, padding.top + chartH - totalH - 6);
+                ctx.fillText(displayTotal.toString(), x + barWidth / 2, padding.top + chartH - totalH - 6);
             }
         });
 
@@ -250,15 +300,20 @@
         ctx.font = '11px Inter, sans-serif';
         ctx.textAlign = 'left';
 
-        ctx.fillStyle = '#3b82f6';
-        ctx.fillRect(W / 2 - 100, legendY - 8, 10, 10);
-        ctx.fillStyle = '#9ba1b7';
-        ctx.fillText('Transcription', W / 2 - 86, legendY);
+        if (typeFilter === 'all' || typeFilter === 'transcription') {
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(W / 2 - 100, legendY - 8, 10, 10);
+            ctx.fillStyle = '#9ba1b7';
+            ctx.fillText('Transcription', W / 2 - 86, legendY);
+        }
 
-        ctx.fillStyle = '#a855f7';
-        ctx.fillRect(W / 2 + 10, legendY - 8, 10, 10);
-        ctx.fillStyle = '#9ba1b7';
-        ctx.fillText('AI Processing', W / 2 + 24, legendY);
+        if (typeFilter === 'all' || typeFilter === 'ai_processing') {
+            const xOffset = (typeFilter === 'all') ? 10 : -100;
+            ctx.fillStyle = '#a855f7';
+            ctx.fillRect(W / 2 + xOffset, legendY - 8, 10, 10);
+            ctx.fillStyle = '#9ba1b7';
+            ctx.fillText('AI Processing', W / 2 + xOffset + 14, legendY);
+        }
     }
 
     function roundedRect(ctx, x, y, w, h, r) {

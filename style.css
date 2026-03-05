@@ -267,12 +267,29 @@ body {
   flex-shrink: 0;
 }
 
-.stat-card:nth-child(1) .stat-icon { background: var(--blue-bg); }
-.stat-card:nth-child(2) .stat-icon { background: var(--green-bg); }
-.stat-card:nth-child(3) .stat-icon { background: var(--amber-bg); }
-.stat-card:nth-child(4) .stat-icon { background: var(--purple-bg); }
-.stat-card:nth-child(5) .stat-icon { background: var(--cyan-bg); }
-.stat-card:nth-child(6) .stat-icon { background: var(--rose-bg); }
+.stat-card:nth-child(1) .stat-icon {
+  background: var(--blue-bg);
+}
+
+.stat-card:nth-child(2) .stat-icon {
+  background: var(--green-bg);
+}
+
+.stat-card:nth-child(3) .stat-icon {
+  background: var(--amber-bg);
+}
+
+.stat-card:nth-child(4) .stat-icon {
+  background: var(--purple-bg);
+}
+
+.stat-card:nth-child(5) .stat-icon {
+  background: var(--cyan-bg);
+}
+
+.stat-card:nth-child(6) .stat-icon {
+  background: var(--rose-bg);
+}
 
 .stat-content {
   display: flex;
@@ -289,6 +306,27 @@ body {
   font-size: 13px;
   color: var(--text-secondary);
   margin-top: 2px;
+}
+
+/* ===========================
+   Date Filter Bar
+   =========================== */
+
+.date-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 32px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.date-filter-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 /* ===========================
@@ -551,8 +589,15 @@ tbody tr:hover {
    =========================== */
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dashboard-screen .stats-grid,

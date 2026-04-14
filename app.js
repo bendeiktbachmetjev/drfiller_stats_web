@@ -14,7 +14,7 @@
     let statsData = null;
     let usersData = [];
     let logsData = [];
-    let usersSort = { col: 'lastSignIn', dir: 'desc', type: 'date' };
+    let usersSort = { col: 'createdAt', dir: 'desc', type: 'date' };
     let logsSort = { col: 'timestamp', dir: 'desc', type: 'date' };
 
     // ===========================
@@ -536,7 +536,7 @@
     function renderUsersTable(users) {
         const tbody = $('#users-tbody');
         if (!users || users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">No users found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="loading-cell">No users found</td></tr>';
             return;
         }
 
@@ -549,7 +549,6 @@
         <td>${u.usedCredits}</td>
         <td>${u.totalCredits}</td>
         <td>${formatDate(u.createdAt)}</td>
-        <td>${formatDate(u.lastSignIn)}</td>
       </tr>
     `).join('');
     }

@@ -436,6 +436,12 @@ tbody td {
   color: var(--text-secondary);
 }
 
+/* Registration date only (users table — no last-active column) */
+tbody td.date-cell {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 tbody tr:last-child td {
   border-bottom: none;
 }

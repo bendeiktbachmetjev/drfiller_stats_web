@@ -542,15 +542,19 @@
 
         const sortedUsers = sortData(users, usersSort);
 
-        tbody.innerHTML = sortedUsers.map((u) => `
+        // Five columns only: email, credits x3, registration date (never show lastSignIn / last active)
+        tbody.innerHTML = sortedUsers.map((u) => {
+            const registeredOnly = formatDate(u.createdAt);
+            return `
       <tr>
         <td class="email-cell">${escapeHtml(u.email)}</td>
         <td><span class="badge badge-green">${u.availableCredits}</span></td>
         <td>${u.usedCredits}</td>
         <td>${u.totalCredits}</td>
-        <td>${formatDate(u.createdAt)}</td>
+        <td class="date-cell">${registeredOnly}</td>
       </tr>
-    `).join('');
+    `;
+        }).join('');
     }
 
     // ===========================

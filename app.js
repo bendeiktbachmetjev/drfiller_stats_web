@@ -16,12 +16,62 @@
     let logsData = [];
     let usersSort = { col: 'createdAt', dir: 'desc', type: 'date' };
     let logsSort = { col: 'timestamp', dir: 'desc', type: 'date' };
+    let lastApiError = null;
 
     // ===========================
     // DOM Elements
     // ===========================
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => document.querySelectorAll(sel);
+
+    // ===========================
+    // Admin Access Key
+    // Sent as the "x-admin-secret" header on every /api/admin/* request.
+    // Asked once, kept in localStorage, wiped and re-asked on HTTP 401.
+    // ===========================
+    const ADMIN_SECRET_STORAGE_KEY = 'drfiller_admin_secret';
+    let adminSecret = localStorage.getItem(ADMIN_SECRET_STORAGE_KEY) || '';
+    let unauthorizedPending = false;
+
+    function askForAdminSecret(message) {
+        const entered = window.prompt(message, '');
+        if (entered && entered.trim()) {
+            adminSecret = entered.trim();
+            localStorage.setItem(ADMIN_SECRET_STORAGE_KEY, adminSecret);
+            return true;
+        }
+        clearAdminSecret();
+        return false;
+    }
+
+    function clearAdminSecret() {
+        adminSecret = '';
+        localStorage.removeItem(ADMIN_SECRET_STORAGE_KEY);
+    }
+
+    function ensureAdminSecret() {
+        if (adminSecret) return true;
+        // A re-ask is already queued after a 401 — don't stack a second dialog
+        if (unauthorizedPending) return false;
+        return askForAdminSecret('Enter admin access key:');
+    }
+
+    // Called when the server rejects the key. Wipes it and asks once,
+    // even if several requests fail at the same time.
+    function handleUnauthorized() {
+        clearAdminSecret();
+        if (unauthorizedPending) return;
+        unauthorizedPending = true;
+
+        setTimeout(() => {
+            unauthorizedPending = false;
+            if (askForAdminSecret('Wrong admin access key. Please enter it again:')) {
+                loadAllData();
+            } else {
+                $('#last-updated').textContent = 'Access denied — reload the page to enter the key again.';
+            }
+        }, 0);
+    }
 
     // ===========================
     // Initialize
@@ -149,6 +199,11 @@
     // API Helper
     // ===========================
     async function apiFetch(path, params = {}) {
+        if (!ensureAdminSecret()) {
+            lastApiError = 'Admin access key is required';
+            throw new Error(lastApiError);
+        }
+
         const url = new URL(serverUrl + path);
         Object.entries(params).forEach(([k, v]) => {
             if (v !== null && v !== undefined && v !== '') {
@@ -156,10 +211,20 @@
             }
         });
 
-        const res = await fetch(url.toString());
+        const res = await fetch(url.toString(), {
+            headers: { 'x-admin-secret': adminSecret }
+        });
+
+        if (res.status === 401) {
+            lastApiError = 'Wrong admin access key';
+            handleUnauthorized();
+            throw new Error(lastApiError);
+        }
+
         if (!res.ok) {
             const body = await res.json().catch(() => ({}));
-            throw new Error(body.error || `HTTP ${res.status}`);
+            lastApiError = body.error || `HTTP ${res.status}`;
+            throw new Error(lastApiError);
         }
         return res.json();
     }
@@ -212,12 +277,16 @@
 
     async function loadAllData() {
         $('#last-updated').textContent = 'Loading...';
+        lastApiError = null;
         try {
             await Promise.all([loadUsers(), loadLogs()]); // load users first so stats can use it
             await loadStats();
-            $('#last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+            $('#last-updated').textContent = lastApiError
+                ? `Error: ${lastApiError}`
+                : `Last updated: ${new Date().toLocaleTimeString()}`;
         } catch (err) {
             console.error('Failed to load data:', err);
+            $('#last-updated').textContent = `Error: ${lastApiError || err.message}`;
         }
     }
 

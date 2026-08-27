@@ -8,13 +8,12 @@
     <meta name="description" content="Admin dashboard for Dr.Filler usage statistics and user management">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260205">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=20260827">
 </head>
 
 <body>
 
-    <!-- Dashboard Screen -->
     <div id="dashboard-screen" class="dashboard-screen">
 
         <!-- Header -->
@@ -24,95 +23,104 @@
                 <h1>Dr.Filler Admin</h1>
             </div>
             <div class="header-right">
+                <span class="last-updated" id="last-updated">—</span>
                 <button class="btn btn-ghost" id="refresh-btn" title="Refresh data">🔄 Refresh</button>
-                <button class="btn btn-ghost" id="logout-btn">Logout</button>
             </div>
         </header>
 
         <!-- Global Date Filter -->
         <section class="date-filter-bar">
-            <span class="date-filter-label">📅 Show data for:</span>
+            <span class="date-filter-label">Period</span>
             <select id="global-date-preset" class="filter-select">
-                <option value="7d" selected>Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="this_month">This Month</option>
-                <option value="last_month">Last Month</option>
-                <option value="6m">Last 6 Months</option>
-                <option value="1y">Last 1 Year</option>
-                <option value="all">All Time</option>
+                <option value="7d" selected>Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="this_month">This month</option>
+                <option value="last_month">Last month</option>
+                <option value="6m">Last 6 months</option>
+                <option value="1y">Last year</option>
+                <option value="all">All time</option>
                 <option value="today">Today</option>
-                <option value="custom">Custom Range...</option>
+                <option value="custom">Custom range…</option>
             </select>
-            <div id="custom-date-inputs" style="display:none; gap:0.5rem; align-items:center; flex-direction:row;">
+            <div id="custom-date-inputs" class="custom-dates" style="display:none;">
                 <input type="date" id="global-start-date" class="filter-input date-wide" title="Start Date">
-                <span style="color:#9ba1b7;">—</span>
+                <span class="date-dash">—</span>
                 <input type="date" id="global-end-date" class="filter-input date-wide" title="End Date">
                 <button class="btn btn-sm" id="apply-global-dates">Apply</button>
             </div>
         </section>
 
-        <!-- Stats Cards -->
+        <!-- KPI Cards -->
         <section class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">👥</div>
-                <div class="stat-content">
-                    <span class="stat-value" id="stat-users">—</span>
-                    <span class="stat-label">Registered Users</span>
-                </div>
+            <div class="stat-card accent-aqua">
+                <span class="stat-label">Active users</span>
+                <span class="stat-value" id="kpi-active">—</span>
+                <span class="stat-sub" id="kpi-active-sub">—</span>
+            </div>
+            <div class="stat-card accent-yellow">
+                <span class="stat-label">New users</span>
+                <span class="stat-value" id="kpi-new-users">—</span>
+                <span class="stat-sub" id="kpi-new-users-sub">—</span>
+            </div>
+            <div class="stat-card accent-blue">
+                <span class="stat-label">Transcriptions</span>
+                <span class="stat-value" id="kpi-transcriptions">—</span>
+                <span class="stat-sub" id="kpi-transcriptions-sub">—</span>
+            </div>
+            <div class="stat-card accent-orange">
+                <span class="stat-label">AI processing</span>
+                <span class="stat-value" id="kpi-ai">—</span>
+                <span class="stat-sub" id="kpi-ai-sub">—</span>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">🎤</div>
-                <div class="stat-content">
-                    <span class="stat-value" id="stat-transcriptions">—</span>
-                    <span class="stat-label" id="stat-transcriptions-label">Transcriptions</span>
-                </div>
+                <span class="stat-label">Est. cost</span>
+                <span class="stat-value" id="kpi-cost">—</span>
+                <span class="stat-sub" id="kpi-cost-sub">—</span>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">🤖</div>
-                <div class="stat-content">
-                    <span class="stat-value" id="stat-ai-processing">—</span>
-                    <span class="stat-label" id="stat-ai-label">AI Processing</span>
+                <span class="stat-label">Registered users</span>
+                <span class="stat-value" id="kpi-registered">—</span>
+                <span class="stat-sub" id="kpi-registered-sub">—</span>
+            </div>
+        </section>
+
+        <!-- Charts -->
+        <section class="charts-row">
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h2>Users</h2>
+                    <div class="chart-legend" id="legend-users"></div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-users"></canvas>
+                    <div class="chart-tooltip" id="tooltip-users" hidden></div>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon">�</div>
-                <div class="stat-content">
-                    <span class="stat-value" id="stat-tokens">—</span>
-                    <span class="stat-label" id="stat-tokens-label">Tokens Used</span>
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h2>Requests</h2>
+                    <div class="chart-legend" id="legend-requests"></div>
                 </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">💰</div>
-                <div class="stat-content">
-                    <span class="stat-value" id="stat-cost">—</span>
-                    <span class="stat-label" id="stat-cost-label">Est. Cost (USD)</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">👤</div>
-                <div class="stat-content">
-                    <span class="stat-value" id="stat-active-today">—</span>
-                    <span class="stat-label" id="stat-active-label">Active Users</span>
+                <div class="chart-container">
+                    <canvas id="chart-requests"></canvas>
+                    <div class="chart-tooltip" id="tooltip-requests" hidden></div>
                 </div>
             </div>
         </section>
 
-        <!-- Chart Section -->
-        <section class="chart-section">
-            <div class="section-header">
-                <h2>Activity Chart</h2>
-                <div class="log-filters">
-                    <select id="chart-type-filter" class="filter-select">
-                        <option value="all" selected>All Requests</option>
-                        <option value="transcription">Transcriptions Only</option>
-                        <option value="ai_processing">AI Processing Only</option>
-                        <option value="active_users">Active Users</option>
-                        <option value="new_users">New Registered Users</option>
-                    </select>
-                </div>
+        <!-- Insights -->
+        <section class="insights-row">
+            <div class="insight-card">
+                <h3>Averages <span class="insight-period">(period)</span></h3>
+                <dl class="insight-list" id="insight-averages"></dl>
             </div>
-            <div class="chart-container">
-                <canvas id="activity-chart"></canvas>
+            <div class="insight-card">
+                <h3>Patterns <span class="insight-period">(period)</span></h3>
+                <dl class="insight-list" id="insight-patterns"></dl>
+            </div>
+            <div class="insight-card">
+                <h3>Models <span class="insight-period">(period)</span></h3>
+                <div class="model-list" id="insight-models"></div>
             </div>
         </section>
 
@@ -132,16 +140,18 @@
                 <table id="users-table">
                     <thead>
                         <tr>
-                            <th class="sortable" data-sort="email" data-type="string">Email ↕</th>
-                            <th class="sortable" data-sort="availableCredits" data-type="number">Available ↕</th>
-                            <th class="sortable" data-sort="usedCredits" data-type="number">Used ↕</th>
-                            <th class="sortable" data-sort="totalCredits" data-type="number">Total ↕</th>
-                            <th class="sortable sorted-desc" data-sort="createdAt" data-type="date">Registered ↓</th>
+                            <th class="sortable" data-sort="email" data-type="string">Email</th>
+                            <th class="sortable sorted-desc" data-sort="lastActivity" data-type="date">Last used</th>
+                            <th class="sortable num" data-sort="periodRequests" data-type="number" id="th-period-requests">Requests</th>
+                            <th class="sortable num" data-sort="periodAudioMin" data-type="number" id="th-period-audio">Audio min</th>
+                            <th class="sortable num" data-sort="availableCredits" data-type="number">Credits left</th>
+                            <th class="sortable num" data-sort="usedCredits" data-type="number">Used</th>
+                            <th class="sortable" data-sort="createdAt" data-type="date">Registered</th>
                         </tr>
                     </thead>
                     <tbody id="users-tbody">
                         <tr>
-                            <td colspan="5" class="loading-cell">Loading...</td>
+                            <td colspan="7" class="loading-cell">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -154,25 +164,25 @@
                 <h2>Usage Logs</h2>
                 <div class="log-filters">
                     <select id="log-action-filter" class="filter-select">
-                        <option value="">All Actions</option>
+                        <option value="">All actions</option>
                         <option value="transcription">Transcription</option>
                         <option value="ai_processing">AI Processing</option>
                     </select>
                     <input type="number" id="log-limit" class="filter-input" placeholder="Limit" value="50" min="1"
                         max="500">
-                    <button class="btn btn-sm" id="apply-log-filters">Apply Filters</button>
+                    <button class="btn btn-sm" id="apply-log-filters">Apply</button>
                 </div>
             </div>
             <div class="table-wrapper">
                 <table id="logs-table">
                     <thead>
                         <tr>
-                            <th class="sortable sorted-desc" data-sort="timestamp" data-type="date">Time ↓</th>
-                            <th class="sortable" data-sort="userId" data-type="string">User ↕</th>
-                            <th class="sortable" data-sort="action" data-type="string">Action ↕</th>
-                            <th class="sortable" data-sort="model" data-type="string">Model ↕</th>
-                            <th class="sortable" data-sort="totalTokens" data-type="number">Tokens ↕</th>
-                            <th class="sortable" data-sort="durationMs" data-type="number">Duration ↕</th>
+                            <th class="sortable sorted-desc" data-sort="timestamp" data-type="date">Time</th>
+                            <th class="sortable" data-sort="userId" data-type="string">User</th>
+                            <th class="sortable" data-sort="action" data-type="string">Action</th>
+                            <th class="sortable" data-sort="model" data-type="string">Model</th>
+                            <th class="sortable num" data-sort="totalTokens" data-type="number">Tokens</th>
+                            <th class="sortable num" data-sort="durationMs" data-type="number">Duration</th>
                             <th>Details</th>
                         </tr>
                     </thead>
@@ -185,13 +195,9 @@
             </div>
         </section>
 
-        <!-- Last updated -->
-        <footer class="footer">
-            <span id="last-updated">—</span>
-        </footer>
     </div>
 
-    <script src="app.js?v=20260823"></script>
+    <script src="app.js?v=20260827"></script>
 </body>
 
 </html>

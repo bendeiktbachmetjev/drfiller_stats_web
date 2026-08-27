@@ -207,7 +207,12 @@
             const [statsRes, usersRes, activityRes, logsRes] = await Promise.all([
                 apiFetch('/api/admin/stats', { startDate, endDate, tzOffsetMinutes }),
                 apiFetch('/api/admin/users'),
-                apiFetch('/api/admin/user-activity', { startDate, endDate, tzOffsetMinutes }),
+                // Non-fatal: an older backend without this endpoint still gets a working dashboard
+                apiFetch('/api/admin/user-activity', { startDate, endDate, tzOffsetMinutes })
+                    .catch(err => {
+                        console.warn('user-activity unavailable:', err.message);
+                        return { data: [] };
+                    }),
                 apiFetch('/api/admin/logs', {
                     action: $('#log-action-filter').value,
                     limit: $('#log-limit').value,

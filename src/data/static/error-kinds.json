@@ -1,0 +1,28 @@
+{
+  "_origin": "hand-written by F0 from SPEC §5.2.5; replaced by `npm run sync:prices` from backend logFields.ERROR_KIND_GROUP",
+  "ERROR_KIND_GROUP": {
+    "timeout": "service",
+    "upstream_429": "service",
+    "upstream_5xx": "service",
+    "upstream_4xx": "service",
+    "model_not_found": "service",
+    "invalid_json": "service",
+    "max_tokens": "service",
+    "repetition": "service",
+    "internal": "service",
+    "credit_store": "service",
+    "service_off": "service",
+    "transcription_failed": "service",
+    "soniox_busy": "service",
+    "unavailable": "service",
+    "live_off": "service",
+    "no_credits": "refusal",
+    "daily_cap": "refusal",
+    "too_many_open": "refusal",
+    "session_used": "refusal",
+    "cap": "refusal",
+    "queue_full": "refusal",
+    "client_gone": "refusal",
+    "invalid_audio": "refusal"
+  }
+}

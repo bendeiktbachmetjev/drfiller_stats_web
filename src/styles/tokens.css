@@ -1,0 +1,42 @@
+/*
+ * Dr.Filler stats design tokens (SPEC §5.3.4). Light only, high contrast.
+ * SimuFlow's warm neutrals made solid (no text opacities) + the Dr.Filler blue.
+ * charts/theme.js mirrors these hex values; tokens.test.mjs compares the two files and checks the
+ * contrast minimums. Text never uses an opacity class: pick ink / ink-soft / ink-mute instead.
+ */
+@theme {
+  /* neutrals */
+  --color-surface: #FFFFFF;
+  --color-page-mid: #F8F8F8;      /* page = gradient white → page-mid → white */
+  --color-ink: #414141;           /* 10.2:1 on white — text, numbers */
+  --color-ink-soft: #5E5E5E;      /* 6.5:1 — labels, secondary text, any text on a tint */
+  --color-ink-mute: #707070;      /* 4.9:1 on white, 4.7 on page-mid — the LIGHTEST text; only on surface or page */
+  --color-line: #DCDCDC;          /* borders, grid, empty cells — never text, never data */
+  --color-data-mute: #8D8D8D;     /* 3.3:1 — reference/ghost bars, "Other", other months (graphics only) */
+
+  /* brand */
+  --color-brand: #1F4FB8;         /* 7.3:1 — links, active pill, income, forms, main model, Gemini */
+  --color-brand-strong: #163A87;  /* 10.6:1 — hover, hero gradient start, text on the white hero pill */
+  --color-accent: #2D6CDF;        /* focus ring ONLY, never data */
+
+  /* money and states */
+  --color-cost: #525252;          /* 7.8:1 — the one neutral cost column/segment */
+  --color-good: #067647;          /* 5.7:1 — ONLY the "+" sign of a positive result */
+  --color-bad: #B42318;           /* 6.6:1 — negative result, bad delta, errors */
+  --color-bad-tint: #FEF3F2;
+  --color-warn: #B54708;          /* 5.4:1 — attention icons, slow bars */
+  --color-warn-tint: #FFFAEB;
+
+  /* identities */
+  --color-rec: #0B5C63;           /* 7.7:1 — live conversation; Soniox as provider */
+  --color-rec-light: #3A949C;     /* 3.6:1 — dictation via Soniox (graphics only) */
+  --color-fallback: #DC6803;      /* 3.5:1 — anything "backup": fallback model, OpenAI dictation (graphics only, never text) */
+  --color-anamnesis: #C11574;     /* 5.8:1 */
+  --color-infra: #7A5C2E;         /* 6.2:1 — server / fixed costs */
+
+  /* shapes */
+  --radius-card: 24px;
+  --shadow-card: 0 8px 20px rgba(65, 65, 65, 0.08);
+  --shadow-card-hover: 0 14px 32px rgba(65, 65, 65, 0.12);
+  --shadow-pop: 0 12px 32px rgba(65, 65, 65, 0.14);
+}

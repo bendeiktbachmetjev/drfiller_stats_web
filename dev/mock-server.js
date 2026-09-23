@@ -1,186 +1,163 @@
-/**
- * Local mock server for the Dr.Filler admin dashboard.
- * Serves the real admin/ static files and /api/admin/* endpoints backed by
- * the REAL backend/services/statsCompute.js over generated data — so the
- * frontend sees exactly the shapes production will return.
- *
- * Run: node dev/mock-server.js  →  http://localhost:8323/?server=http://localhost:8323
- * (expects the sibling backend/ repo next to admin/, as in the drfiller folder)
- */
+// Local mock of the admin API v2 (§5.3.10, OVERRIDES O2/O3). Port 8323, ESM, no dependencies.
+// Run: `npm run dev:mock` + `VITE_API_URL= npm run dev` (Vite proxies /api/admin to this server).
+//
+//   x-admin-secret must be 'dev' (401 otherwise)
+//   ?scenario=planned          planned scenario on any route
+//   ?fail=<route>              forces 500 on that route (usage, doctors, revenue, soniox-usage, live-now, config, costs-monthly, settings)
+//   ?off=revenue|soniox        returns status 'off'
+//   ?stripe=test               revenue livemode false
+//   env EMAIL_MODE=off|click|list (default list), FALLBACK_ON_404=0|1 (default 0)
+// PUT /settings and PUT /costs-monthly/:month validate like §5.2.3.7 and keep state for the process lifetime.
+import http from 'node:http';
+import { makeDemoApi } from '../src/dev/demoData.js';
+import { envelope, errorBody, MONTH_COST_LIMITS, MONTH_RE, PID_RE, PLANNING_LIMITS, validate } from '../src/data/api/contract.js';
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const PORT = Number(process.env.MOCK_PORT) || 8323;
+const EMAIL_MODE = ['off', 'click', 'list'].includes(process.env.EMAIL_MODE) ? process.env.EMAIL_MODE : 'list';
+const FALLBACK_ON_404 = process.env.FALLBACK_ON_404 === '1';
+const PREFIX = '/api/admin/v2';
 
-const ADMIN_DIR = path.join(__dirname, '..');
-const { computeUsageStats, computeUserActivity } =
-    require(path.join(__dirname, '../../backend/services/statsCompute.js'));
+const state = { settings: null, months: new Map(), emailReveals: [] };
 
-const PORT = 8323;
+const send = (res, status, body) => {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(body));
+};
+const ok = (res, data, notes = []) => send(res, 200, envelope(data, { nowMs: Date.now(), ttlMs: 600000, notes }));
+const fail = (res, status, code, message) => send(res, status, errorBody(code, message));
 
-// ---------- Deterministic PRNG ----------
-function mulberry32(seed) {
-    return function () {
-        let t = (seed += 0x6D2B79F5);
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
-const rand = mulberry32(42);
-const pick = (arr) => arr[Math.floor(rand() * arr.length)];
-
-// ---------- Generate users ----------
-const NOW = new Date();
-const USERS = [];
-const FIRST = ['ruta', 'jonas', 'egle', 'tomas', 'aiste', 'lukas', 'greta', 'mantas', 'ieva', 'paulius',
-    'laura', 'dovydas', 'gabija', 'rokas', 'monika', 'arnas', 'kotryna', 'simas', 'urte', 'karolis',
-    'austeja', 'nedas', 'vilte', 'tautvydas', 'emilija', 'benas', 'liepa', 'domas', 'saule', 'matas',
-    'gerda', 'vytas', 'milda', 'zygimantas', 'indre', 'titas', 'jurga', 'aurimas', 'rasa', 'giedrius'];
-for (let i = 0; i < 40; i++) {
-    const createdDaysAgo = 5 + Math.floor(rand() * 200);
-    const createdAt = new Date(NOW.getTime() - createdDaysAgo * 86400000);
-    USERS.push({
-        uid: `mockuid${String(i).padStart(3, '0')}${'x'.repeat(16)}`,
-        email: `${FIRST[i]}.gyd${i}@example.com`,
-        createdAt: createdAt.toUTCString(),
-        lastSignIn: null, // filled after logs
-        _created: createdAt,
-        // activity profile: 0 = churned, 1 = occasional, 2 = regular, 3 = power
-        _profile: rand() < 0.25 ? 0 : rand() < 0.5 ? 1 : rand() < 0.85 ? 2 : 3,
-        totalCredits: 15 + (rand() < 0.4 ? 250 : 0) + (rand() < 0.15 ? 600 : 0),
-        usedCredits: 0,
-        availableCredits: 0,
-        pendingTranscription: false
+const readBody = (req) =>
+  new Promise((resolve) => {
+    let text = '';
+    req.on('data', (chunk) => {
+      text += chunk;
+      if (text.length > 100000) req.destroy();
     });
-}
-
-// ---------- Generate logs (~6 months) ----------
-const LOGS = [];
-const DAYS = 190;
-for (let d = DAYS; d >= 0; d--) {
-    const day = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - d);
-    const weekday = day.getDay();
-    const weekdayFactor = (weekday === 0 || weekday === 6) ? 0.2 : 1;
-    // product grew over time: more activity in recent months
-    const growth = 0.4 + 0.6 * (1 - d / DAYS);
-
-    USERS.forEach(u => {
-        if (u._created > day) return;
-        if (u._profile === 0 && d < 60) return; // churned two months ago
-        const pDaily = [0.02, 0.08, 0.22, 0.55][u._profile] * weekdayFactor * growth;
-        if (rand() > pDaily) return;
-
-        const sessions = 1 + Math.floor(rand() * (u._profile >= 3 ? 5 : 3));
-        for (let s = 0; s < sessions; s++) {
-            const hour = 8 + Math.floor(rand() * 11); // 8:00–18:59 local (≈UTC in mock)
-            const ts = new Date(day.getTime() + hour * 3600000 + Math.floor(rand() * 3500000));
-            const minutes = 0.4 + rand() * 4.5;
-            const transcriptLength = Math.round(minutes * (380 + rand() * 350));
-
-            LOGS.push({
-                userId: u.uid,
-                action: 'transcription',
-                ts,
-                audioSizeBytes: Math.round(minutes * 60 * 32000),
-                audioDurationSeconds: null,
-                transcriptLength,
-                durationMs: Math.round(900 + rand() * 4800),
-                model: d > 70 ? 'gpt-4o-mini-transcribe-2025-03-20' : 'gpt-4o-mini-transcribe-2025-12-15'
-            });
-            u.usedCredits++;
-
-            if (rand() < 0.82) {
-                const promptTokens = 900 + Math.round(transcriptLength / 3.2);
-                const completionTokens = 350 + Math.round(rand() * 1400);
-                LOGS.push({
-                    userId: u.uid,
-                    action: 'ai_processing',
-                    ts: new Date(ts.getTime() + 20000 + rand() * 60000),
-                    promptTokens,
-                    completionTokens,
-                    totalTokens: promptTokens + completionTokens,
-                    transcriptLength,
-                    durationMs: Math.round(2500 + rand() * 11000),
-                    model: d > 40 ? 'gpt-5-mini' : (rand() < 0.6 ? 'gemini-2.5-flash' : 'gpt-5-mini')
-                });
-            }
-        }
+    req.on('end', () => {
+      try {
+        resolve(text ? JSON.parse(text) : null);
+      } catch {
+        resolve(undefined);
+      }
     });
+  });
+
+const inRange = (value, [min, max]) => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+
+function checkSettings(body) {
+  const { ok: shapeOk, errors } = validate('settingsObject', body);
+  if (!shapeOk) return errors[0];
+  const p = body.planning;
+  const plain = ['visitsPerDoctorMonth', 'liveShareOfVisits', 'liveMinutesPerVisit', 'dictationMinutesPerVisit', 'conversationTokensPerMinute', 'anamnesisRunsPerDoctorMonth', 'freeShare', 'workdaysPerMonth', 'peakHourShare', 'sonioxStreamLimit'];
+  for (const key of plain) if (!inRange(p[key], PLANNING_LIMITS[key])) return `planning.${key} out of range`;
+  if (p.doctorScales.length !== 2 || !p.doctorScales.every((n) => inRange(n, PLANNING_LIMITS.doctorScales))) return 'planning.doctorScales out of range';
+  if (![p.assumedFormTokens.in, p.assumedFormTokens.out].every((n) => inRange(n, PLANNING_LIMITS.assumedFormTokens))) return 'planning.assumedFormTokens out of range';
+  const mix = Object.values(p.packMix);
+  if (!mix.every((n) => inRange(n, PLANNING_LIMITS.packMix)) || Math.abs(mix.reduce((a, b) => a + b, 0) - 1) > 0.001) return 'planning.packMix must sum to 1';
+  if (![p.fixedMonthlyUsd.railway, p.fixedMonthlyUsd.other].every((n) => inRange(n, PLANNING_LIMITS.fixedMonthlyUsd))) return 'planning.fixedMonthlyUsd out of range';
+  if (body.internalPids.length > 200 || !body.internalPids.every((pid) => PID_RE.test(pid))) return 'internalPids invalid';
+  return null;
 }
-LOGS.sort((a, b) => a.ts - b.ts);
 
-USERS.forEach(u => {
-    u.availableCredits = Math.max(0, u.totalCredits - u.usedCredits);
-    const own = LOGS.filter(l => l.userId === u.uid);
-    u.lastSignIn = own.length ? own[own.length - 1].ts.toUTCString() : u.createdAt;
-});
+const MONTH_FIELDS = ['googleInvoiceEur', 'googlePromoCreditsEur', 'railwayUsd', 'sonioxInvoiceUsd', 'openaiInvoiceUsd', 'otherEur'];
 
-console.log(`Mock data: ${USERS.length} users, ${LOGS.length} logs`);
-
-// ---------- HTTP server ----------
-const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.json': 'application/json' };
-
-function send(res, code, data, type = 'application/json') {
-    res.writeHead(code, { 'Content-Type': type, 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' });
-    res.end(type === 'application/json' ? JSON.stringify(data) : data);
+function checkMonth(month, body, nowMs) {
+  const current = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit' }).format(new Date(nowMs));
+  if (!MONTH_RE.test(month) || month < MONTH_COST_LIMITS.firstMonth || month > current) return 'month out of range';
+  if (!body || typeof body !== 'object') return 'body must be an object';
+  for (const key of MONTH_FIELDS) {
+    if (!(key in body) || body[key] === null) continue;
+    if (!inRange(body[key], [MONTH_COST_LIMITS.min, MONTH_COST_LIMITS.max])) return `${key} out of range`;
+  }
+  if ('note' in body && (typeof body.note !== 'string' || body.note.length > MONTH_COST_LIMITS.noteMax)) return 'note too long';
+  return null;
 }
 
-http.createServer((req, res) => {
-    const url = new URL(req.url, `http://localhost:${PORT}`);
-    const q = url.searchParams;
+async function handle(req, res) {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  if (!url.pathname.startsWith(PREFIX)) return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
+  if (req.headers['x-admin-secret'] !== 'dev') return fail(res, 401, 'NOT_CONFIGURED', 'Unauthorized.');
 
-    try {
-        if (url.pathname === '/api/admin/stats') {
-            const now = new Date();
-            const defStart = new Date(now); defStart.setDate(defStart.getDate() - 6); defStart.setHours(0, 0, 0, 0);
-            const start = q.get('startDate') ? new Date(q.get('startDate')) : defStart;
-            const end = q.get('endDate') ? new Date(q.get('endDate')) : now;
-            const logs = LOGS.filter(l => l.ts >= start && l.ts <= end);
-            const stats = computeUsageStats(logs, {
-                start, end, now,
-                tzOffsetMinutes: Number(q.get('tzOffsetMinutes')) || 0
-            });
-            return send(res, 200, { success: true, data: { ...stats, totalRegisteredUsers: USERS.length } });
-        }
+  const route = url.pathname.slice(PREFIX.length).replace(/\/+$/, '') || '/';
+  const name = route.split('/')[1] ?? '';
+  const nowMs = Date.now();
+  if (url.searchParams.get('fail') === name) return fail(res, 500, 'INTERNAL', 'Forced failure (mock).');
 
-        if (url.pathname === '/api/admin/users') {
-            const data = USERS.map(({ _created, _profile, ...u }) => u)
-                .sort((a, b) => new Date(b.lastSignIn) - new Date(a.lastSignIn));
-            return send(res, 200, { success: true, data, total: data.length });
-        }
+  const scenario = url.searchParams.get('scenario') === 'planned' ? 'planned' : 'today';
+  const api = makeDemoApi(nowMs, { scenario, emailMode: EMAIL_MODE, fallbackOn404: FALLBACK_ON_404 });
+  const off = url.searchParams.get('off');
 
-        if (url.pathname === '/api/admin/user-activity') {
-            const start = q.get('startDate') ? new Date(q.get('startDate')) : null;
-            const end = q.get('endDate') ? new Date(q.get('endDate')) : null;
-            const data = computeUserActivity(LOGS, {
-                start, end,
-                tzOffsetMinutes: Number(q.get('tzOffsetMinutes')) || 0
-            });
-            return send(res, 200, { success: true, data, total: data.length });
-        }
+  if (req.method === 'PUT' && route === '/settings') {
+    const body = await readBody(req);
+    const problem = body === undefined ? 'body is not JSON' : checkSettings(body);
+    if (problem) return fail(res, 400, 'INVALID_BODY', problem);
+    state.settings = { ...body, updatedAt: nowMs };
+    return ok(res, { settings: state.settings });
+  }
+  const monthMatch = /^\/costs-monthly\/([^/]+)$/.exec(route);
+  if (req.method === 'PUT' && monthMatch) {
+    const month = decodeURIComponent(monthMatch[1]);
+    const body = await readBody(req);
+    const problem = body === undefined ? 'body is not JSON' : checkMonth(month, body, nowMs);
+    if (problem) return fail(res, 400, 'INVALID_BODY', problem);
+    const before = state.months.get(month) ?? { month, googleInvoiceEur: null, googlePromoCreditsEur: null, railwayUsd: null, sonioxInvoiceUsd: null, openaiInvoiceUsd: null, otherEur: null, note: '' };
+    const next = { ...before, ...Object.fromEntries(Object.entries(body).filter(([key]) => MONTH_FIELDS.includes(key) || key === 'note')), updatedAt: nowMs };
+    if (typeof next.note === 'string') next.note = next.note.replace(/[\u0000-\u001f]/g, '');
+    state.months.set(month, next);
+    return ok(res, { month: next });
+  }
+  if (req.method !== 'GET') return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
 
-        if (url.pathname === '/api/admin/logs') {
-            let logs = [...LOGS];
-            if (q.get('action')) logs = logs.filter(l => l.action === q.get('action'));
-            if (q.get('startDate')) logs = logs.filter(l => l.ts >= new Date(q.get('startDate')));
-            if (q.get('endDate')) logs = logs.filter(l => l.ts <= new Date(q.get('endDate')));
-            logs.sort((a, b) => b.ts - a.ts);
-            logs = logs.slice(0, Number(q.get('limit')) || 100);
-            const data = logs.map(({ ts, ...l }) => ({ ...l, timestamp: ts.toISOString() }));
-            return send(res, 200, { success: true, data, total: data.length });
-        }
+  const emailOf = (pid) => `doctor${api.doctors.doctors.findIndex((d) => d.pid === pid) + 1}@example.test`;
+  const emailMatch = /^\/doctors\/([^/]+)\/email$/.exec(route);
 
-        // Static files from admin/
-        let file = url.pathname === '/' ? '/index.html' : url.pathname;
-        const full = path.join(ADMIN_DIR, path.normalize(file).replace(/^(\.\.[\/\\])+/, ''));
-        if (full.startsWith(ADMIN_DIR) && fs.existsSync(full) && fs.statSync(full).isFile()) {
-            return send(res, 200, fs.readFileSync(full), MIME[path.extname(full)] || 'application/octet-stream');
-        }
-
-        send(res, 404, { error: 'not found' });
-    } catch (e) {
-        console.error(e);
-        send(res, 500, { success: false, error: e.message });
+  switch (true) {
+    case route === '/usage':
+      return ok(res, api.usage);
+    case route === '/doctors': {
+      const doctors = EMAIL_MODE === 'list' ? api.doctors.doctors.map((d) => ({ ...d, email: emailOf(d.pid) })) : api.doctors.doctors;
+      return ok(res, { ...api.doctors, emailMode: EMAIL_MODE, doctors });
     }
-}).listen(PORT, () => console.log(`Mock admin dashboard on http://localhost:${PORT}/`));
+    case route === '/doctors/emails':
+      if (EMAIL_MODE !== 'list') return fail(res, 403, 'EMAIL_OFF', 'Email list is off.');
+      return ok(res, { emails: Object.fromEntries(api.doctors.doctors.map((d) => [d.pid, emailOf(d.pid)])) });
+    case Boolean(emailMatch): {
+      if (EMAIL_MODE === 'off') return fail(res, 403, 'EMAIL_OFF', 'Email reveal is off.');
+      const pid = decodeURIComponent(emailMatch[1]);
+      if (!api.doctors.doctors.some((d) => d.pid === pid)) return fail(res, 404, 'NOT_FOUND', 'Unknown doctor.');
+      state.emailReveals = state.emailReveals.filter((t) => t > nowMs - 3600000);
+      if (state.emailReveals.length >= 30) return fail(res, 429, 'RATE_LIMITED', 'Too many reveals.');
+      state.emailReveals.push(nowMs);
+      return ok(res, { pid, email: emailOf(pid) });
+    }
+    case route === '/revenue': {
+      if (off === 'revenue') return ok(res, { ...api.revenue, status: 'off', reason: 'no_stripe_key', livemode: null, payments: [], adjustments: [] });
+      const livemode = url.searchParams.get('stripe') !== 'test';
+      return ok(res, { ...api.revenue, livemode });
+    }
+    case route === '/soniox-usage':
+      if (off === 'soniox') return ok(res, { ...api.soniox, status: 'off', reason: 'no_soniox_key', days: [], liveSessions: [] });
+      return ok(res, api.soniox);
+    case route === '/live-now':
+      return ok(res, api.liveNow);
+    case route === '/config':
+      return ok(res, api.config);
+    case route === '/costs-monthly':
+      return ok(res, { months: [...state.months.values()].sort((a, b) => a.month.localeCompare(b.month)) });
+    case route === '/settings':
+      return ok(res, { settings: state.settings ?? api.settings.settings });
+    default:
+      return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
+  }
+}
+
+http
+  .createServer((req, res) => {
+    handle(req, res).catch((error) => {
+      console.error(error);
+      fail(res, 500, 'INTERNAL', 'Mock error.');
+    });
+  })
+  .listen(PORT, () => {
+    console.log(`Mock admin API v2 on http://localhost:${PORT}${PREFIX} (key: dev, email mode: ${EMAIL_MODE}, fallbackOn404: ${FALLBACK_ON_404})`);
+  });

@@ -1,0 +1,67 @@
+/*
+ * Stats site only. Imported once by AdminShell. Every class carries the `sf-` prefix (kept from
+ * SimuFlow, where the kit comes from). The animation classes stay un-nested on purpose: popovers and
+ * tooltips are portalled to <body>, outside `.sf-admin`.
+ */
+
+@keyframes sf-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes sf-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sf-pop { from { opacity: 0; transform: scale(.98) translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes sf-sheet { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes sf-progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+
+.sf-rise { animation: sf-rise 420ms cubic-bezier(.22, 1, .36, 1) both; }
+.sf-fade { animation: sf-fade 200ms ease-out both; }
+.sf-pop { animation: sf-pop 140ms ease-out both; }
+.sf-sheet { animation: sf-sheet 200ms cubic-bezier(.22, 1, .36, 1) both; }
+
+/* Header refetch line: a quarter-width bar sliding across its 2 px track. */
+.sf-progress { animation: sf-progress 1100ms ease-in-out infinite; }
+
+/* Section pills scroll sideways on narrow screens; a scrollbar inside the header is noise. */
+.sf-nav-scroll { scrollbar-width: none; }
+.sf-nav-scroll::-webkit-scrollbar { display: none; }
+
+/* Anchor targets stay clear of the sticky header. */
+.sf-admin [id] { scroll-margin-top: 136px; }
+@media (min-width: 640px) { .sf-admin [id] { scroll-margin-top: 88px; } }
+
+/* Touch: small round buttons, (i) hints and Segmented items get a hit area of at least 40 × 40 px. */
+@media (pointer: coarse) {
+  .sf-hit { position: relative; }
+  .sf-hit::after { content: ''; position: absolute; inset: -8px; }
+}
+
+/* Long ids break anywhere instead of widening the page. */
+.sf-wrap-any { overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-rise, .sf-fade, .sf-pop, .sf-sheet { animation: none; }
+  .sf-progress { animation: none; width: 100%; opacity: .5; }
+  .sf-admin .animate-ping { animation: none; }
+}
+
+@page { size: A4 portrait; margin: 14mm 12mm 16mm; }
+
+@media print {
+  html, body { background: #fff !important; }
+  .sf-admin { background: #fff !important; font-size: 10pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sf-admin header,
+  .sf-admin [data-print="hide"],
+  .sf-admin .recharts-tooltip-wrapper,
+  .sf-admin button { display: none !important; }
+  .sf-admin .sf-rise, .sf-admin .sf-fade { animation: none !important; opacity: 1 !important; }
+  .sf-admin [data-busy="true"] { opacity: 1 !important; }
+  .sf-admin .sf-card { box-shadow: none !important; border: 0.5pt solid #DCDCDC !important; border-radius: 12px !important; padding: 12pt !important; break-inside: avoid; }
+  .sf-admin .sf-card--accent { background: #fff !important; color: #414141 !important; }
+  .sf-admin .sf-card--accent * { color: inherit !important; }
+  .sf-admin .sf-card--accent .sf-kpi-value { color: #1F4FB8 !important; }
+  .sf-admin h1, .sf-admin h2, .sf-admin h3 { break-after: avoid; }
+  .sf-admin thead { display: table-header-group; }
+  .sf-admin tr { break-inside: avoid; }
+  .sf-admin .sf-table-scroll { max-height: none !important; overflow: visible !important; }
+  .sf-admin th { position: static !important; }
+  .sf-admin details > * { display: block !important; }
+  .sf-admin .recharts-responsive-container, .sf-admin .recharts-wrapper { width: 100% !important; height: auto !important; }
+  .sf-admin .recharts-surface { width: 100% !important; height: auto !important; }
+}

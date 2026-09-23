@@ -1,0 +1,1602 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "generatedAt": "2026-09-23T08:52:14.076Z",
+    "client": "one MacBook on a home connection in Lithuania, sequential requests, 2 s pause, 5 rounds with combos shuffled per round",
+    "productionBaseline": {
+      "main": "gemini-3-flash-preview on the direct API, thinkingLevel low (preset direct-3-flash)",
+      "fallback": "gemini-3.5-flash-lite on the direct API, thinkingLevel low",
+      "averageTokensSept2026": {
+        "inputTokens": 11441,
+        "outputTokens": 986,
+        "thinkingTokens": 6,
+        "source": "Firestore usageLogs, Sept 1-22 2026, 750 calls"
+      }
+    },
+    "requestsPerDoctorMonth": 400,
+    "doctorScales": [
+      1,
+      100,
+      300
+    ],
+    "requestShape": {
+      "fullPromptChars": 25375,
+      "dictationChars": 752,
+      "historyChars": 2055,
+      "timeoutSec": 90,
+      "productionPrimaryTimeoutSec": 25
+    }
+  },
+  "verdict": "Moving to Vertex does not make the main request cheaper or clearly faster. The same model costs the same on Vertex global and 10% more in EU locations. Speed depends more on model, location and thinking settings than on 'Vertex vs direct'.",
+  "highlights": [
+    "Production today (gemini-3-flash-preview, direct API): 7.3 s median, $0.0086 per request, $3.44 per doctor per month at 400 requests.",
+    "Fastest good option: gemini-3.8-flash on the direct API - 5.7 s, best prompt-rule following, but +29% cost now and about 2.6x from 2027-01-01.",
+    "Same production model on Vertex global needs thinkingLevel 'minimal': then 6.4 s and the same price. With the current 'low' it thinks ~4,600 tokens: 19 s and 2.6x the price.",
+    "gemini-3-flash-preview is not offered in any EU location on Vertex, so it gives no EU data residency.",
+    "Best EU option for top quality: gemini-3.5-flash in europe-west3 (Frankfurt) - stable 7.9 s, but $0.030 per request (3.5x today, $12 per doctor per month).",
+    "Cheapest EU option: gemini-3.5-flash-lite in the eu multi-region - $0.0067, 5.8 s median, lighter text; one 14.5 s outlier.",
+    "gemini-3.5-flash in the eu multi-region and on global hung until the 90 s timeout in 5 of 10 requests - not usable today.",
+    "Vertex pay-as-you-go returned HTTP 429 (capacity exhausted) 3 times in 80 Vertex requests, plus 5 hangs to the 90 s timeout (all gemini-3.5-flash on eu/global); the direct API had 0 errors in 35.",
+    "gemini-3.1-flash-lite with thinkingLevel 'low' runs away into thinking (3-5k tokens) and sometimes returns broken JSON; with 'minimal' it is the cheapest 3.x option ($0.004, 4.5 s).",
+    "Config trap: the backend's default VERTEX_LOCATION is europe-west4, where no Gemini 3.x model exists (404), and a 404 does not trigger the fallback model."
+  ],
+  "availability": [
+    {
+      "model": "gemini-3-flash-preview",
+      "endpoint": "direct",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 2.05
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "endpoint": "global",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 3.2
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "endpoint": "eu",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.82
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "endpoint": "europe-west4",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.62
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "endpoint": "europe-west1",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.54
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "endpoint": "europe-west3",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.54
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "endpoint": "direct",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.71
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "endpoint": "global",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 14.93
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "endpoint": "eu",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 16.97
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "endpoint": "europe-west4",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.5
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "endpoint": "europe-west1",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.39
+    },
+    {
+      "model": "gemini-3.5-flash",
+      "endpoint": "europe-west3",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.1
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "endpoint": "direct",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.21
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "endpoint": "global",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.83
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "endpoint": "eu",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.34
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "endpoint": "europe-west4",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.37
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "endpoint": "europe-west1",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.5
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "endpoint": "europe-west3",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.43
+    },
+    {
+      "model": "gemini-3.7-flash",
+      "endpoint": "direct",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 3.06
+    },
+    {
+      "model": "gemini-3.7-flash",
+      "endpoint": "global",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 4.17
+    },
+    {
+      "model": "gemini-3.7-flash",
+      "endpoint": "eu",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 2.02
+    },
+    {
+      "model": "gemini-3.7-flash",
+      "endpoint": "europe-west4",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.42
+    },
+    {
+      "model": "gemini-3.7-flash",
+      "endpoint": "europe-west1",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.5
+    },
+    {
+      "model": "gemini-3.7-flash",
+      "endpoint": "europe-west3",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.38
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "endpoint": "direct",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.62
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "endpoint": "global",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 2.48
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "endpoint": "eu",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 3.2
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "endpoint": "europe-west4",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.54
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "endpoint": "europe-west1",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.3
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "endpoint": "europe-west3",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.34
+    },
+    {
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "direct",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.45
+    },
+    {
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "global",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.86
+    },
+    {
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "eu",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.35
+    },
+    {
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "europe-west4",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.21
+    },
+    {
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "europe-west1",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.22
+    },
+    {
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "europe-west3",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.25
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "endpoint": "direct",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.44
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "endpoint": "global",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.12
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "endpoint": "eu",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.4
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "endpoint": "europe-west4",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 0.67
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "endpoint": "europe-west1",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 0.68
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "endpoint": "europe-west3",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 0.55
+    },
+    {
+      "model": "gemini-2.5-flash-lite",
+      "endpoint": "direct",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.28
+    },
+    {
+      "model": "gemini-2.5-flash-lite",
+      "endpoint": "global",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 1.25
+    },
+    {
+      "model": "gemini-2.5-flash-lite",
+      "endpoint": "eu",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.59
+    },
+    {
+      "model": "gemini-2.5-flash-lite",
+      "endpoint": "europe-west4",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 0.61
+    },
+    {
+      "model": "gemini-2.5-flash-lite",
+      "endpoint": "europe-west1",
+      "available": true,
+      "status": 200,
+      "tinyRequestSec": 0.67
+    },
+    {
+      "model": "gemini-2.5-flash-lite",
+      "endpoint": "europe-west3",
+      "available": false,
+      "status": 404,
+      "tinyRequestSec": 0.27
+    }
+  ],
+  "combos": [
+    {
+      "id": "gemini-3.1-flash-lite@direct+minimal",
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "direct",
+      "endpointLabel": "Gemini API (direct)",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "minimal"
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 4.51,
+        "p50": 4.55,
+        "p90": 4.96,
+        "max": 5.06,
+        "mean": 4.7,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9329,
+        "outAvg": 1120,
+        "thinkingAvg": 0,
+        "cachedAvg": 768
+      },
+      "pricePerM": {
+        "in": 0.25,
+        "out": 1.5,
+        "cached": 0.025
+      },
+      "costUsd": {
+        "perRequest": 0.004012,
+        "perRequestWithImplicitCache": 0.003839,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.004339,
+        "perDoctorMonth": 1.6,
+        "per100DoctorsMonth": 160.47,
+        "per300DoctorsMonth": 481.4,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 1.74
+      },
+      "vsProduction": {
+        "p50Ratio": 0.62,
+        "costRatio": 0.47
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.93,
+        "note": "Cheapest 3.x option ($0.004), 4.5 s, decent text, both referrals written. Fills discharge field. Google shutdown date 2027-05-07."
+      }
+    },
+    {
+      "id": "gemini-3.5-flash-lite@direct",
+      "model": "gemini-3.5-flash-lite",
+      "endpoint": "direct",
+      "endpointLabel": "Gemini API (direct)",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "low"
+      },
+      "role": "production-fallback",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 4.53,
+        "p50": 4.61,
+        "p90": 4.96,
+        "max": 5.06,
+        "mean": 4.71,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9329,
+        "outAvg": 1233,
+        "thinkingAvg": 0,
+        "cachedAvg": 0
+      },
+      "pricePerM": {
+        "in": 0.3,
+        "out": 2.5,
+        "cached": 0.03
+      },
+      "costUsd": {
+        "perRequest": 0.005882,
+        "perRequestWithImplicitCache": 0.005882,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.005897,
+        "perDoctorMonth": 2.35,
+        "per100DoctorsMonth": 235.27,
+        "per300DoctorsMonth": 705.8,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 2.36
+      },
+      "vsProduction": {
+        "p50Ratio": 0.63,
+        "costRatio": 0.68
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.92,
+        "note": "Current fallback. Fastest (4.6 s). Thinner anamnesis, odd wording in places (e.g. an invented symptom word), adds symptom codes R05/R50.9 next to J18.9, sometimes no referral text; fills discharge field."
+      }
+    },
+    {
+      "id": "gemini-3-flash-preview@direct",
+      "model": "gemini-3-flash-preview",
+      "endpoint": "direct",
+      "endpointLabel": "Gemini API (direct)",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "low"
+      },
+      "role": "production-main",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 6.84,
+        "p50": 7.33,
+        "p90": 7.51,
+        "max": 7.6,
+        "mean": 7.22,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9329,
+        "outAvg": 1310,
+        "thinkingAvg": 0,
+        "cachedAvg": 768
+      },
+      "pricePerM": {
+        "in": 0.5,
+        "out": 3,
+        "cached": 0.05
+      },
+      "costUsd": {
+        "perRequest": 0.008594,
+        "perRequestWithImplicitCache": 0.008248,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.008679,
+        "perDoctorMonth": 3.44,
+        "per100DoctorsMonth": 343.76,
+        "per300DoctorsMonth": 1031.27,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 3.47
+      },
+      "vsProduction": {
+        "p50Ratio": 1,
+        "costRatio": 1
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.93,
+        "note": "Production today. Full, well-structured fields, correct doses, J18.9 pneumonia, good referral text. Breaks one prompt rule every time: fills bukle_isvykstant (discharge) although nothing was dictated. thinkingLevel low gives 0 thinking tokens on the direct API."
+      }
+    },
+    {
+      "id": "gemini-3.1-flash-lite@direct",
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "direct",
+      "endpointLabel": "Gemini API (direct)",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "low"
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 10.16,
+        "p50": 12.66,
+        "p90": 18.12,
+        "max": 21.63,
+        "mean": 13.95,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9329,
+        "outAvg": 927,
+        "thinkingAvg": 3519,
+        "cachedAvg": 0
+      },
+      "pricePerM": {
+        "in": 0.25,
+        "out": 1.5,
+        "cached": 0.025
+      },
+      "costUsd": {
+        "perRequest": 0.009002,
+        "perRequestWithImplicitCache": 0.009002,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.009618,
+        "perDoctorMonth": 3.6,
+        "per100DoctorsMonth": 360.06,
+        "per300DoctorsMonth": 1080.19,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 3.85
+      },
+      "vsProduction": {
+        "p50Ratio": 1.73,
+        "costRatio": 1.05
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 0.8,
+        "avgScore": 0.74,
+        "note": "thinkingLevel low makes it think ~3,500 tokens: 13 s median and 1 of 5 hit MAX_TOKENS -> broken JSON. Must use minimal."
+      }
+    },
+    {
+      "id": "gemini-3.8-flash@direct",
+      "model": "gemini-3.8-flash",
+      "endpoint": "direct",
+      "endpointLabel": "Gemini API (direct)",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "low"
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 5.23,
+        "p50": 5.73,
+        "p90": 6.16,
+        "max": 6.2,
+        "mean": 5.79,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9329,
+        "outAvg": 1093,
+        "thinkingAvg": 0,
+        "cachedAvg": 2303
+      },
+      "pricePerM": {
+        "in": 0.75,
+        "out": 3.75,
+        "cached": 0.07500000000000001
+      },
+      "costUsd": {
+        "perRequest": 0.011096,
+        "perRequestWithImplicitCache": 0.009541,
+        "perRequestFrom2027": 0.022193,
+        "perRequestProductionShape": 0.012278,
+        "perDoctorMonth": 4.44,
+        "per100DoctorsMonth": 443.85,
+        "per300DoctorsMonth": 1331.55,
+        "perDoctorMonthFrom2027": 8.88,
+        "perDoctorMonthProductionShape": 4.91
+      },
+      "vsProduction": {
+        "p50Ratio": 0.78,
+        "costRatio": 1.29
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 1,
+        "note": "Best prompt-rule following (discharge left empty 5/5), J18.9, good referral text, 5.7 s - faster than production. 1.3x cost now, ~2.6x from 2027-01-01 (1.50/7.50)."
+      }
+    },
+    {
+      "id": "gemini-3.5-flash@direct",
+      "model": "gemini-3.5-flash",
+      "endpoint": "direct",
+      "endpointLabel": "Gemini API (direct)",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "low"
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 6.1,
+        "p50": 6.61,
+        "p90": 7.21,
+        "max": 7.37,
+        "mean": 6.7,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9329,
+        "outAvg": 1282,
+        "thinkingAvg": 0,
+        "cachedAvg": 2303
+      },
+      "pricePerM": {
+        "in": 1.5,
+        "out": 9,
+        "cached": 0.15000000000000002
+      },
+      "costUsd": {
+        "perRequest": 0.02553,
+        "perRequestWithImplicitCache": 0.02242,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.026036,
+        "perDoctorMonth": 10.21,
+        "per100DoctorsMonth": 1021.19,
+        "per300DoctorsMonth": 3063.56,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 10.41
+      },
+      "vsProduction": {
+        "p50Ratio": 0.9,
+        "costRatio": 2.97
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.93,
+        "note": "Richest text (sick-leave dates, smoking code, control date). Same discharge-field slip. ~3x production cost. thinkingLevel low already gave 0 thinking here."
+      }
+    },
+    {
+      "id": "gemini-3.5-flash@direct+minimal",
+      "model": "gemini-3.5-flash",
+      "endpoint": "direct",
+      "endpointLabel": "Gemini API (direct)",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "minimal"
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 6.45,
+        "p50": 6.61,
+        "p90": 7.48,
+        "max": 7.77,
+        "mean": 6.88,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9329,
+        "outAvg": 1316,
+        "thinkingAvg": 0,
+        "cachedAvg": 2303
+      },
+      "pricePerM": {
+        "in": 1.5,
+        "out": 9,
+        "cached": 0.15000000000000002
+      },
+      "costUsd": {
+        "perRequest": 0.025836,
+        "perRequestWithImplicitCache": 0.022726,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.026036,
+        "perDoctorMonth": 10.33,
+        "per100DoctorsMonth": 1033.43,
+        "per300DoctorsMonth": 3100.28,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 10.41
+      },
+      "vsProduction": {
+        "p50Ratio": 0.9,
+        "costRatio": 3.01
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.93,
+        "note": "Same as with level low: 0 thinking, same speed and quality."
+      }
+    },
+    {
+      "id": "gemini-2.5-flash@global",
+      "model": "gemini-2.5-flash",
+      "endpoint": "global",
+      "endpointLabel": "Vertex global",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 8.68,
+        "p50": 9.36,
+        "p90": 10.1,
+        "max": 10.28,
+        "mean": 9.37,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9505,
+        "outAvg": 1275,
+        "thinkingAvg": 0,
+        "cachedAvg": 7048
+      },
+      "pricePerM": {
+        "in": 0.3,
+        "out": 2.5,
+        "cached": 0.03
+      },
+      "costUsd": {
+        "perRequest": 0.006038,
+        "perRequestWithImplicitCache": 0.004135,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.005897,
+        "perDoctorMonth": 2.42,
+        "per100DoctorsMonth": 241.52,
+        "per300DoctorsMonth": 724.56,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 2.36
+      },
+      "vsProduction": {
+        "p50Ratio": 1.28,
+        "costRatio": 0.7
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.96,
+        "note": "Stable 9.4 s; 2.5 family retires (Vertex: Flash off 2027-03-31) and is closed to new users on the direct API - dead end."
+      }
+    },
+    {
+      "id": "gemini-3.5-flash-lite@global",
+      "model": "gemini-3.5-flash-lite",
+      "endpoint": "global",
+      "endpointLabel": "Vertex global",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 4,
+      "latencySec": {
+        "min": 6.37,
+        "p50": 6.49,
+        "p90": 6.74,
+        "max": 6.81,
+        "mean": 6.54,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1271,
+        "thinkingAvg": 0,
+        "cachedAvg": 2020
+      },
+      "pricePerM": {
+        "in": 0.3,
+        "out": 2.5,
+        "cached": 0.03
+      },
+      "costUsd": {
+        "perRequest": 0.006122,
+        "perRequestWithImplicitCache": 0.005576,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.005897,
+        "perDoctorMonth": 2.45,
+        "per100DoctorsMonth": 244.87,
+        "per300DoctorsMonth": 734.6,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 2.36
+      },
+      "vsProduction": {
+        "p50Ratio": 0.89,
+        "costRatio": 0.71
+      },
+      "errorCount": 1,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.91,
+        "note": "1 of 5 got HTTP 429 (shared capacity exhausted); otherwise 6.5 s."
+      }
+    },
+    {
+      "id": "gemini-3-flash-preview@global+minimal",
+      "model": "gemini-3-flash-preview",
+      "endpoint": "global",
+      "endpointLabel": "Vertex global",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "minimal"
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 5.78,
+        "p50": 6.38,
+        "p90": 6.99,
+        "max": 7.18,
+        "mean": 6.39,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1225,
+        "thinkingAvg": 0,
+        "cachedAvg": 0
+      },
+      "pricePerM": {
+        "in": 0.5,
+        "out": 3,
+        "cached": 0.05
+      },
+      "costUsd": {
+        "perRequest": 0.008581,
+        "perRequestWithImplicitCache": 0.008581,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.008679,
+        "perDoctorMonth": 3.43,
+        "per100DoctorsMonth": 343.26,
+        "per300DoctorsMonth": 1029.77,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 3.47
+      },
+      "vsProduction": {
+        "p50Ratio": 0.87,
+        "costRatio": 1
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.94,
+        "note": "Same model on Vertex global with thinkingLevel minimal: 0 thinking, 6.4 s median (slightly faster than direct), same cost and quality as today. Global only - the model is not offered in any EU location."
+      }
+    },
+    {
+      "id": "gemini-3.1-flash-lite@global",
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "global",
+      "endpointLabel": "Vertex global",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "low"
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 4,
+      "latencySec": {
+        "min": 13.11,
+        "p50": 15.23,
+        "p90": 15.87,
+        "max": 15.92,
+        "mean": 14.87,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1038,
+        "thinkingAvg": 3190,
+        "cachedAvg": 0
+      },
+      "pricePerM": {
+        "in": 0.25,
+        "out": 1.5,
+        "cached": 0.025
+      },
+      "costUsd": {
+        "perRequest": 0.008796,
+        "perRequestWithImplicitCache": 0.008796,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.009125,
+        "perDoctorMonth": 3.52,
+        "per100DoctorsMonth": 351.84,
+        "per300DoctorsMonth": 1055.5,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 3.65
+      },
+      "vsProduction": {
+        "p50Ratio": 2.08,
+        "costRatio": 1.02
+      },
+      "errorCount": 1,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.93,
+        "note": "thinkingLevel low: ~3,200 thinking tokens, 15 s; 1 of 5 got HTTP 429."
+      }
+    },
+    {
+      "id": "gemini-3.8-flash@global",
+      "model": "gemini-3.8-flash",
+      "endpoint": "global",
+      "endpointLabel": "Vertex global",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 9.52,
+        "p50": 9.55,
+        "p90": 10.56,
+        "max": 10.92,
+        "mean": 9.9,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1159,
+        "thinkingAvg": 0,
+        "cachedAvg": 0
+      },
+      "pricePerM": {
+        "in": 0.75,
+        "out": 3.75,
+        "cached": 0.07500000000000001
+      },
+      "costUsd": {
+        "perRequest": 0.011705,
+        "perRequestWithImplicitCache": 0.011705,
+        "perRequestFrom2027": 0.023411,
+        "perRequestProductionShape": 0.012278,
+        "perDoctorMonth": 4.68,
+        "per100DoctorsMonth": 468.21,
+        "per300DoctorsMonth": 1404.63,
+        "perDoctorMonthFrom2027": 9.36,
+        "perDoctorMonthProductionShape": 4.91
+      },
+      "vsProduction": {
+        "p50Ratio": 1.3,
+        "costRatio": 1.36
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 1,
+        "note": "5/5 OK, 9.6 s median - 4 s slower than the same model on the direct API."
+      }
+    },
+    {
+      "id": "gemini-3-flash-preview@global",
+      "model": "gemini-3-flash-preview",
+      "endpoint": "global",
+      "endpointLabel": "Vertex global",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingLevel": "low"
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 16.31,
+        "p50": 19.36,
+        "p90": 24.04,
+        "max": 26.12,
+        "mean": 20.4,
+        "over25s": 1
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1312,
+        "thinkingAvg": 4648,
+        "cachedAvg": 808
+      },
+      "pricePerM": {
+        "in": 0.5,
+        "out": 3,
+        "cached": 0.05
+      },
+      "costUsd": {
+        "perRequest": 0.022785,
+        "perRequestWithImplicitCache": 0.022421,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.022621,
+        "perDoctorMonth": 9.11,
+        "per100DoctorsMonth": 911.38,
+        "per300DoctorsMonth": 2734.15,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 9.05
+      },
+      "vsProduction": {
+        "p50Ratio": 2.64,
+        "costRatio": 2.65
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.96,
+        "note": "Same model on Vertex global with the SAME thinkingLevel low: ~4,600 thinking tokens per request -> 19 s median, 1 of 5 over 25 s, 2.6x the cost. Do not move with 'low'."
+      }
+    },
+    {
+      "id": "gemini-3.5-flash@global",
+      "model": "gemini-3.5-flash",
+      "endpoint": "global",
+      "endpointLabel": "Vertex global",
+      "euDataResidency": false,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 3,
+      "latencySec": {
+        "min": 7.83,
+        "p50": 8.14,
+        "p90": 15.91,
+        "max": 17.86,
+        "mean": 11.28,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1315,
+        "thinkingAvg": 0,
+        "cachedAvg": 5379
+      },
+      "pricePerM": {
+        "in": 1.5,
+        "out": 9,
+        "cached": 0.15000000000000002
+      },
+      "costUsd": {
+        "perRequest": 0.026559,
+        "perRequestWithImplicitCache": 0.019297,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.026036,
+        "perDoctorMonth": 10.62,
+        "per100DoctorsMonth": 1062.36,
+        "per300DoctorsMonth": 3187.08,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 10.41
+      },
+      "vsProduction": {
+        "p50Ratio": 1.11,
+        "costRatio": 3.09
+      },
+      "errorCount": 2,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.93,
+        "note": "2 of 5 requests hung until the 90 s timeout; the 3 good ones took 8-18 s."
+      }
+    },
+    {
+      "id": "gemini-3.5-flash-lite@eu",
+      "model": "gemini-3.5-flash-lite",
+      "endpoint": "eu",
+      "endpointLabel": "Vertex EU multi-region",
+      "euDataResidency": true,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 5.27,
+        "p50": 5.75,
+        "p90": 11.2,
+        "max": 14.53,
+        "mean": 7.46,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1260,
+        "thinkingAvg": 0,
+        "cachedAvg": 4847
+      },
+      "pricePerM": {
+        "in": 0.33,
+        "out": 2.75,
+        "cached": 0.033
+      },
+      "costUsd": {
+        "perRequest": 0.006704,
+        "perRequestWithImplicitCache": 0.005264,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.006487,
+        "perDoctorMonth": 2.68,
+        "per100DoctorsMonth": 268.14,
+        "per300DoctorsMonth": 804.43,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 2.59
+      },
+      "vsProduction": {
+        "p50Ratio": 0.78,
+        "costRatio": 0.78
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.92,
+        "note": "5/5 OK, 5.8 s median but one 14.5 s outlier. Same lighter quality as on the direct API."
+      }
+    },
+    {
+      "id": "gemini-3.1-flash-lite@eu",
+      "model": "gemini-3.1-flash-lite",
+      "endpoint": "eu",
+      "endpointLabel": "Vertex EU multi-region",
+      "euDataResidency": true,
+      "thinkingConfig": {
+        "thinkingLevel": "low"
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 10.96,
+        "p50": 12.21,
+        "p90": 22.49,
+        "max": 22.72,
+        "mean": 15.99,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 708,
+        "thinkingAvg": 4396,
+        "cachedAvg": 1616
+      },
+      "pricePerM": {
+        "in": 0.275,
+        "out": 1.6500000000000001,
+        "cached": 0.027500000000000004
+      },
+      "costUsd": {
+        "perRequest": 0.01112,
+        "perRequestWithImplicitCache": 0.01072,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.012026,
+        "perDoctorMonth": 4.45,
+        "per100DoctorsMonth": 444.79,
+        "per300DoctorsMonth": 1334.37,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 4.81
+      },
+      "vsProduction": {
+        "p50Ratio": 1.67,
+        "costRatio": 1.29
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 0.6,
+        "avgScore": 0.57,
+        "note": "thinkingLevel low: 2 of 5 hit MAX_TOKENS from runaway thinking -> broken JSON. With minimal the tiny probe showed 0 thinking on eu, but the full request was not measured."
+      }
+    },
+    {
+      "id": "gemini-3.7-flash@eu",
+      "model": "gemini-3.7-flash",
+      "endpoint": "eu",
+      "endpointLabel": "Vertex EU multi-region",
+      "euDataResidency": true,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 9.87,
+        "p50": 19.31,
+        "p90": 33.01,
+        "max": 33.92,
+        "mean": 21.04,
+        "over25s": 2
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1125,
+        "thinkingAvg": 0,
+        "cachedAvg": 2423
+      },
+      "pricePerM": {
+        "in": 0.8250000000000001,
+        "out": 4.125,
+        "cached": 0.08250000000000002
+      },
+      "costUsd": {
+        "perRequest": 0.012738,
+        "perRequestWithImplicitCache": 0.010939,
+        "perRequestFrom2027": 0.025476,
+        "perRequestProductionShape": 0.013506,
+        "perDoctorMonth": 5.1,
+        "per100DoctorsMonth": 509.52,
+        "per300DoctorsMonth": 1528.56,
+        "perDoctorMonthFrom2027": 10.19,
+        "perDoctorMonthProductionShape": 5.4
+      },
+      "vsProduction": {
+        "p50Ratio": 2.63,
+        "costRatio": 1.48
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 1,
+        "note": "19 s median, 2 of 5 over 25 s (production would switch to the fallback). Short-term release channel, superseded by 3.8."
+      }
+    },
+    {
+      "id": "gemini-3.8-flash@eu",
+      "model": "gemini-3.8-flash",
+      "endpoint": "eu",
+      "endpointLabel": "Vertex EU multi-region",
+      "euDataResidency": true,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 4,
+      "latencySec": {
+        "min": 9.8,
+        "p50": 11.84,
+        "p90": 21.03,
+        "max": 24.83,
+        "mean": 14.57,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1194,
+        "thinkingAvg": 0,
+        "cachedAvg": 1010
+      },
+      "pricePerM": {
+        "in": 0.8250000000000001,
+        "out": 4.125,
+        "cached": 0.08250000000000002
+      },
+      "costUsd": {
+        "perRequest": 0.013023,
+        "perRequestWithImplicitCache": 0.012273,
+        "perRequestFrom2027": 0.026046,
+        "perRequestProductionShape": 0.013506,
+        "perDoctorMonth": 5.21,
+        "per100DoctorsMonth": 520.91,
+        "per300DoctorsMonth": 1562.74,
+        "perDoctorMonthFrom2027": 10.42,
+        "perDoctorMonthProductionShape": 5.4
+      },
+      "vsProduction": {
+        "p50Ratio": 1.62,
+        "costRatio": 1.52
+      },
+      "errorCount": 1,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 1,
+        "note": "1 of 5 got HTTP 429; 11.8 s median, up to 24.8 s. Works but slow and not fully reliable."
+      }
+    },
+    {
+      "id": "gemini-3.5-flash@eu",
+      "model": "gemini-3.5-flash",
+      "endpoint": "eu",
+      "endpointLabel": "Vertex EU multi-region",
+      "euDataResidency": true,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 2,
+      "latencySec": {
+        "min": 13.27,
+        "p50": 13.91,
+        "p90": 14.43,
+        "max": 14.56,
+        "mean": 13.91,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1295,
+        "thinkingAvg": 0,
+        "cachedAvg": 4035
+      },
+      "pricePerM": {
+        "in": 1.6500000000000001,
+        "out": 9.9,
+        "cached": 0.16500000000000004
+      },
+      "costUsd": {
+        "perRequest": 0.029009,
+        "perRequestWithImplicitCache": 0.023017,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.028639,
+        "perDoctorMonth": 11.6,
+        "per100DoctorsMonth": 1160.35,
+        "per300DoctorsMonth": 3481.04,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 11.46
+      },
+      "vsProduction": {
+        "p50Ratio": 1.9,
+        "costRatio": 3.38
+      },
+      "errorCount": 3,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.93,
+        "note": "3 of 5 requests hung until the 90 s timeout; the 2 good ones took 14 s. Not usable today (same eu congestion as in August)."
+      }
+    },
+    {
+      "id": "gemini-2.5-flash@europe-west3",
+      "model": "gemini-2.5-flash",
+      "endpoint": "europe-west3",
+      "endpointLabel": "Vertex Frankfurt (europe-west3)",
+      "euDataResidency": true,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 5.91,
+        "p50": 6.28,
+        "p90": 6.48,
+        "max": 6.56,
+        "mean": 6.27,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9505,
+        "outAvg": 1287,
+        "thinkingAvg": 0,
+        "cachedAvg": 0
+      },
+      "pricePerM": {
+        "in": 0.3,
+        "out": 2.5,
+        "cached": 0.03
+      },
+      "costUsd": {
+        "perRequest": 0.00607,
+        "perRequestWithImplicitCache": 0.00607,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.005897,
+        "perDoctorMonth": 2.43,
+        "per100DoctorsMonth": 242.8,
+        "per300DoctorsMonth": 728.4,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 2.36
+      },
+      "vsProduction": {
+        "p50Ratio": 0.86,
+        "costRatio": 0.71
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 1,
+        "note": "Stable 6.3 s, 5/5 OK, follows the discharge rule, cheap. Retires 2027-03-31 on Vertex."
+      }
+    },
+    {
+      "id": "gemini-3.5-flash@europe-west3",
+      "model": "gemini-3.5-flash",
+      "endpoint": "europe-west3",
+      "endpointLabel": "Vertex Frankfurt (europe-west3)",
+      "euDataResidency": true,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 7.16,
+        "p50": 7.91,
+        "p90": 8.72,
+        "max": 9.2,
+        "mean": 7.96,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9814,
+        "outAvg": 1394,
+        "thinkingAvg": 0,
+        "cachedAvg": 0
+      },
+      "pricePerM": {
+        "in": 1.6500000000000001,
+        "out": 9.9,
+        "cached": 0.16500000000000004
+      },
+      "costUsd": {
+        "perRequest": 0.029998,
+        "perRequestWithImplicitCache": 0.029998,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.028639,
+        "perDoctorMonth": 12,
+        "per100DoctorsMonth": 1199.91,
+        "per300DoctorsMonth": 3599.72,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 11.46
+      },
+      "vsProduction": {
+        "p50Ratio": 1.08,
+        "costRatio": 3.49
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.93,
+        "note": "5/5 OK, stable 7.9 s median, top quality. The only EU location where 3.5-flash worked well today (new since August). ~3.5x production cost (+10% regional)."
+      }
+    },
+    {
+      "id": "gemini-2.5-flash-lite@europe-west4",
+      "model": "gemini-2.5-flash-lite",
+      "endpoint": "europe-west4",
+      "endpointLabel": "Vertex Netherlands (europe-west4)",
+      "euDataResidency": true,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 5.86,
+        "p50": 6.38,
+        "p90": 6.99,
+        "max": 7.12,
+        "mean": 6.48,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9505,
+        "outAvg": 1556,
+        "thinkingAvg": 0,
+        "cachedAvg": 0
+      },
+      "pricePerM": {
+        "in": 0.1,
+        "out": 0.4,
+        "cached": 0.010000000000000002
+      },
+      "costUsd": {
+        "perRequest": 0.001573,
+        "perRequestWithImplicitCache": 0.001573,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.001539,
+        "perDoctorMonth": 0.63,
+        "per100DoctorsMonth": 62.91,
+        "per300DoctorsMonth": 188.73,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 0.62
+      },
+      "vsProduction": {
+        "p50Ratio": 0.87,
+        "costRatio": 0.18
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.86,
+        "note": "Cheapest by far ($0.0016), 6.4 s, but clinically weakest: once coded bronchitis/URTI instead of pneumonia, and writes 'Anamnezėje nurodoma' which the prompt forbids (4 of 5). Retires 2027-01-28."
+      }
+    },
+    {
+      "id": "gemini-2.5-flash@europe-west4",
+      "model": "gemini-2.5-flash",
+      "endpoint": "europe-west4",
+      "endpointLabel": "Vertex Netherlands (europe-west4)",
+      "euDataResidency": true,
+      "thinkingConfig": {
+        "thinkingBudget": 0
+      },
+      "role": "candidate",
+      "runs": 5,
+      "ok": 5,
+      "latencySec": {
+        "min": 7.28,
+        "p50": 7.38,
+        "p90": 7.81,
+        "max": 8.06,
+        "mean": 7.49,
+        "over25s": 0
+      },
+      "tokens": {
+        "inAvg": 9505,
+        "outAvg": 1248,
+        "thinkingAvg": 0,
+        "cachedAvg": 7048
+      },
+      "pricePerM": {
+        "in": 0.3,
+        "out": 2.5,
+        "cached": 0.03
+      },
+      "costUsd": {
+        "perRequest": 0.005973,
+        "perRequestWithImplicitCache": 0.00407,
+        "perRequestFrom2027": null,
+        "perRequestProductionShape": 0.005897,
+        "perDoctorMonth": 2.39,
+        "per100DoctorsMonth": 238.9,
+        "per300DoctorsMonth": 716.7,
+        "perDoctorMonthFrom2027": null,
+        "perDoctorMonthProductionShape": 2.36
+      },
+      "vsProduction": {
+        "p50Ratio": 1.01,
+        "costRatio": 0.7
+      },
+      "errorCount": 0,
+      "quality": {
+        "validJsonRate": 1,
+        "avgScore": 0.92,
+        "note": "Stable 7.4 s, 5/5 OK. Retires 2027-03-31 on Vertex."
+      }
+    }
+  ]
+}

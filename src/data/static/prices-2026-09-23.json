@@ -1,0 +1,470 @@
+{
+  "CHECKED_AT": "2026-09-23",
+  "SOURCES": {
+    "geminiApi": "https://ai.google.dev/gemini-api/docs/pricing",
+    "geminiLifecycle": "https://ai.google.dev/gemini-api/docs/deprecations",
+    "vertex": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+    "vertexLifecycle": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/model-versions",
+    "vertexLocations": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/locations",
+    "soniox": "https://soniox.com/pricing",
+    "sonioxLimits": "https://soniox.com/docs/stt/rt/limits-and-quotas",
+    "openai": "https://developers.openai.com/api/docs/pricing",
+    "stripe": "https://stripe.com/en-lt/pricing",
+    "stripeLocal": "https://stripe.com/en-lt/pricing/local-payment-methods",
+    "paypal": "https://www.paypal.com/lt/business/paypal-business-fees",
+    "railway": "https://docs.railway.com/pricing/plans",
+    "firestore": "https://cloud.google.com/firestore/pricing",
+    "vatLt": "https://www.avalara.com/us/en/vatlive/country-guides/europe/lithuania/lithuanian-vat-rates.html",
+    "ecb": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A"
+  },
+  "GEMINI": {
+    "gemini-3-flash-preview": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "preview",
+      "shutdownDirect": null,
+      "replacement": "gemini-3.6-flash",
+      "vertexLocations": [
+        "global"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": null,
+          "input": 0.5,
+          "output": 3,
+          "cachedInput": 0.05,
+          "audioInput": 1
+        }
+      ]
+    },
+    "gemini-3.5-flash-lite": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "stable",
+      "shutdownDirect": null,
+      "vertexRetiresNotBefore": "2027-07-21",
+      "vertexLocations": [
+        "global",
+        "eu"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": null,
+          "input": 0.3,
+          "output": 2.5,
+          "cachedInput": 0.03,
+          "audioInput": 0.3
+        }
+      ]
+    },
+    "gemini-3.5-flash": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "stable",
+      "shutdownDirect": null,
+      "vertexRetiresNotBefore": "2027-05-19",
+      "vertexLocations": [
+        "global",
+        "eu",
+        "europe-west2",
+        "europe-west3"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": null,
+          "input": 1.5,
+          "output": 9,
+          "cachedInput": 0.15,
+          "audioInput": 1.5
+        }
+      ]
+    },
+    "gemini-3.6-flash": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "short-term",
+      "shutdownDirect": null,
+      "vertexLocations": [
+        "global",
+        "eu"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": "2026-12-31",
+          "input": 0.75,
+          "output": 3.75,
+          "cachedInput": 0.075,
+          "audioInput": 0.75
+        },
+        {
+          "validFrom": "2027-01-01",
+          "validTo": null,
+          "input": 1.5,
+          "output": 7.5,
+          "cachedInput": 0.15,
+          "audioInput": 1.5
+        }
+      ]
+    },
+    "gemini-3.7-flash": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "short-term",
+      "shutdownDirect": null,
+      "vertexLocations": [
+        "global",
+        "eu"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": "2026-12-31",
+          "input": 0.75,
+          "output": 3.75,
+          "cachedInput": 0.075,
+          "audioInput": 0.75
+        },
+        {
+          "validFrom": "2027-01-01",
+          "validTo": null,
+          "input": 1.5,
+          "output": 7.5,
+          "cachedInput": 0.15,
+          "audioInput": 1.5
+        }
+      ]
+    },
+    "gemini-3.8-flash": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "short-term",
+      "shutdownDirect": null,
+      "vertexLocations": [
+        "global",
+        "eu"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": "2026-12-31",
+          "input": 0.75,
+          "output": 3.75,
+          "cachedInput": 0.075,
+          "audioInput": 0.75
+        },
+        {
+          "validFrom": "2027-01-01",
+          "validTo": null,
+          "input": 1.5,
+          "output": 7.5,
+          "cachedInput": 0.15,
+          "audioInput": 1.5
+        }
+      ]
+    },
+    "gemini-3.1-flash-lite": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "stable",
+      "shutdownDirect": "2027-05-07",
+      "vertexRetiresNotBefore": "2027-05-07",
+      "replacement": "gemini-3.5-flash-lite",
+      "vertexLocations": [
+        "global",
+        "eu"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": null,
+          "input": 0.25,
+          "output": 1.5,
+          "cachedInput": 0.025,
+          "audioInput": 0.5
+        }
+      ]
+    },
+    "gemini-3.1-pro-preview": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "preview",
+      "shutdownDirect": null,
+      "vertexLocations": [
+        "global"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": null,
+          "input": 2,
+          "output": 12,
+          "cachedInput": 0.2,
+          "audioInput": 2
+        }
+      ]
+    },
+    "gemini-2.5-pro": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "legacy-limited",
+      "shutdownDirect": null,
+      "vertexShutdown": "2027-03-31",
+      "vertexInactiveCutoff": "2026-10-20",
+      "noVertexRegionalSurcharge": true,
+      "vertexLocations": [
+        "global",
+        "europe-west1",
+        "europe-west4"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": null,
+          "input": 1.25,
+          "output": 10,
+          "cachedInput": 0.125,
+          "audioInput": 1.25
+        }
+      ]
+    },
+    "gemini-2.5-flash": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "legacy-limited",
+      "shutdownDirect": null,
+      "vertexShutdown": "2027-03-31",
+      "vertexInactiveCutoff": "2026-10-20",
+      "noVertexRegionalSurcharge": true,
+      "vertexLocations": [
+        "global",
+        "europe-west1",
+        "europe-west3",
+        "europe-west4"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": null,
+          "input": 0.3,
+          "output": 2.5,
+          "cachedInput": 0.03,
+          "audioInput": 1
+        }
+      ]
+    },
+    "gemini-2.5-flash-lite": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "status": "legacy-limited",
+      "shutdownDirect": null,
+      "vertexShutdown": "2027-01-28",
+      "vertexInactiveCutoff": "2026-10-20",
+      "noVertexRegionalSurcharge": true,
+      "vertexLocations": [
+        "global",
+        "europe-west1",
+        "europe-west4"
+      ],
+      "periods": [
+        {
+          "validFrom": null,
+          "validTo": null,
+          "input": 0.1,
+          "output": 0.4,
+          "cachedInput": 0.01,
+          "audioInput": 0.3
+        }
+      ]
+    }
+  },
+  "GEMINI_UNKNOWN": "gemini-3.5-flash",
+  "GEMINI_TIERS": {
+    "checkedAt": "2026-09-23",
+    "source": "https://ai.google.dev/gemini-api/docs/pricing",
+    "factors": {
+      "standard": 1,
+      "batch": 0.5,
+      "flex": 0.5,
+      "priority": 1.8
+    }
+  },
+  "VERTEX": {
+    "checkedAt": "2026-09-23",
+    "source": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+    "nonGlobalFactor": 1.1,
+    "nonGlobalFrom": "2026-07-01",
+    "introAsCreditBack": true
+  },
+  "TRANSCRIPTION": {
+    "soniox:stt-async-v5": {
+      "checkedAt": "2026-09-23",
+      "source": "https://soniox.com/pricing",
+      "kind": "async",
+      "perMinute": 0.0016666666666666668,
+      "perHour": 0.1,
+      "euSurcharge": 1
+    },
+    "soniox-rt:stt-rt-v5": {
+      "checkedAt": "2026-09-23",
+      "source": "https://soniox.com/pricing",
+      "kind": "rt",
+      "perMinute": 0.002,
+      "perHour": 0.12,
+      "euSurcharge": 1,
+      "concurrentStreamsDefault": 10,
+      "limitsSource": "https://soniox.com/docs/stt/rt/limits-and-quotas"
+    },
+    "gpt-4o-mini-transcribe": {
+      "checkedAt": "2026-09-23",
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "kind": "openai",
+      "perMinute": 0.003
+    },
+    "gpt-4o-mini-transcribe-2025-03-20": {
+      "checkedAt": "2026-09-23",
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "kind": "openai",
+      "perMinute": 0.003,
+      "shutdown": "2027-01-20"
+    },
+    "gpt-transcribe": {
+      "checkedAt": "2026-09-23",
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "kind": "openai",
+      "perMinute": 0.0045
+    },
+    "gpt-4o-transcribe": {
+      "checkedAt": "2026-09-23",
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "kind": "openai",
+      "perMinute": 0.006
+    },
+    "gpt-live-transcribe": {
+      "checkedAt": "2026-09-23",
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "kind": "openai",
+      "perMinute": 0.017
+    },
+    "gemini-3.5-transcribe": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "kind": "gemini",
+      "perMinute": 0.005
+    },
+    "gemini-3.5-transcribe-live": {
+      "checkedAt": "2026-09-23",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "kind": "gemini",
+      "perMinute": 0.009
+    }
+  },
+  "TRANSCRIPTION_UNKNOWN": "gpt-4o-mini-transcribe",
+  "PAYMENT_FEES": {
+    "card_eea_standard": {
+      "checkedAt": "2026-09-23",
+      "source": "https://stripe.com/en-lt/pricing",
+      "pct": 0.015,
+      "fixed": 0.25
+    },
+    "card_eea_premium": {
+      "checkedAt": "2026-09-23",
+      "source": "https://stripe.com/en-lt/pricing",
+      "pct": 0.028,
+      "fixed": 0.25
+    },
+    "card_uk": {
+      "checkedAt": "2026-09-23",
+      "source": "https://stripe.com/en-lt/pricing",
+      "pct": 0.025,
+      "fixed": 0.25
+    },
+    "card_international": {
+      "checkedAt": "2026-09-23",
+      "source": "https://stripe.com/en-lt/pricing",
+      "pct": 0.0315,
+      "fixed": 0.25
+    },
+    "revolut_pay": {
+      "checkedAt": "2026-09-23",
+      "source": "https://stripe.com/en-lt/pricing/local-payment-methods",
+      "pct": 0.015,
+      "fixed": 0.25
+    },
+    "paypal": {
+      "checkedAt": "2026-09-23",
+      "source": "https://stripe.com/en-lt/pricing/local-payment-methods",
+      "pct": 0.036000000000000004,
+      "fixed": 0.44999999999999996,
+      "stripePart": {
+        "pct": 0.002,
+        "fixed": 0.1
+      },
+      "paypalPart": {
+        "pct": 0.034,
+        "fixed": 0.35,
+        "source": "https://www.paypal.com/lt/business/paypal-business-fees"
+      }
+    }
+  },
+  "PAYMENT_METHOD_ALIASES": {
+    "card": "card_eea_standard",
+    "link": "card_eea_standard"
+  },
+  "PAYMENT_UNKNOWN": "card_international",
+  "PAYMENT_EXTRAS": {
+    "checkedAt": "2026-09-23",
+    "source": "https://stripe.com/en-lt/pricing",
+    "fxConversionPct": 0.02,
+    "disputeFeeEur": 20
+  },
+  "TAX": {
+    "lt_vat": {
+      "checkedAt": "2026-09-23",
+      "source": "https://www.avalara.com/us/en/vatlive/country-guides/europe/lithuania/lithuanian-vat-rates.html",
+      "rate": 0.21
+    }
+  },
+  "RAILWAY": {
+    "checkedAt": "2026-09-23",
+    "source": "https://docs.railway.com/pricing/plans",
+    "plan": "hobby",
+    "monthlyUsd": 5,
+    "includedUsageUsd": 5,
+    "ramPerGbMonth": 10,
+    "cpuPerVcpuMonth": 20,
+    "ramPerGbMinute": 0.000231,
+    "cpuPerVcpuMinute": 0.000463,
+    "egressPerGb": 0.05,
+    "volumePerGbMonth": 0.15,
+    "invoiceVatRate": 0.21,
+    "drfillerUsageUsd": 1.62,
+    "drfillerShareUsd": 1.96
+  },
+  "FIRESTORE": {
+    "checkedAt": "2026-09-23",
+    "source": "https://cloud.google.com/firestore/pricing",
+    "location": "europe-central2",
+    "freePerDay": {
+      "reads": 50000,
+      "writes": 20000,
+      "deletes": 20000
+    },
+    "freeStorageGiB": 1,
+    "per100k": {
+      "reads": 0.033,
+      "writes": 0.099,
+      "deletes": 0.011
+    },
+    "storagePerGiBMonth": 0.165
+  },
+  "FX": {
+    "checkedAt": "2026-09-23",
+    "source": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A",
+    "usdPerEur": 1.1463,
+    "rateDate": "2026-09-22"
+  }
+}

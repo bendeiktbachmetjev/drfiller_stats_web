@@ -1,0 +1,28 @@
+{
+  "name": "drfiller-stats-web",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "engines": { "node": ">=22.12" },
+  "scripts": {
+    "dev": "vite",
+    "dev:mock": "node dev/mock-server.js",
+    "build": "vite build",
+    "start": "serve dist -s -l tcp://0.0.0.0:${PORT:-3000}",
+    "test": "TZ=Europe/Vilnius node --test \"src/**/*.test.mjs\"",
+    "sync:prices": "node scripts/sync-prices.mjs",
+    "sync:benchmark": "node scripts/slim-benchmark.mjs"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@vitejs/plugin-react": "^5.1.4",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.1",
+    "recharts": "^3.8.0",
+    "serve": "^14.2.4",
+    "tailwindcss": "^4.2.1",
+    "vite": "^7.3.1"
+  }
+}

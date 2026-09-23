@@ -86,7 +86,9 @@ export function computeAlerts({ ds, today, live, nowMs }) {
   const revenueLive = ds.revenue?.status === 'ok' && ds.revenueMode === 'live';
 
   const notCredited = ds.revenue?.webhook?.notCredited ?? 0;
-  if (revenueLive && notCredited >= ALERTS.notCredited) fire('notCredited', { n: notCredited });
+  if (revenueLive && notCredited >= ALERTS.notCredited) {
+    fire('notCredited', { n: notCredited, payments: { key: notCredited === 1 ? 'common.unit.payment.one' : 'common.unit.payment.other' } });
+  }
   if (ds.revenueMode === 'test') fire('stripeTestMode');
 
   if (today) {

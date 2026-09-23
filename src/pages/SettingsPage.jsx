@@ -58,7 +58,7 @@ export default function SettingsPage() {
       sources={['settings', 'config']}
     >
       <SectionNav items={navItems} />
-      <div className="max-w-5xl">
+      <div>
         <CalcSection readOnly={readOnly} />
         <AccountsSection data={data} dataset={dataset} readOnly={readOnly} />
         <PlanningSection data={data} readOnly={readOnly} />

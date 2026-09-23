@@ -2,27 +2,26 @@
 // the price of one form over the months; hand-entered invoices next to the list price.
 // Shared numbers (total, per form, per doctor in the plan) are picked from the core, never recounted.
 import { MIN_EVENTS_PER_POINT } from '../constants.js';
-import { MODEL_ERAS, SONIOX_SINCE_MS } from '../eras.js';
-import { addDays, addMonths, compareCaveat, dayKeyOf, diffDays, eachDay, inPeriod, monthKeyOf, previousPeriod } from '../period.js';
+import { SONIOX_SINCE_MS } from '../eras.js';
+import { addDays, addMonths, dayKeyOf, diffDays, eachDay, inPeriod, monthKeyOf } from '../period.js';
+import { formCostChange } from '../core/formCostChange.js';
 import { formMonthly } from '../core/formTrend.js';
 import { bucketFixedEur, fixedMonthUsd } from '../core/fixed.js';
 import { remember } from '../core/memo.js';
 import { projectScale } from '../core/projection.js';
 import { hidesInternal, isInternal } from '../core/scope.js';
 import { currentSetup } from '../core/setup.js';
-import { summarize } from '../core/summary.js';
+import { REQUEST_KINDS, costProviderOf, summarize } from '../core/summary.js';
 import { geminiPrice } from '../pricing/gemini.js';
-import { EMPTY_RESULT, addTo, comparable, makeSeries, median, share, sum } from './shared.js';
+import { EMPTY_RESULT, addTo, makeSeries, median, share, sum } from './shared.js';
 
-/** Kinds that are a doctor's request and carry a cost (meter and failure rows cost nothing). */
-const REQUEST_KINDS = new Set(['form', 'dictation', 'live', 'anamnesis']);
 
 /** A change of the price of a form below this share reads as "hardly changed" (§4.3 answer). */
 const FORM_FLAT_SHARE = 0.1;
-/** Mean request or answer size must grow at least this much to be named as the cause. */
-const SIZE_GROWTH = 1.1;
-/** «Why a form got more expensive» takeaway: last full month ≥ 1.2 × the median of the first three. */
+/** «Why a form got more expensive» takeaway: the latest busy month ≥ 1.2 × the median of the first three. */
 const WHY_UP_FACTOR = 1.2;
+/** The month the takeaway compares with needs this many forms (the running month counts once it has them). */
+const WHY_UP_MIN_FORMS = 50;
 
 /** Series fields: by service, by vendor, by model; `fixed` (server) is the same in all three splits. */
 export const SPLITS = Object.freeze({
@@ -40,11 +39,7 @@ const INVOICE_START = '2026-03';
 
 const featureOf = (row) => (row.kind === 'dictation' || row.kind === 'live' ? 'recording' : row.kind);
 
-const providerOf = (row) => {
-  if (row.kind === 'form' || row.kind === 'anamnesis') return 'gemini';
-  if (row.kind === 'live') return 'soniox';
-  return row.provider === 'soniox' ? 'soniox' : 'openai';
-};
+const providerOf = costProviderOf;
 
 /** Today's main / backup model by identity (forms only); everything else is "other models". */
 const modelGroupOf = (row, setup) => {
@@ -103,57 +98,23 @@ function costSeries(ds, period, rows, planning, setup) {
 // Answer
 // ---------------------------------------------------------------------------------------------------
 
-const meanTokens = (forms) => ({
-  inTok: forms.length ? sum(forms.map((row) => row.inTok)) / forms.length : null,
-  outTok: forms.length ? sum(forms.map((row) => row.outTok)) / forms.length : null,
-});
-
-/** The model era that covers most of a window (the same rule as period.compareCaveat). */
-function dominantEra(fromMs, toMs) {
-  let best = null;
-  let bestMs = 0;
-  MODEL_ERAS.forEach((era) => {
-    const overlap = Math.min(toMs, era.toMs ?? Infinity) - Math.max(fromMs, era.fromMs);
-    if (overlap > bestMs) {
-      best = era;
-      bestMs = overlap;
-    }
-  });
-  return best;
-}
-
-const grew = (cur, prev) => Number.isFinite(cur) && Number.isFinite(prev) && prev > 0 && cur >= prev * SIZE_GROWTH;
-
 /**
- * The price of one form against the comparison window, with its main cause (first match):
- * size (request +10 %, same model) · era (another model) · longer (answer +10 %) · other.
+ * The price of one form against the comparison window, with its main cause from the shared core
+ * (formCostChange: era · size · longer · other). Costs speaks from a 10 % change (Overview from 20 %).
  * @returns {{ key: string, values: object, tone: string } | null}
  */
-function formPriceAnswer(ds, period, scope, summary, forms) {
-  const cpf = summary.unit.costPerFormEur;
-  if (cpf === null) return null;
-  const values = { cpf: ['eurUnit', cpf] };
-  const prev = previousPeriod(period);
-  const prevSummary = prev && comparable(ds, prev) ? summarize(ds, prev, scope) : null;
-  const prevCpf = prevSummary?.unit.costPerFormEur ?? null;
-  if (!(prevCpf > 0)) return { key: 'costs.answer.formOnly', values, tone: 'neutral' };
+function formPriceAnswer(ds, period, scope) {
+  const change = formCostChange(ds, period, scope);
+  if (change.cur === null) return null;
+  const values = { cpf: ['eurUnit', change.cur] };
+  if (change.change === null) return { key: 'costs.answer.formOnly', values, tone: 'neutral' };
+  if (Math.abs(change.change) < FORM_FLAT_SHARE) return { key: 'costs.answer.formFlat', values, tone: 'neutral' };
+  if (change.change < 0) return { key: 'costs.answer.formDown', values: { ...values, delta: ['pct', -change.change] }, tone: 'good' };
 
-  const change = cpf / prevCpf - 1;
-  if (Math.abs(change) < FORM_FLAT_SHARE) return { key: 'costs.answer.formFlat', values, tone: 'neutral' };
-  if (change < 0) return { key: 'costs.answer.formDown', values: { ...values, delta: ['pct', -change] }, tone: 'good' };
-
-  const up = { ...values, delta: ['pct', change] };
-  const cur = meanTokens(forms);
-  const before = meanTokens(periodRows(ds, prev, scope).filter((row) => row.kind === 'form'));
-  const eraChanged = compareCaveat(period, prev).modelEraChanged;
-  if (grew(cur.inTok, before.inTok) && !eraChanged) {
-    return { key: 'costs.answer.formUp.size', values: { ...up, pages: ['pages', cur.inTok] }, tone: 'attention' };
-  }
-  if (eraChanged) {
-    const era = dominantEra(period.fromMs, period.effToMs);
-    return { key: 'costs.answer.formUp.era', values: { ...up, model: ['model', era?.main ?? null] }, tone: 'attention' };
-  }
-  if (grew(cur.outTok, before.outTok)) return { key: 'costs.answer.formUp.longer', values: up, tone: 'attention' };
+  const up = { ...values, delta: ['pct', change.change] };
+  if (change.cause === 'era') return { key: 'costs.answer.formUp.era', values: { ...up, model: ['model', change.era?.main ?? null] }, tone: 'attention' };
+  if (change.cause === 'size') return { key: 'costs.answer.formUp.size', values: { ...up, pages: ['pages', change.inTokCur] }, tone: 'attention' };
+  if (change.cause === 'longer') return { key: 'costs.answer.formUp.longer', values: up, tone: 'attention' };
   return { key: 'costs.answer.formUp.other', values: up, tone: 'attention' };
 }
 
@@ -353,20 +314,23 @@ function formMonthRows(ds, period, scope) {
   });
 }
 
-/** Takeaway when the last full month's form costs ≥ 1.2 × the median of the first three months. */
-function whyUpTakeaway(months, nowMs) {
+/**
+ * Takeaway when the latest month with ≥ 50 forms (the running month included) costs ≥ 1.2 × the median
+ * of the first three months. Both months are named, so the sentence never quotes an old month silently.
+ */
+function whyUpTakeaway(months) {
   const known = months.filter((month) => month.costPerFormEur !== null);
   if (known.length < 4) return null;
   const firstThree = known.slice(0, 3);
-  const lastFullKey = addMonths(`${monthKeyOf(nowMs)}-01`, -1).slice(0, 7);
-  const last = known.find((month) => month.monthKey === lastFullKey);
+  const last = [...known].reverse().find((month) => month.forms >= WHY_UP_MIN_FORMS);
   if (!last || firstThree.includes(last)) return null;
   const before = median(firstThree.map((month) => month.costPerFormEur));
   if (!(last.costPerFormEur >= before * WHY_UP_FACTOR)) return null;
   return {
-    key: 'costs.takeaway.whyUp',
+    key: last.isPartial ? 'costs.takeaway.whyUp.soFar' : 'costs.takeaway.whyUp',
     values: {
       fromMonth: ['month', firstThree[0].monthKey],
+      toMonth: ['month', last.monthKey],
       a: ['eurUnit', before],
       b: ['eurUnit', last.costPerFormEur],
       x: ['int', median(firstThree.map((month) => month.meanPages))],
@@ -459,12 +423,12 @@ export function computeCosts(ds, period, scope, opts = {}) {
       },
       tone: 'neutral',
     },
-    formPriceAnswer(ds, period, scope, summary, forms),
+    formPriceAnswer(ds, period, scope),
     promoAnswer(ds, period),
   ].filter(Boolean);
 
   const months = formMonthRows(ds, period, scope);
-  const whyUp = whyUpTakeaway(months, ds.nowMs);
+  const whyUp = whyUpTakeaway(months);
   const soniox = sonioxCheck(ds, period);
 
   return {

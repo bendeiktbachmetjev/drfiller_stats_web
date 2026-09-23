@@ -106,8 +106,8 @@ const doctorPaysText = (row) => {
 export const visitColumns = [
   { key: 'key', header: t('money.col.visit'), type: 'node', priority: 1, sortable: false, render: (row) => t(`money.visit.${row.key}`) },
   { key: 'doctorPaysEur', header: t('money.col.doctorPays'), type: 'node', priority: 2, sortable: false, render: doctorPaysText },
-  { key: 'costEur', header: t('money.col.cost'), type: 'eurUnit', priority: 1, sortable: false },
   { key: 'netEur', header: t('money.col.income'), type: 'eurUnit', priority: 2, sortable: false },
+  { key: 'costEur', header: t('money.col.cost'), type: 'eurUnit', priority: 1, sortable: false },
   { key: 'leftEur', header: t('money.col.kept'), type: 'node', align: 'right', priority: 1, sortable: false, render: keptCell },
 ];
 

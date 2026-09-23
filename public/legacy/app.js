@@ -14,9 +14,11 @@
     // ===========================
     // Dev override: ?server=http://localhost:8323 or
     // localStorage.drfiller_admin_server. Defaults to production.
+    // Only a local server may replace it: a crafted link must never send the admin key elsewhere.
+    const localOnly = (url) => (url && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(url) ? url : null);
     const serverUrl =
-        new URLSearchParams(location.search).get('server') ||
-        localStorage.getItem('drfiller_admin_server') ||
+        localOnly(new URLSearchParams(location.search).get('server')) ||
+        localOnly(localStorage.getItem('drfiller_admin_server')) ||
         'https://web-production-d4666.up.railway.app';
 
     let statsData = null;

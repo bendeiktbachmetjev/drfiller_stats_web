@@ -53,7 +53,7 @@ export function CostTiles({ metric }) {
         format="eur"
         goodWhen="down"
         badge="model"
-        sub={projection ? t('costs.tile.perDoctorPlan.sub', { n: fmt.int(projection.scales[0]), x: fmt.eur(projection.columns.s0.costTotalEur) }) : null}
+        sub={Number.isFinite(visits) ? t('costs.tile.perDoctorPlan.sub', { visits: fmt.int(visits) }) : null}
         hintKey="costs.perDoctorPlan"
         hintValues={Number.isFinite(visits) ? { visits: fmt.int(visits) } : undefined}
         firstLoad={loading}

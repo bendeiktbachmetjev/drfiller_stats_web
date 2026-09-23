@@ -68,7 +68,6 @@ export default function AnamnesisSection({ metric, doctors }) {
               value={h.anamCostPerRun}
               format="eurUnit"
               wide={false}
-              sub={t('requests.tile.anamCostPerRun.sub')}
               delta={metric.delta((d) => d.headline.anamCostPerRun)}
               goodWhen="down"
               badge={basis.anamCostPerRun === 'missing' ? undefined : basis.anamCostPerRun}

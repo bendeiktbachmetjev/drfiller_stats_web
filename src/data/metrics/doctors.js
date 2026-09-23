@@ -9,7 +9,7 @@ import { datasetRuns } from '../core/anamnesis.js';
 import { incomeStatus } from '../core/income.js';
 import { projectScale } from '../core/projection.js';
 import { hidesInternal, internalCount, isInternal, scopedDoctors } from '../core/scope.js';
-import { summarize } from '../core/summary.js';
+import { REQUEST_KINDS, summarize, topDoctorOf } from '../core/summary.js';
 import { EMPTY_RESULT, inPeriod, share } from './shared.js';
 
 /** Table views: doctors with a request in the period, or every account in the scope. */
@@ -20,10 +20,7 @@ export const CLASS_ORDER = Object.freeze(['internal', 'gifted', 'free', 'paid', 
 export const SUGGEST_SHARE = 0.5;
 /** Above this share of the costs, one doctor is "most of the panel" (note + (i) of the tile). */
 export const ONE_DOCTOR_SHARE = 0.5;
-/** Funnel steps, top to bottom. */
-export const FUNNEL_STEPS = Object.freeze(['registered', 'used', 'active30', 'bought']);
 
-const REQUEST_KINDS = new Set(['form', 'dictation', 'live', 'anamnesis']);
 const RECORDING_KINDS = new Set(['dictation', 'live']);
 const NO_ACCOUNT = new Set(['anonymous', 'deleted']);
 
@@ -77,19 +74,6 @@ export function matchesSearch(row, search, ds) {
   if (!needle) return true;
   const email = ds?.doctors?.get?.(row.pid)?.email ?? '';
   return [email, row.code, row.specialty, row.noText].some((field) => typeof field === 'string' && field.toLowerCase().includes(needle));
-}
-
-/**
- * The account with most of the variable cost (the same pick as Overview: 'anonymous' never counts).
- * @param {Record<string, number>} byPid
- * @returns {{ pid: string, costEur: number } | null}
- */
-export function topDoctorOf(byPid) {
-  let top = null;
-  Object.entries(byPid ?? {}).forEach(([pid, costEur]) => {
-    if (pid !== 'anonymous' && (!top || costEur > top.costEur)) top = { pid, costEur };
-  });
-  return top && top.costEur > 0 ? top : null;
 }
 
 /**

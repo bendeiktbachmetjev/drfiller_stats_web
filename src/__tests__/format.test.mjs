@@ -38,6 +38,9 @@ test('fmt: counts, shares and plurals', () => {
   assert.equal(fmt.pct(0.64), '64%');
   assert.equal(fmt.pct(0.042), '4.2%');
   assert.equal(fmt.pct(0.0005), '<0.1%');
+  assert.equal(fmt.pct(0.9958), '99.6%', 'just under all never rounds to 100%');
+  assert.equal(fmt.pct(0.99999), '99.9%');
+  assert.equal(fmt.pct(1), '100%');
   assert.equal(fmt.credits(1), '1 credit');
   assert.equal(fmt.credits(2), '2 credits');
   assert.equal(fmt.credits(1234), '1,234 credits');
@@ -47,9 +50,20 @@ test('fmt: counts, shares and plurals', () => {
   assert.equal(fmt.countOf(8, 735), '8 of 735');
 });
 
+test('fmt.delta: points instead of pp; a huge rise reads as a multiple', () => {
+  const NBSP = String.fromCodePoint(0xa0);
+  assert.equal(fmt.delta({ kind: 'pp', value: -18.8, dir: 'down' }), `−18.8${NBSP}points`);
+  assert.equal(fmt.delta({ kind: 'pp', value: -1, dir: 'down' }), `−1${NBSP}point`);
+  assert.equal(fmt.delta({ kind: 'pct', value: 2029, dir: 'up' }), '×21');
+  assert.equal(fmt.delta({ kind: 'pct', value: 600, dir: 'up' }), '×7');
+  assert.equal(fmt.delta({ kind: 'pct', value: 450, dir: 'up' }), '+450%');
+});
+
 test('fmt: tokens, pages, time (a no-break space before units)', () => {
   const NBSP = String.fromCodePoint(0xa0);
-  assert.equal(fmt.tokens(11441), '11.4k');
+  assert.equal(fmt.tokens(11441), '11,441', 'written in full below 100,000');
+  assert.equal(fmt.tokens(125300), '125.3k');
+  assert.equal(fmt.int(83412), '83,412');
   assert.equal(fmt.tokens(900), '900');
   assert.equal(fmt.pages(11441), '≈ 17 pages');
   assert.equal(fmt.sec(5900), `5.9${NBSP}s`);

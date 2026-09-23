@@ -80,7 +80,7 @@ test('text pairs reach 4.5:1 (§5.3.4 contrast evidence)', () => {
 });
 
 test('graphics reach 3:1 and series stay apart for colour-blind readers', () => {
-  ['data-mute', 'rec-light', 'fallback', 'cost', 'infra', 'anamnesis', 'rec', 'brand'].forEach((name) => {
+  ['data-mute', 'rec-light', 'fallback', 'cost', 'infra', 'anamnesis', 'rec', 'brand', 'brand-light'].forEach((name) => {
     const value = ratio(T(name), T('surface'));
     assert.ok(value >= 3, `${name} on white: ${value.toFixed(2)}`);
   });

@@ -2,7 +2,7 @@ import React from 'react';
 import { Coins, Receipt, TrendingUp, Users } from 'lucide-react';
 import { Card, CardHeader, InsightRow } from '../../ui/index.js';
 import { t } from '../../copy/index.js';
-import { itemText } from './text.js';
+import { itemText } from '../../format/items.js';
 
 // One icon per slot of §4.1: units · cost driver · concentration · liability.
 const ICONS = {

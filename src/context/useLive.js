@@ -141,6 +141,7 @@ export function useLive({ enabled = true } = {}) {
 
   useEffect(() => {
     if (!enabled) return undefined;
+    const keyChanged = store.key !== key && store.users > 0;
     if (store.key !== key) {
       if (store.users > 0) stopPolling();
       store.key = key;
@@ -150,7 +151,8 @@ export function useLive({ enabled = true } = {}) {
     store.fetcher = fetcher;
     store.onAuthError = onAuthError;
     store.users += 1;
-    if (store.users === 1) startPolling();
+    // A new key stops the old poll (above); restart it here even when other components already use it.
+    if (store.users === 1 || keyChanged) startPolling();
     return () => {
       store.users -= 1;
       if (store.users === 0) stopPolling();

@@ -24,7 +24,7 @@ test('pack label: one pack by name, a real mix as "packs as planned"', () => {
 });
 
 test('assumption line', () => {
-  assert.equal(planChipsText(plan), '400 visits · 15 min conversation · pack 1500 · no VAT · 0% free');
+  assert.equal(planChipsText(plan), '400 visits · 15 min conversation · pack 1500 · no VAT · no free use');
   assert.equal(planChipsText({ ...plan, vatPayer: true }).includes('with VAT'), true);
   assert.equal(planChipsText(null), '');
 });

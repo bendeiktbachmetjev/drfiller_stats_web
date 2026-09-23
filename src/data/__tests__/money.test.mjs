@@ -117,7 +117,8 @@ test('the plan at 1, 100 and 300 doctors reproduces Appendix C.3 within 1 %', ()
   within(plan.capacity.firestore.s1Eur, 0.16, 0.05, 'Firestore writes at 300 doctors');
   close(s0.costGeminiFormsEur + s0.costSonioxEur + s0.costOpenaiEur + s0.costAnamnesisEur + s0.costFixedEur, s0.costTotalEur, 1e-9);
   assert.deepEqual(plan.scales, [100, 300]);
-  assert.deepEqual(plan.chips.map((chip) => chip.key), ['common.plan.chip.visits', 'common.scenario.live', 'common.plan.packSingle', 'common.vatWord.off', 'common.plan.chip.free']);
+  assert.deepEqual(plan.chips.map((chip) => chip.key).slice(0, 4), ['common.plan.chip.visits', 'common.scenario.live', 'common.plan.packSingle', 'common.vatWord.off']);
+  assert.ok(['common.plan.chip.free', 'common.plan.chip.noFree'].includes(plan.chips[4].key), 'free share: a share, or "no free use" at 0');
   assert.ok(plan.warnings.includes('SONIOX_STREAM_LIMIT'));
 });
 

@@ -8,9 +8,14 @@ import InvoiceEditor from './InvoiceEditor.jsx';
 import { invoiceLead } from './view.js';
 
 const RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent';
-const CHANGE = `sf-hit shrink-0 whitespace-nowrap inline-flex items-center gap-1 h-8 px-3 rounded-full border border-line bg-surface text-xs font-bold text-brand hover:bg-line/20 transition-colors ${RING}`;
+// A quiet icon button: seven outlined buttons were the loudest thing in the table.
+const CHANGE = `sf-hit shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-full text-ink-mute hover:text-brand hover:bg-line/20 transition-colors ${RING}`;
+/** Phones show the latest months as cards; "Show all N" opens the rest. */
+const PHONE_MONTHS = 3;
 
-const usdCell = (key) => (row) => fmt.usd(row[key]);
+/** Invoices in dollars are shown in € (§2 rule 5); the dollar amount stays in the tooltip. */
+const usdAsEurCell = (usdKey, eurKey) => (row) =>
+  Number.isFinite(row[usdKey]) ? <span title={fmt.usd(row[usdKey])}>{fmt.eur(row[eurKey])}</span> : fmt.empty;
 
 /** A header on two lines on a laptop (the table does not wrap headers), one line in a phone card. */
 const twoLines = (key) => {
@@ -49,8 +54,7 @@ export default function InvoicesSection({ data, usdPerEur }) {
               setEditing(row.month);
             }}
           >
-            <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
-            {t('costs.invoices.change')}
+            <Pencil className="w-4 h-4" aria-hidden="true" />
           </button>
         </span>
         {row.note && (
@@ -60,17 +64,19 @@ export default function InvoicesSection({ data, usdPerEur }) {
         )}
       </span>
     );
-    const money = (key, header, priority, type = 'eur') => ({ key, header: twoLines(header), type, priority, sortable: false, ...(type === 'usd' ? { render: usdCell(key) } : {}) });
+    const money = (key, header, priority, eurKey) => ({
+      key, header: twoLines(header), type: 'eur', priority, sortable: false, ...(eurKey ? { render: usdAsEurCell(key, eurKey) } : {}),
+    });
     return [
       { key: 'month', header: t('costs.col.month'), type: 'node', priority: 1, sortable: false, render: monthCell },
       money('googleListEur', 'costs.col.googleList', 1),
       money('googleInvoiceEur', 'costs.col.googleInvoice', 2),
       money('googlePromoCreditsEur', 'costs.col.promo', 3),
       money('googlePaidEur', 'costs.col.googlePaid', 1),
-      money('railwayUsd', 'costs.col.railway', 3, 'usd'),
+      money('railwayUsd', 'costs.col.railway', 3, 'railwayEur'),
       money('sonioxListEur', 'costs.col.sonioxList', 3),
-      money('sonioxInvoiceUsd', 'costs.col.sonioxInvoice', 3, 'usd'),
-      money('openaiInvoiceUsd', 'costs.col.openaiInvoice', 3, 'usd'),
+      money('sonioxInvoiceUsd', 'costs.col.sonioxInvoice', 3, 'sonioxInvoiceEur'),
+      money('openaiInvoiceUsd', 'costs.col.openaiInvoice', 3, 'openaiInvoiceEur'),
       money('otherEur', 'costs.col.other', 3),
       money('totalEur', 'costs.col.monthTotal', 2),
     ];
@@ -89,7 +95,7 @@ export default function InvoicesSection({ data, usdPerEur }) {
       <SectionTitle id="costs-invoices" title={t('costs.section.invoices')} description={invoiceLead(rows)} />
       <Card>
         <CardHeader title={t('costs.invoices.title')} hintKey="costs.invoices" />
-        <DataTable columns={columns} rows={rows} maxHeight={null} caption={t('costs.section.invoices')} />
+        <DataTable columns={columns} rows={rows} limit={0} phoneRows={PHONE_MONTHS} caption={t('costs.section.invoices')} />
         {savedMonth && !editingRow && (
           <p role="status" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
             <Check className="w-4 h-4 text-brand" aria-hidden="true" />

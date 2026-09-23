@@ -46,8 +46,11 @@ Never point a local site at the production API while testing; use the mock or `?
 ```bash
 npm test               # all tests: TZ=Europe/Vilnius node --test "src/**/*.test.mjs"
 npm run build          # writes dist/ (demo data and the mock are not in it)
-PORT=4000 npm start    # serves dist/: /, deep links such as /money, and /legacy/index.html
+PORT=4000 npm start    # serves dist/: /, deep links such as /money, and /legacy (→ /legacy/index.html)
 ```
+
+`src/data/metrics/__tests__/settings.test.mjs` also reads the backend's price table from `../backend` when that
+repo sits next to this one; without it those checks are skipped.
 
 `src/data/__tests__/invariants.test.mjs` checks that the pages agree with each other: shared numbers are the
 very same values, splits add up to totals, the account switch and the VAT switch move only what they should,
@@ -73,7 +76,7 @@ Stats site (build time):
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `VITE_API_URL` | the production backend | Where the admin API lives. Empty = same origin (the dev proxy to the mock). |
+| `VITE_API_URL` | the production backend | Where the admin API lives. Empty = same origin (the dev proxy to the mock). A different address also needs `connect-src` in `public/serve.json` (the browser blocks every other address; `deploy.test.mjs` checks the default). |
 | `PORT` | 3000 | Port for `npm start` (Railway sets it). |
 
 Backend (`drfiller/backend`, Railway service of the API):
@@ -104,7 +107,8 @@ Backend (`drfiller/backend`, Railway service of the API):
    Gemini 3.5 Flash (Google Cloud, Frankfurt).
 8. Settings: all data sources say "works"; the exchange rate and the price date are shown.
 9. Phone: open Overview on the phone; the answer is visible without scrolling, nothing scrolls sideways.
-10. `/legacy/index.html` still opens the old dashboard.
+10. `/legacy` still opens the old dashboard.
+11. After a later deploy, an open tab reloads itself once when it opens a page it had not loaded yet.
 
 If something looks wrong, "Export" on each page downloads the page's tables as CSV.
 
@@ -112,8 +116,12 @@ If something looks wrong, "Export" on each page downloads the page's tables as C
 
 - `src/data/` is pure (no React, no window; network only in `data/api/client.js`).
   - `core/`: the shared numbers (`summarize`, `summarizeHealth`, `summarizeToday`, `unitCosts`,
-    `unitEconomics`, `projectScale`, `capacity` …). Page metrics only pick from them.
+    `unitEconomics`, `projectScale`, `capacity`, `formCostChange` …). Page metrics only pick from them.
   - `metrics/<page>.js`: one `compute<Page>(ds, period, scope, opts)` per page.
+- `src/context/`: loading and caching the data, the period and the account switch, `useMetric`.
+- `src/auth/`: the admin-key form and where the key is kept (session, or this device when ticked).
+- `src/format/`: numbers, money and dates (`format.js`), and metric items → sentences (`items.js`).
+- `src/export/`: CSV files of the page tables.
 - `src/pages/<Page>Page.jsx` + `src/pages/<page>/`: the page layout and its local parts.
 - `src/ui/`, `src/charts/`: shared UI parts (tiles, tables, bar lists, charts).
 - `src/copy/en/<page>.js`: every word on the page, with the (i) texts. The fixed words are Paid by doctors,

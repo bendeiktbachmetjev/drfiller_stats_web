@@ -141,8 +141,13 @@ test('"Why a form got more expensive" uses formMonthly over all time, whatever t
   });
   assert.deepEqual(week.filter((row) => row.inPeriod).map((row) => row.monthKey), ['2026-09']);
   const takeaway = computeCosts(ds, resolvePeriod('last7', NOW), scope).takeaways.whyUp;
-  assert.equal(takeaway?.key, 'costs.takeaway.whyUp', 'August costs ≥ 1.2 × the spring median');
+  assert.ok(takeaway?.key.startsWith('costs.takeaway.whyUp'), 'the latest busy month costs ≥ 1.2 × the spring median');
   assert.equal(takeaway.values.fromMonth[1], '2026-03');
+  const toMonth = takeaway.values.toMonth[1];
+  const target = months.find((month) => month.monthKey === toMonth);
+  assert.ok(target.forms >= 50, 'the compared month has at least 50 forms');
+  assert.equal(takeaway.values.b[1], target.costPerFormEur, 'b is the price of the named month');
+  assert.equal(takeaway.key === 'costs.takeaway.whyUp.soFar', toMonth === '2026-09', 'the running month is marked "so far"');
   const planned = await demoDataset('planned');
   assert.equal(computeCosts(planned, resolvePeriod('last30', NOW), makeScope({ settings: planned.settings })).takeaways.whyUp, undefined, 'two months of data: no takeaway');
 });

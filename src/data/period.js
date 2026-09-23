@@ -343,15 +343,28 @@ const dominant = (eras, fromMs, toMs) => {
 
 const setupOf = (era) => `${era.main}|${era.endpoint}|${era.location ?? ''}`;
 
+const eraSetup = (era) => (era ? { id: era.id, main: era.main, endpoint: era.endpoint, location: era.location } : null);
+
+/**
+ * The model era that covers most of a time window (by overlap).
+ * @param {number} fromMs
+ * @param {number} toMs
+ * @returns {import('./eras.js').ModelEra|null}
+ */
+export const dominantModelEra = (fromMs, toMs) => dominant(MODEL_ERAS, fromMs, toMs);
+
 /**
  * Did the main model (or where it runs) or the billing rule differ between a period and its comparison window?
- * Decided by the era that covers most of each window's elapsed time.
+ * Decided by the era that covers most of each window's elapsed time. `era` is the comparison window's setup
+ * (the chip: "compared with a time when …"); `currentEra` is the setup that ran most of `period`.
  * @param {Period} period
  * @param {Period|null} prev
- * @returns {{ modelEraChanged: boolean, billingEraChanged: boolean, era: { id: string, main: string, endpoint: string, location: string|null } | null }}
+ * @returns {{ modelEraChanged: boolean, billingEraChanged: boolean,
+ *   era: { id: string, main: string, endpoint: string, location: string|null } | null,
+ *   currentEra: { id: string, main: string, endpoint: string, location: string|null } | null }}
  */
 export const compareCaveat = (period, prev) => {
-  if (!period || !prev) return { modelEraChanged: false, billingEraChanged: false, era: null };
+  if (!period || !prev) return { modelEraChanged: false, billingEraChanged: false, era: null, currentEra: null };
   const nowModel = dominant(MODEL_ERAS, period.fromMs, period.effToMs);
   const prevModel = dominant(MODEL_ERAS, prev.fromMs, prev.effToMs);
   const nowBilling = dominant(BILLING_ERAS, period.fromMs, period.effToMs);
@@ -359,10 +372,9 @@ export const compareCaveat = (period, prev) => {
   // The chip says "a different model": eras that only add a fallback (e1 → e5) keep the same main model and endpoint.
   const modelEraChanged = Boolean(nowModel && prevModel && setupOf(nowModel) !== setupOf(prevModel));
   const billingEraChanged = Boolean(nowBilling && prevBilling && nowBilling.rule !== prevBilling.rule);
-  const era = modelEraChanged
-    ? { id: prevModel.id, main: prevModel.main, endpoint: prevModel.endpoint, location: prevModel.location }
-    : null;
-  return { modelEraChanged, billingEraChanged, era };
+  const era = modelEraChanged ? eraSetup(prevModel) : null;
+  const currentEra = modelEraChanged ? eraSetup(nowModel) : null;
+  return { modelEraChanged, billingEraChanged, era, currentEra };
 };
 
 // ---------------------------------------------------------------------------

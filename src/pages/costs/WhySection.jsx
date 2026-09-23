@@ -51,6 +51,7 @@ export default function WhySection({ data }) {
         </ChartCard>
         <ChartCard
           title={t('costs.whyUp.size')}
+          hintKey="costs.whyUpSize"
           rows={rows}
           series={pageSeries}
           height={240}

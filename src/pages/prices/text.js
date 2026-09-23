@@ -11,6 +11,7 @@
 //   ['placesShort', [...]]           places joined with "and" → "“any country” and “EU only”"
 import { endpointLabel, getLocale, modelLabel, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
+import { itemText } from '../../format/items.js';
 
 const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
 
@@ -81,22 +82,7 @@ const CUSTOM = {
 };
 
 /**
- * Formats a `values` map of a Prices item: page-only hints first, everything else through fmt.values.
- * @param {Record<string, unknown>} [values]
- * @returns {Record<string, string>}
- */
-export function valuesOf(values) {
-  const standard = {};
-  const custom = {};
-  Object.entries(values ?? {}).forEach(([key, raw]) => {
-    if (Array.isArray(raw) && raw.length === 2 && typeof raw[0] === 'string' && CUSTOM[raw[0]]) custom[key] = CUSTOM[raw[0]](raw[1]);
-    else standard[key] = raw;
-  });
-  return { ...fmt.values(standard), ...custom };
-}
-
-/**
  * The sentence of a metric item `{ key, values }` ('' for nothing).
  * @param {{ key: string, values?: object } | null | undefined} item
  */
-export const textOf = (item) => (item?.key ? t(item.key, valuesOf(item.values)) : '');
+export const textOf = (item) => itemText(item, { hints: CUSTOM });

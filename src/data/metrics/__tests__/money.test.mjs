@@ -95,9 +95,9 @@ test('sensitivity: sorted by |difference|, the top 3 that matter become sentence
   assert.equal(top.length, 3);
   assert.deepEqual(top, rows.slice(0, 3));
   top.forEach((row) => {
-    assert.equal(row.line.key, 'money.sensitivity.row');
+    assert.equal(row.line.key, row.diffEur >= 0 ? 'money.sensitivity.more' : 'money.sensitivity.less', 'the sign picks the words');
     assert.equal(row.line.values.change.key, `money.sensitivity.change.${row.key}`);
-    assert.deepEqual(row.line.values.diff, ['eurSigned', row.diffEur]);
+    assert.deepEqual(row.line.values.diff, ['eur', Math.abs(row.diffEur)], 'the amount is the change, without a sign');
   });
 });
 

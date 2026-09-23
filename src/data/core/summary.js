@@ -69,15 +69,33 @@ export function emptySummary({ incomeStatus = 'off', monthFactor: factor = 0 } =
   };
 }
 
+/**
+ * The account with most of the variable cost (Overview and Doctors: 'anonymous' never counts).
+ * @param {Record<string, number>} byPid
+ * @returns {{ pid: string, costEur: number } | null}
+ */
+export function topDoctorOf(byPid) {
+  let top = null;
+  Object.entries(byPid ?? {}).forEach(([pid, costEur]) => {
+    if (pid !== 'anonymous' && (!top || costEur > top.costEur)) top = { pid, costEur };
+  });
+  return top && top.costEur > 0 ? top : null;
+}
+
 /** Kinds that are a request of a doctor (activity). Meter and failure rows are not. */
-const REQUEST_KINDS = new Set(['form', 'dictation', 'live', 'anamnesis']);
+export const REQUEST_KINDS = new Set(['form', 'dictation', 'live', 'anamnesis']);
 const MINUTE_ESTIMATE_SHARE = 0.05;
 
 const add = (map, key, amount) => {
   map[key] = (map[key] ?? 0) + amount;
 };
 
-const providerKey = (row) => {
+/**
+ * The vendor a request's cost goes to: Gemini (forms, medical history), Soniox or OpenAI (recording).
+ * @param {{ kind: string, provider?: string|null }} row
+ * @returns {'gemini'|'soniox'|'openai'}
+ */
+export const costProviderOf = (row) => {
   if (row.kind === 'form' || row.kind === 'anamnesis') return 'gemini';
   if (row.kind === 'live') return 'soniox';
   return row.provider === 'soniox' ? 'soniox' : 'openai';
@@ -137,7 +155,7 @@ function compute(ds, period, scope) {
     if (row.audioBasis === 'bytes_estimate') estimatedMinutes += audioMin;
     if (row.pid !== 'anonymous') active.add(row.pid);
     cost.byFeature[row.kind] += row.costEur;
-    cost.byProvider[providerKey(row)] += row.costEur;
+    cost.byProvider[costProviderOf(row)] += row.costEur;
     add(cost.byModel, row.model ?? 'unknown', row.costEur);
     add(cost.byPid, row.pid, row.costEur);
     add(cost.byClass, displayClassOf(row.pid), row.costEur);
@@ -198,4 +216,22 @@ function compute(ds, period, scope) {
     };
   }
   return summary;
+}
+
+/**
+ * What the hidden accounts change (§3.4 HiddenNote): the period's cost and result WITH the "my and test"
+ * accounts, from the same summarize(). null when the scope hides nothing or nothing changes.
+ * @param {import('../buildDataset.js').Dataset} ds
+ * @param {import('../period.js').Period} period
+ * @param {import('./scope.js').Scope} scope
+ * @returns {{ costEur: number, resultEur: number|null } | null} resultEur is null while the income is not known
+ */
+export function hiddenImpact(ds, period, scope) {
+  if (!ds || !period || !scope || !hidesInternal(ds, scope)) return null;
+  const shown = summarize(ds, period, scope);
+  const all = summarize(ds, period, { ...scope, excludeInternal: false });
+  const incomeOk = all.income?.status === 'ok';
+  const resultEur = incomeOk ? all.resultEur : null;
+  if (all.cost.totalEur === shown.cost.totalEur && resultEur === (incomeOk ? shown.resultEur : null)) return null;
+  return { costEur: all.cost.totalEur, resultEur };
 }

@@ -11,7 +11,8 @@ import PaymentsSection from './money/PaymentsSection.jsx';
 import ScaleSection from './money/ScaleSection.jsx';
 import UnitSection from './money/UnitSection.jsx';
 import { moneyExportTables } from './money/exportTables.js';
-import { periodPhrase, textOf } from './money/text.js';
+import { textOf } from './money/text.js';
+import { periodPhrase } from '../format/items.js';
 
 /** Notes shown in place (under the credits bar) are not repeated in the closing Data notes. */
 const NOTES_IN_PLACE = new Set(['money.note.beforeMeter']);

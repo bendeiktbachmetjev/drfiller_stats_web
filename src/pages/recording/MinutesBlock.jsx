@@ -40,7 +40,6 @@ export default function MinutesBlock({ data, period, doctorOf, loading }) {
           rows={data.tables.recordings}
           emptyText={t('recording.recordings.empty')}
           caption={t('recording.recordings.title')}
-          maxHeight={560}
         />
       </Card>
     );

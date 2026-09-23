@@ -44,11 +44,14 @@ const smallText = (abs) => {
   return new Intl.NumberFormat(getLocale(), { maximumFractionDigits: digits, maximumSignificantDigits: 2 }).format(abs);
 };
 
+// Whole numbers are written in full below this ('83,412'); from here on they shorten ('125.3k').
+const COMPACT_FROM = 100000;
+
 const intText = (n, ref = n) => {
   const rounded = Math.round(n);
   if (rounded === 0) return '0';
   const abs = Math.abs(rounded);
-  const text = Math.abs(Math.round(ref)) < 10000 ? nf().int.format(abs) : compactText(abs);
+  const text = Math.abs(Math.round(ref)) < COMPACT_FROM ? nf().int.format(abs) : compactText(abs);
   return `${signOf(rounded)}${text}`;
 };
 
@@ -121,6 +124,8 @@ const pctNum = (share, ref = share) => {
   const p = Math.abs(share) * 100;
   const refP = Math.abs(ref) * 100;
   if (p === 0) return '0';
+  // Just under 100% keeps a decimal, so 99.6% never reads as "all" ('99.6', at most '99.9').
+  if (p >= 99.5 && p < 100) return `${signOf(share)}${nf().d1max.format(Math.min(99.9, round1(p)))}`;
   if (round1(refP) >= 10) return `${signOf(share)}${nf().int.format(Math.round(p))}`;
   if (p < 0.1) return `${signOf(share)}${t('common.unit.lessThan', { x: nf().d1.format(0.1) })}`;
   return `${signOf(share)}${nf().d1max.format(round1(p))}`;
@@ -129,22 +134,22 @@ const pctNum = (share, ref = share) => {
 /** Shares 0..1: ≥ 10% → '64%'; < 10% → '4.2%'; < 0.1% → '<0.1%'. */
 const pct = (v) => (isNum(v) ? `${pctNum(v)}%` : EMPTY);
 
-/** Percentage points (already ×100): '+3 pp', '−0.5 pp'. */
+/** Percentage points (already ×100): '+3 points', '−0.5 points'. */
 const pp = (v) => {
   if (!isNum(v)) return EMPTY;
   const abs = round1(Math.abs(v));
-  if (abs === 0) return `0${NBSP}${t('common.unit.pp')}`;
-  return `${v > 0 ? '+' : MINUS}${nf().d1max.format(abs)}${NBSP}${t('common.unit.pp')}`;
+  if (abs === 0) return `0${NBSP}${plural(0, 'common.unit.pp')}`;
+  return `${v > 0 ? '+' : MINUS}${nf().d1max.format(abs)}${NBSP}${plural(abs, 'common.unit.pp')}`;
 };
 
 /** '1 credit' · '2 credits' · '1,234 credits'. */
 const credits = (n) => (isNum(n) ? `${intText(n)} ${plural(Math.round(n), 'common.unit.credit')}` : EMPTY);
 
-/** Tokens: plain up to 9,999, compact from 10,000 ('11.4k'). */
+/** Tokens: plain up to 99,999 ('11,441'), compact from 100,000 ('125.3k'). */
 const tokens = (n) => {
   if (!isNum(n)) return EMPTY;
   const abs = Math.abs(Math.round(n));
-  return `${signOf(n)}${abs < 10000 ? nf().int.format(abs) : compactText(abs)}`;
+  return `${signOf(n)}${abs < COMPACT_FROM ? nf().int.format(abs) : compactText(abs)}`;
 };
 
 /** Pages of text for a token count: tokens × 2.72 ÷ 1,800 → '≈ 17 pages'. */
@@ -307,14 +312,25 @@ const bucketTitle = (key, granularity) => {
 
 // --- Deltas ----------------------------------------------------------------------------------------
 
+/** A rise above this many percent reads as a multiple ('×21' instead of '+2,029%'). */
+const RATIO_FROM_PCT = 500;
+
 /**
- * A makeDelta result as text: pct '+18%', pp '−3 pp', abs '+4', eur '+€1.20'.
+ * The multiple of a big percentage rise: +2,029% → 21.29; null for anything else.
+ * @param {{ kind: string, value: number } | null} d
+ */
+const deltaRatio = (d) => (d && d.kind === 'pct' && isNum(d.value) && d.value > RATIO_FROM_PCT ? 1 + d.value / 100 : null);
+
+/**
+ * A makeDelta result as text: pct '+18%', a big rise '×21', pp '−3 points', abs '+4', eur '+€1.20'.
  * @param {{ kind: 'pct'|'pp'|'abs'|'eur', value: number, dir: 'up'|'down'|'flat' } | null} d
  */
 const delta = (d) => {
   if (!d || !isNum(d.value)) return EMPTY;
   if (d.kind === 'eur') return d.dir === 'flat' ? '€0' : eurSigned(d.value);
   if (d.kind === 'pp') return d.dir === 'flat' ? pp(0) : pp(d.value);
+  const ratio = deltaRatio(d);
+  if (ratio !== null) return `×${ratio < 10 ? nf().d1max.format(round1(ratio)) : nf().int.format(Math.round(ratio))}`;
   const suffix = d.kind === 'pct' ? '%' : '';
   const abs = Math.abs(d.value);
   const keepDecimal = d.kind === 'abs' && !Number.isInteger(d.value);
@@ -395,7 +411,8 @@ const isItem = (raw) => Boolean(raw) && typeof raw === 'object' && !Array.isArra
 /**
  * Formats a `values` map of an AreaResult item: `{ cost: ['eur', 12.3], n: 5, name: 'x' }` →
  * `{ cost: '€12.30', n: '5', name: 'x' }`. Plain numbers use `int`; a nested item `{ key, values }`
- * (a plan scenario, a pack chip) becomes its own sentence.
+ * (a plan scenario, a pack chip) becomes its own sentence; an unknown hint becomes "—" (the dataset
+ * hints such as ['doctor', pid] are resolved by format/items.js).
  * @param {Record<string, unknown>} [values]
  * @returns {Record<string, string>}
  */
@@ -404,7 +421,8 @@ const values = (input) => {
   if (!input) return out;
   Object.entries(input).forEach(([key, raw]) => {
     if (isItem(raw)) out[key] = textOf(raw);
-    else if (Array.isArray(raw) && raw.length === 2 && typeof raw[0] === 'string') out[key] = value(raw[1], raw[0]);
+    // An unknown hint (a page forgot to resolve ['doctor', pid]) shows "—", never the raw value.
+    else if (Array.isArray(raw) && raw.length === 2 && typeof raw[0] === 'string') out[key] = FORMATTERS[raw[0]] || raw[0] === 'text' ? value(raw[1], raw[0]) : EMPTY;
     else if (typeof raw === 'number') out[key] = int(raw);
     else if (raw == null) out[key] = EMPTY;
     else out[key] = String(raw);
@@ -422,7 +440,7 @@ const textOf = (item) => (item?.key ? t(item.key, values(item.values)) : '');
 export const fmt = {
   int, dec, compact, pct, pp, eur, eurSigned, eurUnit, eurPrecise, usd, eurUsd, credits, tokens, pages,
   shareText, countOf, sec, ms, minutes, duration, date, dayShort, dayLong, month, monthShortYear,
-  monthName, time, dateTime, range, ago, bucketLabel, bucketTitle, delta, value, parts, values, textOf,
+  monthName, time, dateTime, range, ago, bucketLabel, bucketTitle, delta, deltaRatio, value, parts, values, textOf,
   plural, model, empty: EMPTY,
 };
 

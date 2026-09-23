@@ -9,6 +9,8 @@ const SPARK_BUCKETS = 12;
 
 const PART_COLORS = { form: SERIES.forms, recording: SERIES.live, anamnesis: SERIES.anamnesis, fixed: SERIES.fixed };
 
+const HEALTH_TONES = { ok: 'ok', slow: 'warn', bad: 'bad' };
+
 const sparkOf = (series, field) =>
   (series ?? [])
     .filter((row) => !row.isFuture)
@@ -44,8 +46,13 @@ export default function OverviewTiles({ metric }) {
     color: PART_COLORS[row.key],
   }));
 
-  const healthSub =
-    h.healthForms > 0 ? t('overview.health.sub', { usual: fmt.sec(h.p50Ms), over15: fmt.int(h.over15), forms: fmt.int(h.healthForms) }) : undefined;
+  // Failures, when any were recorded, come first: they are what doctors noticed.
+  let healthSub;
+  if (h.serviceFailures > 0) {
+    const values = { failures: fmt.int(h.serviceFailures), requests: plural(h.serviceFailures, 'common.unit.request'), usual: fmt.sec(h.p50Ms) };
+    healthSub = t('overview.health.sub.failures', values);
+  }
+  else if (h.healthForms > 0) healthSub = t('overview.health.sub', { usual: fmt.sec(h.p50Ms), over15: fmt.int(h.over15), forms: fmt.int(h.healthForms) });
 
   return (
     <section aria-labelledby="overview-kpis">
@@ -81,6 +88,7 @@ export default function OverviewTiles({ metric }) {
             compareLabel={compareLabel}
             goodWhen="none"
             badge={badgeOf(h.cost, basis.cost)}
+            sub={t('overview.cost.sub')}
             foot={parts.length ? <ShareBar items={parts} format="eur" legendValues={false} /> : undefined}
             hintKey="overview.cost"
             to="/costs"
@@ -92,6 +100,7 @@ export default function OverviewTiles({ metric }) {
             className="h-full"
             label={t('overview.tile.payers')}
             valueText={data ? fmt.countOf(h.payingActive, h.active) : undefined}
+            unit={data ? t('overview.payers.unit') : undefined}
             format="text"
             delta={metric.delta((d) => d.headline.payingActive, 'abs')}
             compareLabel={compareLabel}
@@ -125,6 +134,7 @@ export default function OverviewTiles({ metric }) {
             label={t('overview.tile.health')}
             valueText={h.health ? t(`overview.health.${h.health}`) : undefined}
             format="text"
+            tone={HEALTH_TONES[h.health]}
             badge={badgeOf(h.health, basis.health)}
             sub={healthSub}
             spark={sparkOf(series, 'slowCount')}

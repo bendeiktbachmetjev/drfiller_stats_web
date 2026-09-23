@@ -15,6 +15,7 @@ const ROUND_ICON_CLASS = `sf-hit w-8 h-8 shrink-0 flex items-center justify-cent
 const CHIP_CLASS = 'inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-line/40 text-xs font-semibold text-ink-soft whitespace-nowrap';
 const CHIP_LINK_CLASS = `${CHIP_CLASS} hover:bg-line/60 transition-colors ${RING}`;
 const FILTERS_BUTTON_CLASS = `inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-line bg-surface text-[13px] font-semibold text-ink hover:bg-line/20 transition-colors ${RING}`;
+const DONE_BUTTON_CLASS = `inline-flex items-center h-9 px-4 rounded-full bg-brand text-[13px] font-bold text-white hover:bg-brand-strong transition-colors ${RING}`;
 
 /** «All accounts | Without my and test accounts (n)» — disabled with its hint while no account is internal (§3.4). */
 export function ScopeControl() {
@@ -98,13 +99,25 @@ function Stepper() {
   );
 }
 
-/** Round ⟳ button: reloads every source in the background (the numbers stay on screen meanwhile). */
-export function RefreshButton() {
+/**
+ * ⟳ button: reloads every source in the background (the numbers stay on screen meanwhile). Round icon by
+ * default; `withLabel` adds the word (the phone Filters sheet, where an unlabelled icon was unclear).
+ */
+export function RefreshButton({ withLabel = false }) {
   const { status, isRefetching, refresh } = useAnalytics();
   const busy = isRefetching || status === 'loading';
+  const icon = <RefreshCw className={isRefetching ? 'w-4 h-4 animate-spin motion-reduce:animate-none' : 'w-4 h-4'} aria-hidden="true" />;
+  if (withLabel) {
+    return (
+      <button type="button" disabled={busy} onClick={() => refresh()} className={`${FILTERS_BUTTON_CLASS} disabled:text-ink-mute disabled:cursor-not-allowed`}>
+        {icon}
+        {t('common.refresh')}
+      </button>
+    );
+  }
   return (
     <button type="button" aria-label={t('common.refresh')} disabled={busy} onClick={() => refresh()} className={ROUND_ICON_CLASS}>
-      <RefreshCw className={isRefetching ? 'w-4 h-4 animate-spin motion-reduce:animate-none' : 'w-4 h-4'} aria-hidden="true" />
+      {icon}
     </button>
   );
 }
@@ -201,13 +214,19 @@ export default function FilterBar({ usesPeriod = true, serviceScope = false, vat
         ariaLabel={t('common.filters')}
       >
         <div className={`flex flex-col items-start gap-4 pb-2${isPhone ? '' : ' p-2.5'}`}>
+          {isPhone && <p className="text-base font-bold text-ink">{t('common.filters')}</p>}
           {usesPeriod && stepper && isPhone && <Stepper />}
           {scopeControl}
           {children}
           <div className="flex flex-wrap gap-2 empty:hidden">{chips}</div>
-          <div className="flex items-center gap-3">
-            <RefreshButton />
+          <div className="flex w-full flex-wrap items-center gap-3">
+            <RefreshButton withLabel={isPhone} />
             <ExportMenu tables={exportTables || []} />
+            {isPhone && (
+              <button type="button" onClick={() => setSheetOpen(false)} className={`ml-auto ${DONE_BUTTON_CLASS}`}>
+                {t('common.done')}
+              </button>
+            )}
           </div>
         </div>
       </MenuPanel>

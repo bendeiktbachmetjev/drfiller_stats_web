@@ -12,7 +12,7 @@
 //
 // Each Vilnius day is generated from its own seed, so a day never changes when "now" moves; only rows up
 // to `nowMs` are returned. Days are cached (the generator is called again on every live poll).
-import { DEFAULT_FX, LT_HOLIDAYS, PACK_SIZES } from '../data/constants.js';
+import { LT_HOLIDAYS, PACK_SIZES } from '../data/constants.js';
 import { METER_SINCE, MODEL_ERAS, SONIOX_SINCE, TRANSCRIPTION_ERAS } from '../data/eras.js';
 import prices from '../data/static/prices-2026-09-23.json' with { type: 'json' };
 
@@ -840,5 +840,3 @@ export function makeDemoApi(nowMs, { scenario = 'today', emailMode = 'list', fal
   };
 }
 
-/** The demo's FX (same as the static price table). */
-export const DEMO_FX = DEFAULT_FX;

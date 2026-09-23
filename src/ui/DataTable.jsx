@@ -3,11 +3,11 @@ import { ArrowDown, ArrowUp, ChevronDown } from 'lucide-react';
 import { fmt } from '../format/format.js';
 import { t } from '../copy/index.js';
 import useIsPhone from '../context/useIsPhone.js';
+import { usePrintMode } from '../context/usePrintMode.js';
 
 const RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
-const SCROLLER = 'sf-table-scroll -mx-3 overflow-auto rounded-[16px]';
-const DEFAULT_MAX_HEIGHT = 480;
+const SCROLLER = 'sf-table-scroll -mx-3 overflow-x-auto rounded-[16px]';
 const TABLE = 'w-full border-separate border-spacing-0 text-sm';
 
 // Headers: sentence case, 12 px, semibold, ink-soft (§5.3.4).
@@ -30,8 +30,8 @@ const NEXT_DIR = { none: 'desc', desc: 'asc', asc: 'none' };
 const ARIA_SORT = { asc: 'ascending', desc: 'descending', none: 'none' };
 /** Tables with at most this many columns scroll sideways on phones instead of turning into cards. */
 const PHONE_TABLE_MAX_COLUMNS = 4;
-/** Phone cards shown before "Show all N" (a card is ≈ 170 px; 200 of them made a 33,000 px page). */
-const PHONE_ROWS = 10;
+/** Rows (or phone cards) shown before "Show all N". A hidden inner scroll box made long tables look cut off. */
+const ROW_LIMIT = 10;
 
 const isRight = (column) => (column.align ? column.align === 'right' : NUMERIC_TYPES.includes(column.type));
 const canSort = (column) => column.sortable !== false && (column.type !== 'node' || typeof column.sortValue === 'function');
@@ -181,49 +181,55 @@ function PhoneCards({ columns, rows, sort, setSort, defaultSort, emptyText, capt
 //               with a sticky first column instead. Every page table declares `priority` for every column.
 //   rows        objects keyed by column.key; `row.key` or `row.id` identifies a row, `row.muted` greys it
 //   defaultSort { key, dir: 'asc' | 'desc' } | null — null keeps the given order
-//   maxHeight   px of the scroll box (the header stays in view); null = no limit
+//   limit       rows shown before "Show all N", counted after sorting (default 10; 0 = all); a print shows all
 //   footerRow   totals row, same keys as a row
 //   caption     accessible name of the table
 //   phone       force (true/false) the phone card mode; defaults to the screen width
-//   phoneRows   phone cards: the first N rows AFTER sorting, then "Show all N" (default 10; 0 = all)
+//   phoneRows   the same for the phone cards (defaults to `limit`)
 // A header click sorts descending, then ascending, then returns to the default order.
 export default function DataTable({
   columns = [],
   rows = [],
   defaultSort = null,
-  maxHeight = DEFAULT_MAX_HEIGHT,
+  limit = ROW_LIMIT,
   footerRow,
   emptyText,
   caption,
   phone,
-  phoneRows = PHONE_ROWS,
+  phoneRows,
   className = '',
 }) {
   const [userSort, setUserSort] = useState(null);
-  const [allCards, setAllCards] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const sort = userSort ?? defaultSort;
   const sortedRows = useSortedRows(rows, columns, sort);
   const isPhone = useIsPhone();
+  const { printing } = usePrintMode();
   const phoneMode = phone ?? isPhone;
+  const cards = phoneMode && columns.length > PHONE_TABLE_MAX_COLUMNS;
 
-  if (phoneMode && columns.length > PHONE_TABLE_MAX_COLUMNS) {
-    const cut = phoneRows > 0 && !allCards && sortedRows.length > phoneRows;
+  const cap = cards ? phoneRows ?? limit : limit;
+  const canCut = !printing && cap > 0 && sortedRows.length > cap;
+  const shownRows = canCut && !showAll ? sortedRows.slice(0, cap) : sortedRows;
+  const toggle = canCut && (
+    <button type="button" onClick={() => setShowAll((open) => !open)} aria-expanded={showAll} className={SHOW_ALL}>
+      {showAll ? t('common.list.showFewer') : t('common.list.showAll', { n: fmt.int(sortedRows.length) })}
+    </button>
+  );
+
+  if (cards) {
     return (
       <div className={className}>
         <PhoneCards
           columns={columns}
-          rows={cut ? sortedRows.slice(0, phoneRows) : sortedRows}
+          rows={shownRows}
           sort={sort}
           setSort={setUserSort}
           defaultSort={defaultSort}
           emptyText={emptyText}
           caption={caption}
         />
-        {cut && (
-          <button type="button" onClick={() => setAllCards(true)} className={SHOW_ALL}>
-            {t('common.list.showAll', { n: fmt.int(sortedRows.length) })}
-          </button>
-        )}
+        {toggle}
       </div>
     );
   }
@@ -237,92 +243,94 @@ export default function DataTable({
   const stickyFirst = phoneMode ? ` ${STICKY_FIRST}` : '';
 
   return (
-    <div
-      className={[SCROLLER, RING, className].filter(Boolean).join(' ')}
-      style={maxHeight ? { maxHeight } : undefined}
-      role="region"
-      aria-label={caption ?? t('common.table.caption')}
-      tabIndex={0}
-    >
-      <table className={TABLE}>
-        {caption && <caption className="sr-only">{caption}</caption>}
-        <thead>
-          <tr>
-            {columns.map((column, columnIndex) => {
-              const dir = dirOf(column);
-              const sticky = columnIndex === 0 ? stickyFirst : '';
-              return (
-                <th
-                  key={column.key}
-                  scope="col"
-                  aria-sort={canSort(column) ? ARIA_SORT[dir] : undefined}
-                  data-print={column.printHide ? 'hide' : undefined}
-                  className={`${isRight(column) ? TH_RIGHT : TH}${sticky}`}
-                >
-                  {canSort(column) ? (
-                    <>
-                      <button type="button" onClick={() => toggleSort(column)} className={`${SORT_BUTTON} ${RING}`}>
-                        {column.header}
-                        {dir === 'asc' && <ArrowUp className="w-3 h-3 text-brand" aria-hidden="true" />}
-                        {dir === 'desc' && <ArrowDown className="w-3 h-3 text-brand" aria-hidden="true" />}
-                      </button>
-                      <span className="hidden print:inline">{column.header}</span>
-                    </>
-                  ) : (
-                    column.header
-                  )}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-
-        <tbody>
-          {sortedRows.length === 0 && (
+    <div className={className || undefined}>
+      <div
+        className={[SCROLLER, RING].join(' ')}
+        role="region"
+        aria-label={caption ?? t('common.table.caption')}
+        tabIndex={0}
+      >
+        <table className={TABLE}>
+          {caption && <caption className="sr-only">{caption}</caption>}
+          <thead>
             <tr>
-              <td colSpan={Math.max(1, columns.length)} className="px-3 py-8 text-center text-sm font-medium text-ink-mute">
-                {emptyText ?? t('common.list.empty')}
-              </td>
-            </tr>
-          )}
-          {sortedRows.map((row, rowIndex) => (
-            <tr key={row.key ?? row.id ?? rowIndex} className="group">
               {columns.map((column, columnIndex) => {
-                const align = isRight(column) ? ' text-right tabular-nums' : '';
-                const hidden = column.printHide ? 'hide' : undefined;
-                if (columnIndex === 0) {
+                const dir = dirOf(column);
+                const sticky = columnIndex === 0 ? stickyFirst : '';
+                return (
+                  <th
+                    key={column.key}
+                    scope="col"
+                    aria-sort={canSort(column) ? ARIA_SORT[dir] : undefined}
+                    data-print={column.printHide ? 'hide' : undefined}
+                    className={`${isRight(column) ? TH_RIGHT : TH}${sticky}`}
+                  >
+                    {canSort(column) ? (
+                      <>
+                        <button type="button" onClick={() => toggleSort(column)} className={`${SORT_BUTTON} ${RING}`}>
+                          {column.header}
+                          {dir === 'asc' && <ArrowUp className="w-3 h-3 text-brand" aria-hidden="true" />}
+                          {dir === 'desc' && <ArrowDown className="w-3 h-3 text-brand" aria-hidden="true" />}
+                        </button>
+                        <span className="hidden print:inline">{column.header}</span>
+                      </>
+                    ) : (
+                      column.header
+                    )}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+
+          <tbody>
+            {sortedRows.length === 0 && (
+              <tr>
+                <td colSpan={Math.max(1, columns.length)} className="px-3 py-8 text-center text-sm font-medium text-ink-mute">
+                  {emptyText ?? t('common.list.empty')}
+                </td>
+              </tr>
+            )}
+            {shownRows.map((row, rowIndex) => (
+              <tr key={row.key ?? row.id ?? rowIndex} className="group">
+                {columns.map((column, columnIndex) => {
+                  const align = isRight(column) ? ' text-right tabular-nums' : '';
+                  const hidden = column.printHide ? 'hide' : undefined;
+                  if (columnIndex === 0) {
+                    return (
+                      <th key={column.key} scope="row" data-print={hidden} className={`${row.muted ? `${TD_MUTED} text-left` : TD_FIRST}${stickyFirst}`}>
+                        {renderCell(column, row)}
+                      </th>
+                    );
+                  }
                   return (
-                    <th key={column.key} scope="row" data-print={hidden} className={`${row.muted ? `${TD_MUTED} text-left` : TD_FIRST}${stickyFirst}`}>
+                    <td key={column.key} data-print={hidden} className={`${row.muted ? TD_MUTED : TD}${align}`}>
                       {renderCell(column, row)}
-                    </th>
+                    </td>
                   );
-                }
-                return (
-                  <td key={column.key} data-print={hidden} className={`${row.muted ? TD_MUTED : TD}${align}`}>
-                    {renderCell(column, row)}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
+                })}
+              </tr>
+            ))}
+          </tbody>
 
-        {footerRow && sortedRows.length > 0 && (
-          <tfoot>
-            <tr>
-              {columns.map((column, columnIndex) => {
-                const align = isRight(column) ? ' text-right tabular-nums' : ' text-left';
-                const Cell = columnIndex === 0 ? 'th' : 'td';
-                return (
-                  <Cell key={column.key} scope={columnIndex === 0 ? 'row' : undefined} data-print={column.printHide ? 'hide' : undefined} className={`${TD_TOTAL}${align}`}>
-                    {footerRow[column.key] == null ? '' : renderCell(column, footerRow)}
-                  </Cell>
-                );
-              })}
-            </tr>
-          </tfoot>
-        )}
-      </table>
+          {footerRow && sortedRows.length > 0 && (
+            <tfoot>
+              <tr>
+                {columns.map((column, columnIndex) => {
+                  const align = isRight(column) ? ' text-right tabular-nums' : ' text-left';
+                  const Cell = columnIndex === 0 ? 'th' : 'td';
+                  return (
+                    <Cell key={column.key} scope={columnIndex === 0 ? 'row' : undefined} data-print={column.printHide ? 'hide' : undefined} className={`${TD_TOTAL}${align}`}>
+                      {footerRow[column.key] == null ? '' : renderCell(column, footerRow)}
+                    </Cell>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+      {toggle}
     </div>
   );
 }

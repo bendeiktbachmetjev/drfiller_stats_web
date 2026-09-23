@@ -1,13 +1,10 @@
-// Words for the Settings page. The metric returns copy keys with raw values (§4.0); besides the `fmt`
-// hints it uses page-level forms that `fmt.values` does not know:
-//   { key, values }                a nested copy item (plan chips: scenario, pack, VAT word)
-//   ['doctor', pid]                 the doctor's display name (email, else "Doctor NN")
+// Words for the Settings page. The metric returns copy keys with raw values (§4.0); the shared resolver
+// (format/items.js) handles nested items and doctors; this page adds one kind of its own:
 //   ['sources', ['revenue', …]]     names of data sources, joined
-import { doctorLabel, endpointLabel, getLocale, modelLabel, t } from '../../copy/index.js';
+import { endpointLabel, getLocale, modelLabel, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
+import { itemText as sharedItemText } from '../../format/items.js';
 
-const isItem = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value) && typeof value.key === 'string';
-const isHint = (value, name) => Array.isArray(value) && value.length === 2 && value[0] === name;
 
 /** Joins words in the page language: 'a', 'a and b', 'a, b and c'. */
 export const joinWords = (words) => new Intl.ListFormat(getLocale(), { style: 'long', type: 'conjunction' }).format(words);
@@ -15,33 +12,16 @@ export const joinWords = (words) => new Intl.ListFormat(getLocale(), { style: 'l
 /** @param {string} name a source id of SOURCE_ORDER */
 export const sourceLabel = (name) => t(`settings.source.${name}`);
 
-/**
- * The display name of a doctor by pid (OVERRIDES O2): email, else "Doctor NN", else "Deleted account".
- * @param {{ doctors?: Map<string, object> } | null} ds
- * @param {string} pid
- */
-export const doctorName = (ds, pid) => {
-  const doctor = ds?.doctors?.get?.(pid);
-  return doctor ? doctorLabel(doctor) : t('common.doctor.deleted');
-};
+/** Page-only value kinds of Settings: ['sources', ['revenue', …]] → "Stripe and Soniox". */
+const HINTS = { sources: (list) => joinWords((list ?? []).map(sourceLabel)) };
 
 /**
- * Text of one metric item (answer, note): nested items, doctors and source lists resolved first.
+ * Text of one metric item (answer, note): nested items, doctors and source lists resolved.
  * @param {{ key: string, values?: object } | null} item
  * @param {object|null} ds
  * @returns {string}
  */
-export function itemText(item, ds = null) {
-  if (!item?.key) return '';
-  const values = {};
-  Object.entries(item.values ?? {}).forEach(([name, raw]) => {
-    if (isItem(raw)) values[name] = itemText(raw, ds);
-    else if (isHint(raw, 'doctor')) values[name] = doctorName(ds, raw[1]);
-    else if (isHint(raw, 'sources')) values[name] = joinWords((raw[1] ?? []).map(sourceLabel));
-    else values[name] = raw;
-  });
-  return fmt.textOf({ key: item.key, values });
-}
+export const itemText = (item, ds = null) => sharedItemText(item, { ds, hints: HINTS });
 
 /**
  * The AnswerBlock sentences.

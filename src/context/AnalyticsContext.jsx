@@ -42,7 +42,24 @@ export function resetAnalyticsCache() {
   memoDataset = null;
 }
 
-const build = (raw, nowMs) => buildDataset(raw, { nowMs, staticPrices, benchmark });
+/** Builds the dataset and switches the copy language to its settings before any render uses it. */
+const build = (raw, nowMs) => {
+  const dataset = buildDataset(raw, { nowMs, staticPrices, benchmark });
+  if (dataset.settings?.lang) setLang(dataset.settings.lang);
+  return dataset;
+};
+
+// Counts local rebuilds (a saved setting or invoice). A load that started before a rebuild keeps the
+// newer settings and invoices instead of putting the old ones back on screen.
+let rebuilds = 0;
+const keepNewerEdits = (raw, since) => {
+  if (rebuilds === since || !cache) return raw;
+  const sources = { ...raw.sources };
+  ['settings', 'costs'].forEach((name) => {
+    if (cache.raw.sources?.[name]) sources[name] = cache.raw.sources[name];
+  });
+  return { ...raw, settings: cache.raw.settings, costsMonthly: cache.raw.costsMonthly, sources };
+};
 
 async function fetchRaw({ client, demoScenario, signal }) {
   const nowMs = Date.now();
@@ -60,9 +77,11 @@ function startLoad(cacheKey, params) {
 
   const controller = new AbortController();
   const startedIn = generation;
+  const rebuildsAtStart = rebuilds;
   const promise = fetchRaw({ ...params, signal: controller.signal })
-    .then(({ raw, nowMs }) => {
+    .then(({ raw: fetched, nowMs }) => {
       if (startedIn !== generation || controller.signal.aborted) throw new DataError('ABORTED');
+      const raw = cache?.cacheKey === cacheKey ? keepNewerEdits(fetched, rebuildsAtStart) : fetched;
       cache = { cacheKey, raw, dataset: build(raw, nowMs), loadedAt: nowMs };
       return cache;
     })
@@ -273,6 +292,7 @@ export function AnalyticsProvider({ children }) {
     if (!cache) return;
     const raw = typeof mutateRaw === 'function' ? mutateRaw(cache.raw) : cache.raw;
     const nowMs = Date.now();
+    rebuilds += 1;
     cache = { ...cache, raw, dataset: build(raw, nowMs) };
     setData((current) => ({ ...current, dataset: cache.dataset }));
   }, []);
@@ -320,7 +340,6 @@ export function AnalyticsProvider({ children }) {
   }, [periodState]);
 
   const { dataset } = data;
-  if (dataset?.settings?.lang) setLang(dataset.settings.lang);
 
   // The dataset's own clock keeps periods and buckets consistent with the data.
   const nowMs = dataset?.nowMs ?? mountedAtMs;

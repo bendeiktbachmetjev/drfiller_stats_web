@@ -3,7 +3,7 @@
 // (§2 rule 3), so the scope switch never changes it. Shared numbers are picked from summarizeHealth()
 // and capacity() (§6.3); everything else is page-local and pure.
 import { HEALTH, MIN_EVENTS_PER_POINT } from '../constants.js';
-import { FALLBACK_FEATURE_SINCE_MS, MODEL_ERAS, modelEraAt } from '../eras.js';
+import { FALLBACK_ERA_SINCE_MS, FALLBACK_FEATURE_SINCE_MS, MODEL_ERAS, modelEraAt } from '../eras.js';
 import { dateToMs, dayKeyOf, diffDays } from '../period.js';
 import { summarizeHealth } from '../core/health.js';
 import { capacity } from '../core/projection.js';
@@ -285,14 +285,6 @@ function buildFailures(ds, period, health) {
   return { byKind: kinds(health.failuresByKind), refusalsByKind: kinds(health.refusalsByKind), recent };
 }
 
-/** Successful requests + service failures since event logging began (the denominator of the failure rate). */
-function serviceRequests(ds, period, health) {
-  const since = ds.v2LoggingSince?.events ?? null;
-  if (since === null || health.serviceFailures === null) return null;
-  const kinds = new Set(['form', 'dictation', 'live', 'anamnesis']);
-  return count(rowsIn(ds.rows, period), (row) => row.t >= since && kinds.has(row.kind)) + health.serviceFailures;
-}
-
 function buildNowCard(ds) {
   const setup = currentSetup(ds);
   const gemini = ds.config?.gemini ?? null;
@@ -480,10 +472,15 @@ function buildAnswer(ds, period, health, forms, requests) {
   } else {
     const setup = periodSetup(ds, forms);
     const withFallback = setup.fallback && health.fallbackEligible > 0;
+    // A period that starts before the backup model existed counts its forms only from that day: say so.
+    const sinceAdded = withFallback && period.fromMs < FALLBACK_ERA_SINCE_MS;
     answer.push({
-      key: withFallback ? 'models.answer.now' : 'models.answer.nowSolo',
+      key: withFallback ? (sinceAdded ? 'models.answer.nowSince' : 'models.answer.now') : 'models.answer.nowSolo',
       tone: 'neutral',
-      values: { main: ['model', setup.main], where: ['place', setup.where], fallback: ['model', setup.fallback], n: health.fallbackCount, N: health.fallbackEligible },
+      values: {
+        main: ['model', setup.main], where: ['place', setup.where], fallback: ['model', setup.fallback], n: health.fallbackCount, N: health.fallbackEligible,
+        ...(sinceAdded ? { since: ['date', FALLBACK_ERA_SINCE_MS] } : {}),
+      },
     });
     answer.push({
       key: 'models.answer.speed',
@@ -527,7 +524,7 @@ export function computeModels(ds, period, scope, opts = {}) {
   if (!ds || !period) return EMPTY_RESULT;
   const health = summarizeHealth(ds, period);
   const forms = rowsIn(ds.forms, period);
-  const requests = serviceRequests(ds, period, health);
+  const requests = health.serviceRequests;
 
   const headline = {
     forms: health.forms,

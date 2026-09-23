@@ -81,6 +81,8 @@ export const PAYMENT_METHODS = Object.freeze([
 /** The "Is everything working?" word (§4.1): bad → slow → ok thresholds, all traffic. */
 export const HEALTH = Object.freeze({
   badServiceFailures: 3,
+  /** …and at least this share of requests, so one bad hour at the planned scale is not "failing". */
+  badServiceFailureRate: 0.005,
   badOver15Share: 0.05,
   okOver15Share: 0.02,
   okFallbackShare: 0.01,
@@ -156,5 +158,3 @@ export const ERROR_KIND_GROUP = Object.freeze({
   invalid_audio: 'refusal',
 });
 
-/** Section a service number always counts in full (§2 rule 3). */
-export const SERVICE_SCOPE = 'service';

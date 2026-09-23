@@ -13,6 +13,7 @@ export const COLORS = Object.freeze({
   'data-mute': '#8D8D8D',
   brand: '#1F4FB8',
   'brand-strong': '#163A87',
+  'brand-light': '#6A89CF',
   accent: '#2D6CDF',
   cost: '#525252',
   good: '#067647',

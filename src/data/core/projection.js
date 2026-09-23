@@ -53,8 +53,10 @@ export const SCENARIOS = Object.freeze({
  *   scales: [number, number],
  *   capacity: Capacity,
  *   warnings: Array<'SONIOX_STREAM_LIMIT'|'FEW_FORMS_ASSUMED'|'MEASURED_FALLBACK'|'DASHBOARD_ROWS'>,
+ *   warningAt: { SONIOX_STREAM_LIMIT?: number, DASHBOARD_ROWS?: number },
  *   chips: Array<{ key: string, values?: object }>
  * }} ScaleResult
+ *   warningAt: the smaller planned number of doctors at which that limit is reached.
  *   chips: one copy key per assumption chip (visits · scenario · pack · VAT · free share), values with fmt hints.
  * @typedef {{ formCostEur: number, formBasis: 'exact'|'model', formsUsed: number, formInTok: number, formOutTok: number,
  *   convPerMinEur: number, convTokensPerMin: number, convBasis: 'exact'|'model', convFormsUsed: number,
@@ -69,15 +71,6 @@ export const emptyColumn = () => ({
   doctors: null, visits: null, creditsSpent: null, grossEur: null, vatEur: null, feeEur: null, netEur: null,
   costGeminiFormsEur: 0, costSonioxEur: 0, costOpenaiEur: 0, costAnamnesisEur: 0, costFixedEur: 0, costTotalEur: 0,
   resultEur: null, marginPct: null,
-});
-
-/** @returns {Capacity} */
-export const emptyCapacity = (limit = 10) => ({
-  perDoctorPeak: 0,
-  soniox: { limit, meanDoctors: 0, limitDoctors: 0, s0: { mean: 0, p95: 0 }, s1: { mean: 0, p95: 0 } },
-  firestore: { s0Writes: 0, s1Writes: 0, free: 20000, s0Eur: 0, s1Eur: 0 },
-  railway: { s0Gb: 0, s1Gb: 0, s0Eur: 0, s1Eur: 0 },
-  dashboard: { rowsNow: 0, rowsPerVisit: 0, s0MonthsToCap: null, s1MonthsToCap: null, cap: DASHBOARD_ROW_CAP },
 });
 
 const isObject = (v) => v && typeof v === 'object' && !Array.isArray(v);
@@ -421,7 +414,7 @@ export function planChips({ plan, scenario, pack, vatPayer }) {
     scenarioLabel(scenario),
     packChip(pack, plan),
     { key: vatPayer ? 'common.vatWord.on' : 'common.vatWord.off' },
-    { key: 'common.plan.chip.free', values: { share: ['pct', plan.freeShare] } },
+    plan.freeShare > 0 ? { key: 'common.plan.chip.free', values: { share: ['pct', plan.freeShare] } } : { key: 'common.plan.chip.noFree' },
   ];
 }
 
@@ -440,10 +433,19 @@ function project(ds, period, scope, { scenario, plan, vatPayer, pack, uc }) {
   const cap = capacityFor(ds, plan, sc);
 
   const warnings = [...uc.warnings];
+  // The smallest planned number of doctors at which a limit is reached, so the sentence can name it.
+  const warningAt = {};
   if (sc.fallback) warnings.push('MEASURED_FALLBACK');
-  if (cap.soniox.s0.p95 > cap.soniox.limit || cap.soniox.s1.p95 > cap.soniox.limit) warnings.push('SONIOX_STREAM_LIMIT');
-  const soonest = [cap.dashboard.s0MonthsToCap, cap.dashboard.s1MonthsToCap].filter((m) => m !== null);
-  if (soonest.some((months) => months <= 12)) warnings.push('DASHBOARD_ROWS');
+  const sonioxAt = [['s0', n0], ['s1', n1]].find(([key]) => cap.soniox[key].p95 > cap.soniox.limit);
+  if (sonioxAt) {
+    warnings.push('SONIOX_STREAM_LIMIT');
+    warningAt.SONIOX_STREAM_LIMIT = sonioxAt[1];
+  }
+  const rowsAt = [[cap.dashboard.s0MonthsToCap, n0], [cap.dashboard.s1MonthsToCap, n1]].find(([months]) => months !== null && months <= 12);
+  if (rowsAt) {
+    warnings.push('DASHBOARD_ROWS');
+    warningAt.DASHBOARD_ROWS = rowsAt[1];
+  }
 
   const visit = column(1, 1, 0);
   return {
@@ -464,6 +466,7 @@ function project(ds, period, scope, { scenario, plan, vatPayer, pack, uc }) {
     scales: [n0, n1],
     capacity: cap,
     warnings,
+    warningAt,
     chips: planChips({ plan, scenario: sc, pack, vatPayer }),
   };
 }

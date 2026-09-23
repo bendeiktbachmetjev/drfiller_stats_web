@@ -1,25 +1,9 @@
 // Words and files for the Doctors page. Every number is the metric's own; this file turns metric items
-// into sentences (resolving ['doctor', pid] to the doctor's email or "Doctor NN") and builds the CSV files.
-import { classLabel, doctorLabel, t } from '../../copy/index.js';
+// into sentences (through the shared resolver, format/items.js) and builds the CSV files.
+import { classLabel, t } from '../../copy/index.js';
 import { csvFilename } from '../../export/csv.js';
 import { fmt } from '../../format/format.js';
-
-const isDoctorHint = (value) => Array.isArray(value) && value.length === 2 && value[0] === 'doctor';
-
-/**
- * How a doctor is named on this page: email (OVERRIDES O2), else "Doctor NN", else "Deleted account";
- * a pid without any account (anonymous requests) is "No account".
- * @param {{ doctors?: Map<string, object> } | null} ds
- * @param {string} pid
- * @param {Map<string, string>} [revealed] emails shown by "Show email" (click mode), by pid
- */
-export function doctorName(ds, pid, revealed) {
-  if (pid === 'anonymous') return t('doctors.noAccount');
-  const doctor = ds?.doctors?.get?.(pid);
-  if (!doctor) return t('common.doctor.deleted');
-  const email = revealed?.get(pid);
-  return doctorLabel(email ? { ...doctor, email } : doctor);
-}
+import { doctorName, itemText as sharedItemText } from '../../format/items.js';
 
 /**
  * Text of one metric item (answer, note, takeaway); ['doctor', pid] values become the doctor's name.
@@ -27,14 +11,7 @@ export function doctorName(ds, pid, revealed) {
  * @param {object|null} ds
  * @returns {string}
  */
-export function itemText(item, ds) {
-  if (!item?.key) return '';
-  const values = {};
-  Object.entries(item.values ?? {}).forEach(([name, raw]) => {
-    values[name] = isDoctorHint(raw) ? doctorName(ds, raw[1]) : raw;
-  });
-  return fmt.textOf({ key: item.key, values });
-}
+export const itemText = (item, ds) => sharedItemText(item, { ds });
 
 /**
  * The answer sentences for PageLayout. An empty period names its days (§2 rule 4); the doctor's path

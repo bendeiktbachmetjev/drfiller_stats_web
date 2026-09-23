@@ -8,7 +8,7 @@ const ITEM_SIZE = {
 const ITEM_BASE =
   'sf-hit-y inline-flex items-center gap-1.5 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed';
 const ITEM_ACTIVE = 'bg-brand text-white';
-const ITEM_IDLE = 'text-ink-soft hover:bg-line/20 disabled:hover:bg-transparent';
+const ITEM_IDLE = 'text-ink-soft hover:bg-line/20 disabled:hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed';
 const ITEM_DISABLED_ACTIVE = 'bg-line/60 text-ink-soft';
 
 const KEY_STEP = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };

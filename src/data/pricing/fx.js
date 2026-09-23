@@ -15,5 +15,3 @@ export function fxOf(prices) {
 /** @param {number} usd @param {{ usdPerEur: number }} fx @returns {number} */
 export const usdToEur = (usd, fx = DEFAULT_FX) => (Number.isFinite(usd) ? usd / fx.usdPerEur : 0);
 
-/** @param {number} eur @param {{ usdPerEur: number }} fx @returns {number} */
-export const eurToUsd = (eur, fx = DEFAULT_FX) => (Number.isFinite(eur) ? eur * fx.usdPerEur : 0);

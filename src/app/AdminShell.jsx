@@ -9,6 +9,7 @@ import { PAGES } from '../pages/index.js';
 import AdminHeader from './AdminHeader.jsx';
 import AdminIndexRedirect from './AdminIndexRedirect.jsx';
 import PageErrorBoundary from './PageErrorBoundary.jsx';
+import { clearChunkReload } from './chunkReload.js';
 import { DEFAULT_SECTION, SECTIONS, sectionFromPath } from './nav.js';
 
 // Dev server only: `/_kit` shows every kit component with sample data (visual QA before the pages have
@@ -17,6 +18,13 @@ const KitGallery = import.meta.env.DEV ? lazy(() => import('./KitGallery.jsx')) 
 
 const SKIP_LINK_CLASS =
   'sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-40 focus:px-4 focus:py-2 focus:rounded-full focus:bg-surface focus:text-sm focus:font-bold focus:text-brand focus:shadow-card focus:outline-none focus:ring-2 focus:ring-accent';
+
+// Renders only once the lazy page chunk has arrived (Suspense commits it with the page), so the one
+// automatic reload after a deploy is allowed again.
+function ChunkLoaded({ children }) {
+  useEffect(() => clearChunkReload(), []);
+  return children;
+}
 
 // Quiet placeholder while a page's code arrives (pages are lazy chunks).
 function PageFallback() {
@@ -91,7 +99,17 @@ export default function AdminShell() {
                   {KitGallery && <Route path="/_kit" element={<KitGallery />} />}
                   {SECTIONS.map(({ id, path }) => {
                     const Page = PAGES[id];
-                    return <Route key={id} path={path} element={<Page />} />;
+                    return (
+                      <Route
+                        key={id}
+                        path={path}
+                        element={
+                          <ChunkLoaded>
+                            <Page />
+                          </ChunkLoaded>
+                        }
+                      />
+                    );
                   })}
                   <Route path="*" element={<Navigate to={`/${DEFAULT_SECTION}`} replace />} />
                 </Routes>

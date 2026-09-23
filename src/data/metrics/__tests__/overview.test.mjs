@@ -14,6 +14,8 @@ import { normalizeUsageRows } from '../../normalize/usage.js';
 import { makeDemoApi } from '../../../dev/demoData.js';
 import { EMPTY_RESULT, missingBasis } from '../shared.js';
 import { COST_PARTS, OVERVIEW_RULES, computeOverview } from '../overview.js';
+import { computeCosts } from '../costs.js';
+import { formCostChange } from '../../core/formCostChange.js';
 import {
   PID, anamnesisRow, benchmark, doctor, formRow, localMs, payment, rawBundle, revenue, settings, staticPrices,
 } from '../../__tests__/fixtures.mjs';
@@ -168,6 +170,21 @@ test('health word: ok under 2 % slow forms, slow in between, bad from 5 % (all t
   assert.equal(wordFor(6), 'bad');
 });
 
+test('health word: slow forms of a test era stay in the numbers but do not make the word "bad" (real-data M1)', () => {
+  // 10 slow forms in the Vertex-EU week (non-standard) + 90 fast standard forms, all in the last 30 days.
+  const rows = [...forms(10, localMs('2026-08-28 09:00'), { durMs: 20000 }), ...forms(90, localMs('2026-09-10 09:00'))];
+  const { result } = run(dataset({ rows, doctors: [doctor(PID.top, { class: 'gifted' })] }));
+  assert.equal(result.headline.over15, 10, 'the sub-line still counts every slow form');
+  assert.equal(result.headline.health, 'ok');
+});
+
+test('health word: failures make it "bad" only from 3 and 0.5% of requests', () => {
+  assert.equal(healthWord({ over15Share: 0, fallbackShare: 0, serviceFailures: 3, serviceFailureRate: 0.001 }), 'slow');
+  assert.equal(healthWord({ over15Share: 0, fallbackShare: 0, serviceFailures: 3, serviceFailureRate: 0.01 }), 'bad');
+  assert.equal(healthWord({ over15Share: 0, fallbackShare: 0, serviceFailures: 2, serviceFailureRate: 0.5 }), 'slow');
+  assert.equal(healthWord({ over15Share: 0, fallbackShare: 0, serviceFailures: 0, serviceFailureRate: 0 }), 'ok');
+});
+
 test('facts: at most two, slots in order (units → cost driver → concentration → liability)', async () => {
   const order = ['overview.fact.units', 'overview.fact.formCostUp', 'overview.fact.topDoctor', 'overview.fact.freeCredits'];
   const slotOf = (key) => order.findIndex((prefix) => key.startsWith(prefix));
@@ -204,6 +221,23 @@ test('cost driver: request size, another model, longer answers', () => {
   assert.equal(era.key, 'overview.fact.formCostUp.era');
   assert.deepEqual(era.values.era.values.model, ['model', 'gemini-3.7-flash']);
   assert.deepEqual(era.values.era.values.where, ['endpoint', { endpoint: 'vertex', location: 'eu' }]);
+});
+
+test('Overview and Costs name the same cause of a dearer form (one shared core, code-review M2)', () => {
+  const doctors = [doctor(PID.top, { class: 'gifted' })];
+  const cases = [
+    { rows: [...forms(25, localMs('2026-09-11 08:00')), ...forms(25, localMs('2026-09-21 08:00'), { inTok: 22882 })], cause: 'size' },
+    { rows: [...forms(25, localMs('2026-09-11 08:00')), ...forms(25, localMs('2026-09-21 08:00'), { outTok: 1972 })], cause: 'longer' },
+    { rows: [...forms(25, localMs('2026-08-22 08:00')), ...forms(25, localMs('2026-08-29 08:00'), { model: 'gemini-3.7-flash' })], cause: 'era', nowMs: localMs('2026-09-03 12:00') },
+  ];
+  cases.forEach(({ rows, cause, nowMs = NOW }) => {
+    const ds = dataset({ rows, doctors, nowMs });
+    const { period, scope, result } = run(ds, { preset: 'last7' });
+    const costs = computeCosts(ds, period, scope);
+    assert.equal(result.facts.find((f) => f.key.startsWith('overview.fact.formCostUp')).key, `overview.fact.formCostUp.${cause}`);
+    assert.equal(costs.answer.find((a) => a.key.startsWith('costs.answer.formUp')).key, `costs.answer.formUp.${cause}`);
+    assert.equal(formCostChange(ds, period, scope).cause, cause);
+  });
 });
 
 test('series and cost split add up to the summary; sparkline fields per bucket', async () => {

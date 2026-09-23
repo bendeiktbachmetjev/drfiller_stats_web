@@ -40,6 +40,13 @@ function Recorded({ metric, doctors }) {
   const columns = useMemo(() => failureColumns(doctors), [doctors]);
   const since = dataset?.v2LoggingSince?.events ?? null;
   const chartRows = data.series;
+  // Failures are recorded only from `since` on; a period that starts earlier says where the count begins.
+  let failureSub = null;
+  if (h.serviceFailureRate != null) {
+    failureSub = since && since > metric.period.fromMs
+      ? t('models.tile.serviceFailuresSubSince', { rate: fmt.pct(h.serviceFailureRate), since: fmt.dayShort(since) })
+      : t('models.tile.serviceFailuresSub', { rate: fmt.pct(h.serviceFailureRate) });
+  }
   const chartTable = {
     columns: [
       { key: 'key', header: t('models.col.when'), type: 'text', priority: 1, render: (row) => fmt.bucketTitle(row.key, row.granularity) },
@@ -51,11 +58,11 @@ function Recorded({ metric, doctors }) {
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 md:gap-6 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:gap-6">
         <KpiTile
           label={t('models.tile.serviceFailures')}
           value={h.serviceFailures}
-          sub={h.serviceFailureRate != null ? t('models.tile.serviceFailuresSub', { rate: fmt.pct(h.serviceFailureRate) }) : null}
+          sub={failureSub}
           delta={metric.delta((d) => d.headline.serviceFailures, 'abs')}
           compareLabel={metric.compareLabel}
           goodWhen="down"
@@ -98,7 +105,7 @@ function Recorded({ metric, doctors }) {
               <TimeColumns rows={chartTable.rows} valueKey="serviceFailures" color={COLORS.bad} unit={t('models.failuresChart.unit')} />
             </ChartCard>
             <TableCard title={t('models.failuresRecent.title')}>
-              <DataTable columns={columns} rows={tables.failuresRecent} caption={t('models.failuresRecent.title')} emptyText={t('models.failuresRecent.empty')} maxHeight={null} />
+              <DataTable columns={columns} rows={tables.failuresRecent} caption={t('models.failuresRecent.title')} emptyText={t('models.failuresRecent.empty')} phoneRows={3} />
             </TableCard>
           </div>
         </Disclosure>

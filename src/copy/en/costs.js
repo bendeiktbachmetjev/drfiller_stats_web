@@ -28,7 +28,7 @@ export const COPY = {
   'costs.tile.perForm': 'One form',
   'costs.tile.perForm.sub': '{n} {forms} in the period',
   'costs.tile.perDoctorPlan': 'Per doctor per month (plan, whole visit)',
-  'costs.tile.perDoctorPlan.sub': '{n} doctors — {x}',
+  'costs.tile.perDoctorPlan.sub': 'at {visits} visits a month',
   'costs.tile.fixedMonth': 'Server and fixed costs, per month',
   'costs.tile.fixedMonth.invoice': 'Railway invoice for {month}',
   'costs.tile.fixedMonth.settings': 'as set in Settings',
@@ -98,7 +98,8 @@ export const COPY = {
   'costs.whyUp.otherMonths': 'Other months',
   'costs.whyUp.pagesUnit': 'pages',
   'costs.whyUp.lead': 'By month, for all time — not only the selected period.',
-  'costs.takeaway.whyUp': 'Since {fromMonth} a form has become more expensive: from {a} to {b}. The request grew from {x} to {y} pages of text.',
+  'costs.takeaway.whyUp': 'From {fromMonth} to {toMonth} a form went from {a} to {b}; the request grew from {x} to {y} pages of text.',
+  'costs.takeaway.whyUp.soFar': 'From {fromMonth} to {toMonth} (so far) a form went from {a} to {b}; the request grew from {x} to {y} pages of text.',
   'costs.col.forms': 'Forms',
   'costs.col.pricePerForm': 'Price of a form',
   'costs.col.pages': 'Pages of text',
@@ -147,8 +148,7 @@ export const COPY = {
   'costs.col.sonioxInvoice': 'Soniox|invoice',
   'costs.col.openaiInvoice': 'OpenAI|invoice',
   'costs.col.other': 'Other',
-  'costs.col.monthTotal': 'Total for|the month',
-  'costs.invoices.change': 'Change',
+  'costs.col.monthTotal': 'Paid|in total',
   'costs.invoices.changeAria': 'Change the invoices for {month}',
 
   // --- Invoice editor -----------------------------------------------------------------------------------
@@ -222,8 +222,12 @@ export const DEFS = {
     long: 'Main and backup model: forms written by today’s main and backup model. Other models: older models, the medical history summary and recording. The server is the monthly Railway share spread over the days.',
   },
   'costs.whyUp': {
-    short: 'The price of one form and the size of the request by month, for all time.',
-    long: 'The steps in size are our changes to the instructions for the model and the medical history we started sending. A page of text is about 1,800 characters. Months with fewer than 5 forms are left out.',
+    short: 'The price of one form by month, for all time — not only the selected period.',
+    long: 'Months with fewer than 5 forms are left out. The answer at the top of the page compares the selected period with the one before it, so its price can differ from a whole month here.',
+  },
+  'costs.whyUpSize': {
+    short: 'How long the request to the model was, by month, in pages of text (about 1,800 characters each).',
+    long: 'The steps in size are our changes to the instructions for the model and the medical history we started sending.',
   },
   'costs.whereWent': {
     short: 'Where the money went in this period and what one unit costs.',

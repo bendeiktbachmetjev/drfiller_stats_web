@@ -83,8 +83,9 @@ function TwoLineLabel({ title, detail }) {
 //   variant   'single' — one bar (brand, or the item's identity colour), `ghost` drawn behind it at its own width,
 //             value "9 of 11"
 //             'compare' — two thin bars per row, reference (grey) over main (brand), value "3 h / 12 h",
-//                         with its legend above the list; on phones each row stacks: name and numbers on
-//                         one line, both bars below at the full card width
+//                         with its legend above the list
+//             On phones each row stacks (both variants): name and numbers on one line, the bar(s) below at
+//             the full card width
 //   series    [{ key, label }, { key, label }] = [reference, main]: legend and tooltip names. A number is read
 //             from item[key] when the item has that field, else from item.ghost / item.value.
 //   showShare adds each row's share of the total
@@ -107,7 +108,9 @@ export default function BarList({
   const tip = useChartTooltip();
 
   const compare = variant === 'compare';
-  const stacked = compare && isPhone && !printing;
+  // Phones stack every row: name and value on one line, the bar at the full card width below, so a wide
+  // value column cannot shrink the bars to dots.
+  const stacked = isPhone && !printing;
   const rowClass = compare ? ROWS.compare : ROWS.single;
   const [referenceSeries, mainSeries] =
     Array.isArray(series) && series.length === 2 ? series : DEFAULT_SERIES[compare ? 'compare' : 'single'];
@@ -214,23 +217,43 @@ export default function BarList({
     const barOf = (v, tone) => (
       <div className={`${STACKED_BAR} ${tone}${v > 0 ? ' min-w-[2px]' : ''}`} style={{ width: widthOf(v ?? 0, max) }} />
     );
+    const stackedRow = (row) => (
+      <>
+        <div className="flex items-baseline justify-between gap-3">
+          <span className={`min-w-0 text-sm font-semibold ${row.item.muted ? 'text-ink-soft' : 'text-ink'}`}>
+            {row.item.label}
+            {row.item.detail && <span className="text-xs font-medium text-ink-soft whitespace-nowrap"> {row.item.detail}</span>}
+          </span>
+          <span className="shrink-0 flex items-baseline">
+            {renderValue(row)}
+            {showShare && <span className="pl-2 text-xs font-medium text-ink-soft tabular-nums">{shareOf(row.main, total)}</span>}
+          </span>
+        </div>
+        {compare ? (
+          <div className="mt-1.5 flex flex-col gap-0.5" aria-hidden="true">
+            {barOf(row.reference, 'bg-data-mute')}
+            {barOf(row.main, 'bg-brand')}
+          </div>
+        ) : (
+          <div className="mt-1.5" aria-hidden="true">
+            {renderBars(row)}
+          </div>
+        )}
+      </>
+    );
     return (
       <div className={className}>
         {legend}
         <ul role="list" className="flex flex-col gap-3">
           {rows.slice(0, showAll ? rows.length : maxRows).map((row) => (
             <li key={row.item.key ?? row.item.label}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className={`min-w-0 text-sm font-semibold ${row.item.muted ? 'text-ink-soft' : 'text-ink'}`}>
-                  {row.item.label}
-                  {row.item.detail && <span className="text-xs font-medium text-ink-soft whitespace-nowrap"> {row.item.detail}</span>}
-                </span>
-                <span className="shrink-0">{renderValue(row)}</span>
-              </div>
-              <div className="mt-1.5 flex flex-col gap-0.5" aria-hidden="true">
-                {barOf(row.reference, 'bg-data-mute')}
-                {barOf(row.main, 'bg-brand')}
-              </div>
+              {row.item.to ? (
+                <Link to={row.item.to} className={`block rounded-[8px] ${RING}`}>
+                  {stackedRow(row)}
+                </Link>
+              ) : (
+                stackedRow(row)
+              )}
             </li>
           ))}
         </ul>

@@ -275,7 +275,8 @@ function answerOf({ summary, byType, promptMean, baseShare, wordsMean }) {
     anam: ['eurUnit', anam],
     live: ['eurUnit', find('live').unitEur],
     form: ['eurUnit', find('form').unitEur],
-    share: ['pct', share(summary.cost.byFeature.form, summary.cost.totalEur)],
+    // Share of what requests cost (the server share is not a request), so "far more forms" adds up.
+    share: ['pct', share(summary.cost.byFeature.form, summary.cost.variableEur)],
   };
   const answer = [{ key: Number.isFinite(anam) ? 'requests.answer.byType' : 'requests.answer.byTypeNoAnam', values, tone: 'neutral' }];
   answer.push({ key: 'requests.answer.size', values: { pages: ['pages', promptMean], tokens: ['tokens', promptMean] }, tone: 'neutral' });

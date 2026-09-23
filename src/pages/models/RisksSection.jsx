@@ -11,7 +11,7 @@ export default function RisksSection({ rows = [] }) {
     <section aria-labelledby="risks">
       <SectionTitle id="risks" title={t('models.section.risks')} description={t('models.section.risksSub')} />
       <TableCard title={t('models.risks.title')} icon={ShieldAlert} hintKey="models.risks">
-        <DataTable columns={riskColumns()} rows={rows} caption={t('models.risks.title')} maxHeight={null} />
+        <DataTable columns={riskColumns()} rows={rows} caption={t('models.risks.title')} limit={0} />
       </TableCard>
     </section>
   );

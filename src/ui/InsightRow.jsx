@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Info, Sparkles } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Info, Sparkles } from 'lucide-react';
 
 const ROW_CLASS = 'flex items-start gap-3.5 p-3 -mx-3 rounded-[16px]';
 // Only a row that goes somewhere reacts to the pointer.
@@ -54,6 +54,8 @@ export default function InsightRow({ icon, tone = 'neutral', parts = [], to, chi
     return (
       <Link to={toPath(to)} className={`${ROW_CLASS} ${LINK_CLASS}`}>
         {content}
+        {/* Phones have no hover: the arrow says the row leads somewhere. */}
+        <ChevronRight className="ml-auto self-center w-4 h-4 text-ink-mute shrink-0" aria-hidden="true" />
       </Link>
     );
   }

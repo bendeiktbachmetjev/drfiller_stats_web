@@ -220,7 +220,7 @@ export const COPY = {
 
   // Notes
   'settings.note.topDoctor': 'Measured values mostly describe one doctor: {share} of the forms in the last 30 days are theirs.',
-  'settings.note.fewConversations': 'Minutes of conversation are measured from 20 conversations; the last 30 days have {n}.',
+  'settings.note.fewConversations': 'We measure conversation length once there are 20 conversations; so far there are {n}, so the plan value is used.',
   'settings.note.convAssumed': 'The text a conversation adds to a form stays an assumption until 20 forms arrive with conversation text.',
 };
 

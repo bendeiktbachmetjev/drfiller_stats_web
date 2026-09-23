@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, ExternalLink, Info } from 'lucide-react';
 import { sourceMessageKey } from '../../ui/index.js';
-import { t } from '../../copy/index.js';
+import { plural, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
 
 const STRIPE_PAYMENTS = 'https://dashboard.stripe.com/payments';
@@ -31,7 +31,7 @@ export default function MoneyBanners({ data, source }) {
       {notCredited > 0 && (
         <div role="alert" className="mb-4 flex flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3 rounded-[16px] bg-warn-tint">
           <AlertTriangle className="w-5 h-5 text-warn shrink-0 mt-0.5" aria-hidden="true" />
-          <p className="min-w-0 flex-1 text-sm font-semibold text-ink">{t('money.notCredited', { n: fmt.int(notCredited) })}</p>
+          <p className="min-w-0 flex-1 text-sm font-semibold text-ink">{t('money.notCredited', { n: fmt.int(notCredited), payments: plural(notCredited, 'common.unit.payment') })}</p>
           <StripeLink />
         </div>
       )}

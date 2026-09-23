@@ -61,7 +61,7 @@ export default function WhatIfSection({ data, view, onView, scales }) {
             {[view.filter === 'eu' ? t('prices.whatIf.basePinned') : null, view.prices2027 ? t('prices.whatIf.prices2027') : null].filter(Boolean).join(' ')}
           </p>
         )}
-        <DataTable columns={columns} rows={rows} defaultSort={DEFAULT_SORT} maxHeight={null} caption={t('prices.whatIf.title')} />
+        <DataTable columns={columns} rows={rows} defaultSort={DEFAULT_SORT} limit={0} caption={t('prices.whatIf.title')} />
         {(canExpand || view.showAll) && (
           <button
             type="button"
@@ -73,7 +73,7 @@ export default function WhatIfSection({ data, view, onView, scales }) {
         )}
         <Disclosure id="prices.whatif">
           <h4 className="text-sm font-extrabold text-ink">{t('prices.whatIfMore.title')}</h4>
-          <DataTable columns={moreColumns} rows={rows} defaultSort={DEFAULT_SORT} maxHeight={null} caption={t('prices.whatIfMore.title')} className="mt-3" />
+          <DataTable columns={moreColumns} rows={rows} defaultSort={DEFAULT_SORT} limit={0} caption={t('prices.whatIfMore.title')} className="mt-3" />
           <h4 className="mt-6 text-sm font-extrabold text-ink flex items-center gap-2">
             {t('prices.whatIfMore.legend')}
             <InfoHint hintKey="prices.whatIf" label={t('prices.whatIfMore.legend')} />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Inbox } from 'lucide-react';
 import { useAnalytics, useOverview } from '../context/AnalyticsContext.jsx';
 import { useLive } from '../context/useLive.js';
@@ -22,6 +22,7 @@ export default function OverviewPage() {
   const { dataset } = useAnalytics();
   const { data, period } = metric;
   const answerItems = data ? (data.empty ? [] : answerItemsOf(data, period, dataset)) : undefined;
+  const exportTables = useMemo(() => overviewExportTables(metric), [metric]);
 
   return (
     <PageLayout
@@ -30,7 +31,7 @@ export default function OverviewPage() {
       vatChip
       sources={['usage', 'revenue', 'config']}
       answerItems={answerItems}
-      exportTables={overviewExportTables(metric)}
+      exportTables={exportTables}
     >
       <AlertList items={live.alerts} />
       {data?.empty ? (

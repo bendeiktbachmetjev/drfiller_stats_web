@@ -3,7 +3,7 @@ import { Lock, Mail } from 'lucide-react';
 import { DoctorName, SignedMoney } from '../../ui/index.js';
 import { classLabel, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
-import { doctorName } from './text.js';
+import { doctorName } from '../../format/items.js';
 
 const DAY_MS = 86400000;
 const SPECIALTY_MAX = 22;
@@ -111,7 +111,7 @@ export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onT
       sortValue: nameOf,
       // A floor width keeps an email on one or two lines when every column is shown; the table scrolls instead.
       render: (row) => (
-        <span className="block min-w-[176px]">{row.pid === 'anonymous' ? t('doctors.noAccount') : <DoctorName doctor={doctorOf(row)} stacked />}</span>
+        <span className="block min-w-[176px]">{row.pid === 'anonymous' ? t('common.doctor.noAccount') : <DoctorName doctor={doctorOf(row)} stacked />}</span>
       ),
     },
     { key: 'class', header: t('doctors.col.type'), type: 'node', priority: 2, sortValue: (row) => classLabel(row.class), render: (row) => <TypeChip cls={row.class} /> },
@@ -126,7 +126,7 @@ export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onT
     { key: 'recordingMin', header: t('doctors.col.recording'), type: 'minutes', priority: 3 },
     { key: 'anamnesisRuns', header: t('doctors.col.runs'), type: 'int', priority: 3 },
     { key: 'costEur', header: t('doctors.col.cost'), type: 'eur', priority: 1 },
-    ...(showMonth ? [{ key: 'costPerMonthEur', header: t('doctors.col.costMonth'), type: 'eur', priority: 2 }] : []),
+    ...(showMonth ? [{ key: 'costPerMonthEur', header: t('doctors.col.costMonth'), type: 'eur', priority: 3 }] : []),
     { key: 'costShare', header: t('doctors.col.costShare'), type: 'bar', format: 'pct', max: maxShare || 1, priority: 3 },
     { key: 'paidNetEur', header: t('doctors.col.income'), type: 'eur', priority: 1 },
     { key: 'resultEur', header: t('doctors.col.result'), type: 'eurSigned', priority: 1, render: (row) => <SignedMoney value={row.resultEur} /> },

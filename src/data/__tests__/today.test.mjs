@@ -66,7 +66,9 @@ test('alerts: attention first, rule order, at most 3; keys and links of §3.10',
   };
   const alerts = computeAlerts({ ds, today, live: liveNow(9), nowMs: SCENARIO_NOW });
   assert.deepEqual(alerts.map((a) => a.key), ['notCredited', 'fallbackToday', 'slowToday']);
-  assert.deepEqual(alerts[0], { key: 'notCredited', tone: 'attention', values: { n: 1 }, link: '/money#payments' });
+  assert.deepEqual(alerts[0], {
+    key: 'notCredited', tone: 'attention', values: { n: 1, payments: { key: 'common.unit.payment.one' } }, link: '/money#payments',
+  });
   assert.deepEqual(alerts[2].values, { pct: ['pct', 0.15] });
 
   const calm = computeAlerts({ ds, today: summarizeToday([], ds, SCENARIO_NOW), live: liveNow(0), nowMs: SCENARIO_NOW });

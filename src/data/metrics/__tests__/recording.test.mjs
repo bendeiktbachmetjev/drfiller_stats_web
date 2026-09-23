@@ -109,6 +109,16 @@ test('thin rule: fewer than 20 recordings since 22.09 17:00 → the sentence wit
   assert.equal(computeRecording(ds, august, scopeOf(ds)).answer[0].key, 'recording.answer.volume');
 });
 
+test('the "too early" sentence counts every account, whatever the switch (real-data m4)', () => {
+  const { ds } = makeScenario();
+  const last30 = resolvePeriod('last30', SCENARIO_NOW);
+  const hidden = computeRecording(ds, last30, makeScope({ excludeInternal: true, settings: ds.settings }));
+  const all = computeRecording(ds, last30, makeScope({ excludeInternal: false, settings: ds.settings }));
+  assert.equal(hidden.headline.recordingsSinceSonioxAll, all.headline.recordingsSinceSonioxAll);
+  assert.ok(all.headline.recordingsSinceSonioxAll >= all.headline.recordingsSinceSoniox);
+  assert.deepEqual(hidden.answer[0].values, { n: all.headline.recordingsSinceSonioxAll });
+});
+
 test('the planned scenario draws the chart and fills the tables', async () => {
   const ds = await demoDataset('planned');
   const period = resolvePeriod('last30', ds.nowMs);

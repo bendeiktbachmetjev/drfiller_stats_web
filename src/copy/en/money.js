@@ -6,16 +6,6 @@ export const COPY = {
   'money.title': 'Money',
   'money.question': 'How much money comes in, how much we keep, and will it pay off at 100–300 doctors?',
 
-  // --- The period inside a sentence ("Result in the last 30 days: …") -----------------------------------
-  'money.period.last7': 'in the last 7 days',
-  'money.period.last30': 'in the last 30 days',
-  'money.period.month': 'in {month}',
-  'money.period.monthSoFar': 'in {month} so far',
-  'money.period.year': 'in {year}',
-  'money.period.yearSoFar': 'in {year} so far',
-  'money.period.allTime': 'since the start',
-  'money.period.custom': 'in {range}',
-
   // --- Answer -----------------------------------------------------------------------------------------
   'money.answer.revenueOff':
     'Stripe is not connected to the stats, so income is not visible. Judging by credit balances, doctors made at most {n} purchases for {sum} in all (indirect).',
@@ -25,11 +15,11 @@ export const COPY = {
   'money.answer.noPayments': 'No payments {period}.',
   'money.answer.noPaymentsLast': 'No payments {period}. The last purchase was on {date}.',
   'money.answer.result': 'Result {period}: {result} — income {net}, costs {cost}.',
-  'money.answer.plan': 'Plan ({scenario}): at {s0} doctors about {r0} a month, at {s1} about {r1}; we keep {pct} of income.',
-  'money.answer.planNoIncome': 'Plan ({scenario}): at {s0} doctors about {r0} a month, at {s1} about {r1}.',
+  'money.answer.plan': 'On the plan ({scenario}): about {r0} a month at {s0} doctors, {r1} at {s1}. We keep {pct} of income.',
+  'money.answer.planNoIncome': 'On the plan ({scenario}): about {r0} a month at {s0} doctors, {r1} at {s1}.',
 
   // --- Banners --------------------------------------------------------------------------------------
-  'money.notCredited': 'A doctor paid, but the credits did not arrive: {n}. Add them by hand and check in Stripe: Developers → Webhooks.',
+  'money.notCredited': '{n} {payments} did not turn into credits. Add the credits by hand, then check Stripe → Developers → Webhooks (the link from Stripe to our server).',
   'money.openStripe': 'Open Stripe',
 
   // --- Section chips ----------------------------------------------------------------------------------
@@ -112,7 +102,7 @@ export const COPY = {
   'money.tile.creditsSpent': 'Credits spent',
   'money.tile.creditsSpent.sub': 'for recording: {n}',
   'money.tile.creditsSold': 'Credits bought',
-  'money.tile.balances': 'On balances',
+  'money.tile.balances': 'Unspent credits',
   'money.tile.balances.sub': 'as of today',
   'money.tile.freeExposure': 'Free credits would cost us',
   'money.tile.freeExposure.sub': '{n} nobody paid for',
@@ -124,9 +114,9 @@ export const COPY = {
   'money.note.beforeMeter':
     'Recording is paid by the minute since 23 Sep 2026. Before that, the first dictation after a form was free and a second one in a row cost 1 credit; those credits are counted from the log (estimate).',
   'money.balancesByClass.title': 'Credits on balances: who holds them',
-  'money.class.paid': 'Bought',
-  'money.class.gifted': 'Given by hand',
-  'money.class.free': 'Welcome 15',
+  'money.class.paid': 'Paying',
+  'money.class.gifted': 'Gift',
+  'money.class.free': 'Free 15',
   'money.class.internal': 'My and test',
   'money.class.other': 'Other',
 
@@ -154,7 +144,7 @@ export const COPY = {
   'money.anatomy.table': 'Show all four as a table',
   'money.col.creditPrice': 'Credit price',
   'money.col.cost': 'Costs',
-  'money.col.kept': 'Kept',
+  'money.col.kept': 'Result (kept, %)',
   'money.visitTypes.title': 'A whole visit',
   'money.visit.typed': 'Typing only',
   'money.visit.dictation1': 'Dictation 1 min',
@@ -196,7 +186,8 @@ export const COPY = {
   'money.col.step': 'Step',
   'money.col.nowTotal': 'Period, not converted',
   'money.sensitivity.title': 'What moves the result most',
-  'money.sensitivity.row': 'If {change}: result {diff} a month.',
+  'money.sensitivity.more': 'If {change}, we would make {diff} more a month at {doctors} doctors.',
+  'money.sensitivity.less': 'If {change}, we would make {diff} less a month at {doctors} doctors.',
   'money.sensitivity.change.pack600': 'doctors buy pack 600 instead of 1500',
   'money.sensitivity.change.model38in2027': 'the main model is Gemini 3.8 Flash at its 2027 price',
   'money.sensitivity.change.vat': 'the company pays VAT',
@@ -249,7 +240,7 @@ export const DEFS = {
     long: 'We count (income − costs) ÷ income. This is not a markup. With no income it cannot be counted, so we show “—”.',
   },
   'money.moneyChart': {
-    short: 'Left: income, right: costs; the dot is the result of that stretch.',
+    short: 'Each week or month: income (blue) and costs (grey). The line is the result.',
     long: 'Income is counted by payment date, so a week with a pack purchase looks better than the weeks after it. What the costs are made of is in the tooltip and on the Costs page.',
   },
   'money.payments': {

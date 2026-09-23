@@ -59,15 +59,17 @@ function chipTexts(chips, data) {
   return line ? line.split(CHIP_SEPARATOR) : [];
 }
 
-/** Sentences for ScaleResult.warnings ('SONIOX_STREAM_LIMIT' → common.warning.SONIOX_STREAM_LIMIT). */
+/** Sentences for ScaleResult.warnings ('SONIOX_STREAM_LIMIT' → common.warning.SONIOX_STREAM_LIMIT), naming the doctors. */
 const warningTexts = (data) =>
-  (data?.warnings ?? []).map((code) => `common.warning.${code}`).filter((key) => has(key)).map((key) => t(key));
+  (data?.warnings ?? [])
+    .filter((code) => has(`common.warning.${code}`))
+    .map((code) => t(`common.warning.${code}`, { doctors: fmt.int(data.warningAt?.[code] ?? null) }));
 
 /**
  * Today next to the plan, per month (§3.2 ScaleProjection, §5.3.5):
  *   rows      [{ key: keyof ScaleColumn, label, format, hintKey? }] — e.g. netEur / costTotalEur / resultEur ('eurSigned') / marginPct
  *   data      ScaleResult (core/projection.js)
- *   columns   default ['now', 'doctor', 's0', 's1']; plan columns carry the "forecast" badge
+ *   columns   default ['now', 'doctor', 's0', 's1']; the first plan column carries the "forecast" badge (each card on phones)
  *   nowRange  the period text for "converted from {range}" (default: the selected period)
  *   compact   Overview: one row, chips and "Change" in one quiet line
  *   chips     strings; default = data.chips (copy keys), else the assumption line built from data.scenario (§3.8)
@@ -94,6 +96,8 @@ export default function ScaleProjection({
   const range = nowRange ?? (period ? fmt.range(period.from, period.effTo) : null);
   const chipList = chipTexts(chips, data);
   const warnings = warningTexts(data);
+  // One "forecast" badge on the first plan column: the plan columns stand together to its right.
+  const firstPlan = shown.find((column) => PLAN_COLUMNS.has(column));
 
   const editLink = onEdit ? (
     <button type="button" onClick={onEdit} className={EDIT}>
@@ -145,8 +149,8 @@ export default function ScaleProjection({
                   return (
                     <th key={column} scope="col" className={COLUMN_HEAD}>
                       <span className="inline-flex items-center justify-end gap-1.5">
+                        {column === firstPlan && <SourceBadge basis="model" />}
                         {head.title}
-                        {PLAN_COLUMNS.has(column) && <SourceBadge basis="model" />}
                       </span>
                       {head.sub && <span className="block text-xs font-medium text-ink-mute">{head.sub}</span>}
                     </th>

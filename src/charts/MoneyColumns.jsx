@@ -30,21 +30,44 @@ function MoneyTooltip({ active, payload, partLabels = {} }) {
   return <TooltipBox title={datum.tipTitle} rows={rows} footer={footer} dots />;
 }
 
+/** px between the income and the cost column of one bucket. */
+const BAR_GAP = 2;
+
 // The latest result gets a direct label (desktop only, §3.12): the sign in colour (good "+" / bad "−"),
-// the amount in ink, on a white halo so it stays readable over the columns. A loss is labelled below its
-// dot, where no column stands (columns never go below zero).
-function resultLabel(lastIndex) {
-  return function ResultLabel({ x, y, value, index }) {
-    if (index !== lastIndex || !Number.isFinite(value) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-    const text = fmt.eurSigned(value);
-    const sign = text.charAt(0);
-    const signed = sign === '+' || sign === '−';
-    return (
-      <text x={x} y={value < 0 ? y + 18 : y - 10} textAnchor="middle" fontSize={12} fontWeight={700} fill={COLORS.ink} stroke={COLORS.surface} strokeWidth={3} paintOrder="stroke">
-        {signed && <tspan fill={sign === '+' ? COLORS.good : COLORS.bad}>{sign}</tspan>}
-        <tspan>{signed ? text.slice(1) : text}</tspan>
-      </text>
-    );
+// the amount in ink, on a white halo. A profit is labelled 8 px above the taller column of its pair, so it
+// never sits on the columns or the dot; a loss below its dot, where no column stands (columns never go below zero).
+function ResultText({ x, y, value }) {
+  const text = fmt.eurSigned(value);
+  const sign = text.charAt(0);
+  const signed = sign === '+' || sign === '−';
+  return (
+    <text x={x} y={y} textAnchor="middle" fontSize={12} fontWeight={700} fill={COLORS.ink} stroke={COLORS.surface} strokeWidth={3} paintOrder="stroke">
+      {signed && <tspan fill={sign === '+' ? COLORS.good : COLORS.bad}>{sign}</tspan>}
+      <tspan>{signed ? text.slice(1) : text}</tspan>
+    </text>
+  );
+}
+
+/** Label of a loss, on the result line: below the dot. */
+function lossLabel(lastIndex) {
+  return function LossLabel({ x, y, value, index }) {
+    if (index !== lastIndex || !(value < 0) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return <ResultText x={x} y={y + 18} value={value} />;
+  };
+}
+
+/**
+ * Label of a profit, on the taller column of the pair (`side` = 'income' | 'cost'); centred over both
+ * columns (they stand `BAR_GAP` apart).
+ */
+function profitLabel(lastIndex, data, side) {
+  return function ProfitLabel({ x, y, width, index }) {
+    const d = data[index];
+    if (index !== lastIndex || !d || !(d.result >= 0) || ![x, y, width].every(Number.isFinite)) return null;
+    const incomeTaller = (d.income ?? 0) >= (d.cost ?? 0);
+    if ((side === 'income') !== incomeTaller) return null;
+    const centre = side === 'income' ? x + width + BAR_GAP / 2 : x - BAR_GAP / 2;
+    return <ResultText x={centre} y={y - 8} value={d.result} />;
   };
 }
 
@@ -79,7 +102,11 @@ export default function MoneyColumns({ rows = [], showIncome = true, partLabels,
 
   const { margin, ...axis } = useMemo(() => bucketAxisProps(data, chart.margin), [data]);
   const lastResultIndex = useMemo(() => data.reduce((last, d, index) => (d.result === null ? last : index), -1), [data]);
-  const ResultLabel = useMemo(() => resultLabel(lastResultIndex), [lastResultIndex]);
+  const labels = useMemo(
+    () => ({ loss: lossLabel(lastResultIndex), income: profitLabel(lastResultIndex, data, 'income'), cost: profitLabel(lastResultIndex, data, 'cost') }),
+    [lastResultIndex, data],
+  );
+  const directLabels = showIncome && !isPhone;
   const values = data.flatMap((d) => [d.income ?? 0, d.cost ?? 0, d.result ?? 0]);
   const scale = chart.signedScale(Math.min(...values), Math.max(...values));
   const tickFormat = axisFormat('eur');
@@ -87,7 +114,7 @@ export default function MoneyColumns({ rows = [], showIncome = true, partLabels,
   return (
     <div ref={tap.frameRef} className={FRAME_CLASS} style={{ height: boxHeight }}>
       <ResponsiveContainer {...chart.container(boxHeight)}>
-        <ComposedChart {...tap.chartProps} data={data} margin={margin} barCategoryGap="24%" barGap={2} aria-label={ariaLabel ?? frame?.title}>
+        <ComposedChart {...tap.chartProps} data={data} margin={margin} barCategoryGap="24%" barGap={BAR_GAP} aria-label={ariaLabel ?? frame?.title}>
           <HatchDefs colors={[SERIES.income, SERIES.cost]} />
           <CartesianGrid {...chart.grid} />
           <XAxis {...chart.xAxis} {...axis} />
@@ -99,17 +126,19 @@ export default function MoneyColumns({ rows = [], showIncome = true, partLabels,
               {data.map((d) => (
                 <Cell key={d.bucket} fill={d.isPartial ? hatchFill(SERIES.income) : SERIES.income} />
               ))}
+              {directLabels && <LabelList dataKey="income" content={labels.income} />}
             </Bar>
           )}
           <Bar dataKey="cost" name={t('common.row.cost')} fill={SERIES.cost} radius={chart.bar.radius} maxBarSize={chart.bar.maxBarSize} {...chart.anim(first, reduced, printing)} onAnimationEnd={() => setFirst(false)}>
             {data.map((d) => (
               <Cell key={d.bucket} fill={d.isPartial ? hatchFill(SERIES.cost) : SERIES.cost} />
             ))}
+            {directLabels && <LabelList dataKey="cost" content={labels.cost} />}
           </Bar>
           {showIncome && <Line dataKey="result" stroke={COLORS.surface} strokeWidth={5} dot={false} activeDot={false} isAnimationActive={false} legendType="none" tooltipType="none" connectNulls={false} />}
           {showIncome && (
             <Line dataKey="result" name={t('common.row.result')} stroke={SERIES.result} strokeWidth={2} dot={{ r: 2.5, fill: SERIES.result, strokeWidth: 0 }} isAnimationActive={false} connectNulls={false}>
-              {!isPhone && <LabelList dataKey="result" content={ResultLabel} />}
+              {directLabels && <LabelList dataKey="result" content={labels.loss} />}
             </Line>
           )}
         </ComposedChart>

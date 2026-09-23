@@ -28,7 +28,7 @@ export default function UnitSection({ metric, pack, onPack, phrase }) {
     <section aria-label={t('money.c.title')}>
       <SectionTitle id="unit" title={t('money.c.title')} description={textOf(data.takeaways?.unit, { period: phrase })} />
       <ChoiceRow label={t('money.packSwitch')} options={options} value={pack} onChange={onPack} />
-      <div className="grid grid-cols-1 gap-3 md:gap-6 lg:grid-cols-12">
+      <div className="grid grid-cols-1 items-start gap-3 md:gap-6 lg:grid-cols-12">
         <Card padding="none" className={`${CARD} lg:col-span-5`}>
           <CardHeader title={t('money.anatomy.title')} hintKey="money.anatomy" />
           <div className="flex flex-col gap-6">
@@ -37,12 +37,12 @@ export default function UnitSection({ metric, pack, onPack, phrase }) {
             ))}
           </div>
           <Disclosure id="money.anatomy" label={t('money.anatomy.table')}>
-            <DataTable columns={anatomyColumns} rows={tables.anatomy ?? []} caption={t('money.anatomy.title')} maxHeight={null} />
+            <DataTable columns={anatomyColumns} rows={tables.anatomy ?? []} caption={t('money.anatomy.title')} limit={0} />
           </Disclosure>
         </Card>
         <Card padding="none" className={`${CARD} lg:col-span-7`}>
           <CardHeader title={t('money.visitTypes.title')} hintKey="money.visitTypes" />
-          <DataTable columns={visitColumns} rows={tables.visitTypes ?? []} caption={t('money.visitTypes.title')} maxHeight={null} />
+          <DataTable columns={visitColumns} rows={tables.visitTypes ?? []} caption={t('money.visitTypes.title')} limit={0} />
           <div className="mt-4 flex items-start gap-2 text-sm font-semibold text-ink">
             <span className="min-w-0">
               {isNum(h.safeFreeShare) && h.safeFreeShare > 0 ? t('money.safeFree', { x: fmt.pct(h.safeFreeShare) }) : t('money.safeFree.none')}

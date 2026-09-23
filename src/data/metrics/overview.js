@@ -4,16 +4,17 @@
 // (§2 rule 2, §6.3). Business numbers follow the scope; the health tile counts all traffic.
 import { HEALTH, MIN_EVENTS_FOR_CHART } from '../constants.js';
 import { MODEL_ERAS } from '../eras.js';
-import { buildBuckets, compareCaveat, inPeriod, previousPeriod } from '../period.js';
+import { buildBuckets, inPeriod } from '../period.js';
 import { combineBasis } from '../core/basis.js';
 import { bucketFixedEur } from '../core/fixed.js';
+import { formCostChange } from '../core/formCostChange.js';
 import { summarizeHealth } from '../core/health.js';
 import { incomeOf } from '../core/income.js';
 import { projectScale, scenarioLabel } from '../core/projection.js';
 import { hidesInternal, internalCount, isInternal } from '../core/scope.js';
-import { summarize } from '../core/summary.js';
+import { REQUEST_KINDS, summarize, topDoctorOf } from '../core/summary.js';
 import { unitEconomics } from '../core/unitEconomics.js';
-import { EMPTY_RESULT, comparable, makeSeries, share } from './shared.js';
+import { EMPTY_RESULT, makeSeries, share } from './shared.js';
 
 /** Thresholds of the verdict and the "In short" facts (§4.1). */
 export const OVERVIEW_RULES = Object.freeze({
@@ -21,8 +22,6 @@ export const OVERVIEW_RULES = Object.freeze({
   allFreeShare: 0.995,
   /** A form got more expensive: cost per form at least +20 % against the comparison window. */
   formCostRise: 0.2,
-  /** The request (input) or the answer (output) grew by at least 10 %. */
-  tokenRise: 0.1,
   /** Both windows need this many forms before a price change is worth a sentence. */
   minFormsToCompare: MIN_EVENTS_FOR_CHART,
   /** One doctor behind at least half of the variable cost. */
@@ -35,7 +34,6 @@ export const OVERVIEW_RULES = Object.freeze({
 /** Order of the cost split on the cost tile (identity, never rank). */
 export const COST_PARTS = Object.freeze(['form', 'recording', 'anamnesis', 'fixed']);
 
-const REQUEST_KINDS = new Set(['form', 'dictation', 'live', 'anamnesis']);
 const VERTEX_EU_ERA = MODEL_ERAS.find((era) => era.note === 'vertexEu');
 const CENT = 0.005;
 
@@ -114,23 +112,6 @@ export function verdictLine(summary, freeWho) {
 // "In short" facts: one per slot, slots in order, at most two
 // ---------------------------------------------------------------------------------------------------
 
-const rise = (cur, prev) => (Number.isFinite(cur) && Number.isFinite(prev) && prev > 0 ? cur / prev - 1 : null);
-
-/** Mean request and answer size of the scoped forms of a window. */
-function formSize(ds, period, scope) {
-  const hide = hidesInternal(ds, scope);
-  let n = 0;
-  let inTok = 0;
-  let outTok = 0;
-  (ds.forms ?? []).forEach((row) => {
-    if (!inPeriod(row.t, period) || (hide && isInternal(row.pid, ds))) return;
-    n += 1;
-    inTok += Number.isFinite(row.inTok) ? row.inTok : 0;
-    outTok += Number.isFinite(row.outTok) ? row.outTok : 0;
-  });
-  return n > 0 ? { inTok: inTok / n, outTok: outTok / n } : null;
-}
-
 /** Slot "units": what one form and 10 minutes of conversation leave us (plan pack, §4.1). */
 function unitsFact(units) {
   if (!(units.netPerCreditEur > 0)) return null;
@@ -144,43 +125,29 @@ function unitsFact(units) {
 }
 
 /**
- * Slot "cost driver": a form got ≥ 20 % dearer than in the comparison window — because the request grew,
- * because another model was working (the same rule as the filter-bar chip), or because answers got longer.
+ * Slot "cost driver": a form got ≥ 20 % dearer than in the comparison window (both windows ≥ 20 forms).
+ * The cause comes from the shared core (formCostChange), so Costs names the same one.
  */
-function formCostFact(ds, period, scope, summary) {
-  const prev = previousPeriod(period);
-  if (!prev || !comparable(ds, prev)) return null;
-  const before = summarize(ds, prev, scope);
-  const enough = (s) => s.counts.forms >= OVERVIEW_RULES.minFormsToCompare;
-  if (!enough(summary) || !enough(before)) return null;
-  const cur = summary.unit.costPerFormEur;
-  const old = before.unit.costPerFormEur;
-  if (!(rise(cur, old) >= OVERVIEW_RULES.formCostRise)) return null;
+function formCostFact(ds, period, scope) {
+  const change = formCostChange(ds, period, scope);
+  const enough = change.formsCur >= OVERVIEW_RULES.minFormsToCompare && change.formsPrev >= OVERVIEW_RULES.minFormsToCompare;
+  if (!enough || !(change.change >= OVERVIEW_RULES.formCostRise)) return null;
 
-  const values = { prev: ['eurUnit', old], cur: ['eurUnit', cur] };
+  const values = { prev: ['eurUnit', change.prev], cur: ['eurUnit', change.cur] };
   const base = { tone: 'attention', link: '/costs' };
-  if (compareCaveat(period, prev).modelEraChanged) {
-    // Swapped arguments name the era that ran most of the CURRENT window.
-    const era = compareCaveat(prev, period).era;
-    const name = { key: 'overview.era', values: { model: ['model', era.main], where: ['endpoint', { endpoint: era.endpoint, location: era.location }] } };
+  if (change.cause === 'era' && change.era) {
+    const { main, endpoint, location } = change.era;
+    const name = { key: 'overview.era', values: { model: ['model', main], where: ['endpoint', { endpoint, location }] } };
     return { key: 'overview.fact.formCostUp.era', values: { ...values, era: name }, ...base };
   }
-  const now = formSize(ds, period, scope);
-  const then = formSize(ds, prev, scope);
-  if (!now || !then) return null;
-  if (rise(now.inTok, then.inTok) >= OVERVIEW_RULES.tokenRise) {
-    return { key: 'overview.fact.formCostUp.size', values: { ...values, pages: ['pages', now.inTok] }, ...base };
-  }
-  if (rise(now.outTok, then.outTok) >= OVERVIEW_RULES.tokenRise) return { key: 'overview.fact.formCostUp.longer', values, ...base };
+  if (change.cause === 'size') return { key: 'overview.fact.formCostUp.size', values: { ...values, pages: ['pages', change.inTokCur] }, ...base };
+  if (change.cause === 'longer') return { key: 'overview.fact.formCostUp.longer', values, ...base };
   return null;
 }
 
 /** Slot "concentration": one doctor behind at least half of the variable cost. */
 function topDoctorFact(summary) {
-  let top = null;
-  Object.entries(summary.cost.byPid).forEach(([pid, costEur]) => {
-    if (pid !== 'anonymous' && (!top || costEur > top.costEur)) top = { pid, costEur };
-  });
+  const top = topDoctorOf(summary.cost.byPid);
   const topShare = top ? share(top.costEur, summary.cost.variableEur) : null;
   if (!(topShare >= OVERVIEW_RULES.topDoctorShare)) return null;
   return { key: 'overview.fact.topDoctor', values: { share: ['pct', topShare], name: ['doctor', top.pid] }, tone: 'quiet', link: '/doctors' };
@@ -205,7 +172,7 @@ function freeCreditsFact(summary, units) {
 export function factsOf(ds, period, scope, summary, units) {
   const slots = [
     () => unitsFact(units),
-    () => formCostFact(ds, period, scope, summary),
+    () => formCostFact(ds, period, scope),
     () => topDoctorFact(summary),
     () => freeCreditsFact(summary, units),
   ];

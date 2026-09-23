@@ -52,7 +52,7 @@ export function ErasSection({ data, config }) {
     <SettingsCard id="eras" title={t('settings.eras.title')} hintKey="settings.eras">
       <p className={LINE}>{eraNowText(rows, config)}</p>
       <Disclosure id="settings.eras" label={t('settings.eras.show')}>
-        <DataTable columns={columns} rows={rows} maxHeight={null} caption={t('settings.eras.title')} />
+        <DataTable columns={columns} rows={rows} limit={0} caption={t('settings.eras.title')} />
       </Disclosure>
     </SettingsCard>
   );
@@ -91,7 +91,7 @@ export function SourcesSection({ data, dataset }) {
       </ul>
       {load && <p className={`mt-4 ${LINE}`}>{itemText(load)}</p>}
       <Disclosure id="settings.sources" label={t('settings.sources.details')}>
-        <DataTable columns={columns} rows={rows} maxHeight={null} caption={t('settings.sources.title')} />
+        <DataTable columns={columns} rows={rows} limit={0} caption={t('settings.sources.title')} />
         <p className={`mt-4 ${NOTE}`}>
           {t('settings.sources.start', { date: fmt.date(STATS_START) })}{' '}
           {since ? t('settings.sources.v2Since', { date: fmt.date(since) }) : t('settings.sources.v2None')}

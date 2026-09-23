@@ -37,7 +37,7 @@ export function packLabel(scenario) {
 }
 
 /**
- * The assumption line under a projection: "400 visits · 15 min conversation · pack 1500 · no VAT · 0% free".
+ * The assumption line under a projection: "400 visits · 15 min conversation · pack 1500 · no VAT · no free use".
  * @param {{ visitsPerDoctorMonth?: number, liveShare?: number, liveMin?: number, dictMin?: number, pack?: string,
  *   packMix?: object, vatPayer?: boolean, freeShare?: number } | null} scenario ScaleResult.scenario
  * @returns {string} '' when there is no scenario
@@ -49,6 +49,6 @@ export function planChipsText(scenario) {
     scenario: scenarioLabel(scenario),
     packLabel: packLabel(scenario),
     vatWord: t(scenario.vatPayer ? 'common.vatWord.on' : 'common.vatWord.off'),
-    free: fmt.pct(scenario.freeShare ?? 0),
+    free: scenario.freeShare > 0 ? t('common.plan.chip.free', { share: fmt.pct(scenario.freeShare) }) : t('common.plan.chip.noFree'),
   });
 }

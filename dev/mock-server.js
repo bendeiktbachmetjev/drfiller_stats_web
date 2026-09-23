@@ -268,7 +268,7 @@ http
       fail(res, 500, 'INTERNAL', 'Mock error.');
     });
   })
-  .listen(PORT, () => {
+  .listen(PORT, '127.0.0.1', () => {
     const { scenario, email, fallbackOn404 } = state.sticky;
     console.log(`Mock admin API v2 on http://localhost:${PORT}${PREFIX} (key: dev, scenario: ${scenario}, email mode: ${email}, fallbackOn404: ${fallbackOn404})`);
   });

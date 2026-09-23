@@ -9,8 +9,8 @@ import { doctorColumns } from './columns.jsx';
 import { useEmailReveal } from './hooks.js';
 
 const COLUMNS_KEY = 'drfiller.admin.doctors.allColumns';
-/** Phones list the 20 first doctors (in the chosen order); "Show all" opens the rest. */
-const PHONE_ROWS = 20;
+/** The table lists the 20 first doctors (in the chosen order); "Show all N" opens the rest. */
+const FIRST_ROWS = 20;
 const RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 const INPUT = `h-9 w-full rounded-full border border-line bg-surface pl-9 pr-3 text-[13px] font-semibold text-ink placeholder:font-medium placeholder:text-ink-mute ${RING}`;
 const TEXT_BUTTON = `relative inline-flex items-center h-9 px-3.5 rounded-full border border-line bg-surface text-[13px] font-semibold text-ink-soft hover:bg-line/20 transition-colors after:absolute after:-inset-1 print:hidden ${RING}`;
@@ -54,15 +54,14 @@ function PlanLine({ data }) {
 
 /**
  * The Doctors table card (§4.8): plan line, "Active | All (n)", search, the table (phone: cards) and the
- * mine/test toggles. Sorted by costs, highest first.
- * @param {{ data: object, ds: object|null, view: 'active'|'all', onView: (v: string) => void, search: string,
+ * mine/test toggles. Sorted by costs, highest first. `rows` = the view's rows after the page's search.
+ * @param {{ data: object, rows: object[], ds: object|null, view: 'active'|'all', onView: (v: string) => void, search: string,
  *   onSearch: (q: string) => void, toggle: { busy: boolean, message: object|null, toggle: Function } }} props
  */
-export default function DoctorsTable({ data, ds, view, onView, search, onSearch, toggle }) {
+export default function DoctorsTable({ data, rows, ds, view, onView, search, onSearch, toggle }) {
   const isPhone = useIsPhone();
   const [allColumns, setAllColumns] = useState(readAllColumns);
   const { emails, reveal } = useEmailReveal();
-  const rows = data.tables.doctors;
   const emailMode = ds?.emailMode ?? 'off';
 
   const columns = useMemo(
@@ -112,11 +111,10 @@ export default function DoctorsTable({ data, ds, view, onView, search, onSearch,
       <DataTable
         columns={columns}
         rows={rows}
-        phoneRows={PHONE_ROWS}
+        limit={FIRST_ROWS}
         defaultSort={{ key: 'costEur', dir: 'desc' }}
         emptyText={emptyText}
         caption={t('doctors.table.title')}
-        maxHeight={640}
       />
     </Card>
   );

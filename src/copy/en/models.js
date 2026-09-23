@@ -8,6 +8,7 @@ export const COPY = {
 
   // --- Answer (§4.6) ---------------------------------------------------------------------------
   'models.answer.now': 'Forms are written by {main}, {where}. The backup model, {fallback}, stepped in for {n} of {N} forms.',
+  'models.answer.nowSince': 'Forms are written by {main}, {where}. The backup model, {fallback}, stepped in for {n} of {N} forms since {since} (when it was added).',
   'models.answer.nowSolo': 'Forms are written by {main}, {where}.',
   'models.answer.speed': 'A form usually arrives in {usual}, and 9 out of 10 come faster than {nineOfTen}. Longer than 15 s: {over15} of {forms}.',
   'models.answer.noForms': 'No forms in this period.',
@@ -179,6 +180,7 @@ export const COPY = {
   'models.proxy.reconnects': 'Reconnects in conversations',
   'models.tile.serviceFailures': 'Service failures',
   'models.tile.serviceFailuresSub': '{rate} of requests',
+  'models.tile.serviceFailuresSubSince': '{rate} of requests since {since}',
   'models.tile.refusals': 'Refusals',
   'models.tile.refusalsSub': 'most often: {kind}',
   'models.tile.refusalsNone': 'none in this period',
@@ -208,7 +210,7 @@ export const COPY = {
   'models.takeaway.heatmap': 'The busiest hour is {day} at {hour}:00: {share} of that day’s forms.',
 
   // --- Risks section ------------------------------------------------------------------------------------------
-  'models.risks.title': 'Risks and dates',
+  'models.risks.title': 'What may break',
   'models.col.risk': 'What',
   'models.col.riskStatus': 'Status',
   'models.col.date': 'Date',

@@ -51,13 +51,17 @@ const STYLES = {
   },
 };
 
+// A status dot before a word value (health): calm brand for "fine", warn and bad for the rest.
+const TONE_DOTS = { ok: 'bg-brand', warn: 'bg-warn', bad: 'bg-bad' };
+
 // Stat tile: label · value · signed change against a named period · optional trend.
 //   label, value    value is a number (formatted with `format`), a ready string, or null ("—" + "no data")
 //   valueText       ready text instead of a number ("1 of 6", ranges, words); the tile then spans 2 columns on phones
 //   format          any fmt key ('int', 'eur', 'eurUnit', 'pct', 'sec', 'credits' …)
 //   unit            extra word after the number
 //   sub             one quiet line under the change (at most one number)
-//   delta           makeDelta result; null = "Nothing to compare with"; undefined = the tile has no comparison
+//   delta           makeDelta result; null = no earlier data (a short caption only when there is no sub-line, so
+//                   a section of new tiles does not repeat it and the useful sub-line stays up); undefined = no comparison
 //   compareLabel    'the previous 30 days' (accessible name of the delta)
 //   goodWhen        'up' | 'down' | 'none' (grey delta, volume totals)
 //   badge           basis of the value: 'estimate' | 'inferred' | 'missing' | 'model' (nothing for 'exact');
@@ -66,6 +70,7 @@ const STYLES = {
 //   meter           0–1 thin meter instead of the sparkline
 //   foot            any node for the foot slot instead of spark / meter (e.g. a ShareBar); it sits above the
 //                   tile's link, so its own tooltips stay reachable
+//   tone            'ok' | 'warn' | 'bad': a status dot before the value (word values such as the health tile)
 //   hintKey         copy key of the (i) (DEFS: short, long); hintValues fills its template
 //   to              route; makes the whole tile a link
 //   variant         'default' | 'hero' (the one gradient tile of Overview)
@@ -85,6 +90,7 @@ export default function KpiTile({
   spark,
   meter,
   foot,
+  tone,
   hintKey,
   hintValues,
   to,
@@ -108,10 +114,13 @@ export default function KpiTile({
   const parts = showValue ? (hasText ? [{ num: valueText, unit: '' }] : fmt.parts(shown, format, value)) : [];
   const finalText = showValue ? [hasText ? valueText : fmt.value(value, format), unit].filter(Boolean).join(' ') : null;
 
+  const hasSub = sub !== undefined && sub !== null && sub !== '';
   let caption = null;
+  let spokenCaption = null;
   if (!firstLoad) {
     if (missing) caption = t('common.tile.noData');
-    else if (delta === null) caption = t('common.noCompare');
+    else if (delta === null && !hasSub) caption = t('common.noCompare');
+    else if (delta === null) spokenCaption = t('common.noCompare');
   }
 
   const spansTwo = wide ?? (hasText || ['eur', 'eurSigned', 'eurUnit', 'text'].includes(format));
@@ -145,6 +154,7 @@ export default function KpiTile({
       {showValue ? (
         <p className={counter.running ? `${styles.value} tabular-nums` : styles.value}>
           <span aria-hidden="true">
+            {TONE_DOTS[tone] && <span className={`inline-block w-3 h-3 mr-2 rounded-full align-middle ${TONE_DOTS[tone]}`} />}
             {parts.map((part, index) => (
               <React.Fragment key={`${index}-${part.unit}`}>
                 {index > 0 && ' '}
@@ -168,6 +178,7 @@ export default function KpiTile({
           <Delta delta={delta} goodWhen={goodWhen} onAccent={hero} compareLabel={compareLabel} />
         )}
         {caption && <span className={styles.caption}>{caption}</span>}
+        {spokenCaption && <span className="sr-only">{spokenCaption}</span>}
         {hero && badge && <SourceBadge basis={badge} onAccent />}
         {!hero && badge && <SourceBadge basis={badge} className="sm:hidden" />}
       </div>

@@ -36,11 +36,11 @@ export default function PriceListsSection({ tables, packs }) {
             <InfoHint hintKey={HINTS[tab]} values={{ minutes: fmt.int(minutes) }} label={t(`prices.tab.${tab}`)} />
           </p>
         )}
-        {tab === 'models' && <DataTable columns={models} rows={tables?.pricesModels ?? []} maxHeight={null} caption={t('prices.tab.models')} />}
-        {tab === 'transcription' && <DataTable columns={transcription} rows={tables?.pricesTranscription ?? []} maxHeight={null} caption={t('prices.tab.transcription')} />}
+        {tab === 'models' && <DataTable columns={models} rows={tables?.pricesModels ?? []} limit={0} caption={t('prices.tab.models')} />}
+        {tab === 'transcription' && <DataTable columns={transcription} rows={tables?.pricesTranscription ?? []} limit={0} caption={t('prices.tab.transcription')} />}
         {tab === 'payments' && (
           <>
-            <DataTable columns={payments} rows={tables?.pricesPayments ?? []} maxHeight={null} caption={t('prices.tab.payments')} />
+            <DataTable columns={payments} rows={tables?.pricesPayments ?? []} limit={0} caption={t('prices.tab.payments')} />
             <h4 className="mt-6 mb-1 text-sm font-extrabold text-ink">{t('prices.other.title')}</h4>
             <div className="flex flex-col">
               {(tables?.pricesOther ?? []).map((item) => (

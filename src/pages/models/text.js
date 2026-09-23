@@ -11,6 +11,7 @@
 //   ['seconds', 25000]  "25 s" (a whole setting, not a measurement: no ".0")
 import { endpointLabel, getLocale, statusLabel, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
+import { itemText } from '../../format/items.js';
 
 const locationOf = (code) => (typeof code === 'string' && code.startsWith('vertex:') ? code.slice('vertex:'.length) : null);
 
@@ -38,25 +39,10 @@ const CUSTOM = {
 };
 
 /**
- * Formats a `values` map of a Models item: page-only hints first, everything else through fmt.values.
- * @param {Record<string, unknown>} [values]
- * @returns {Record<string, string>}
- */
-export function valuesOf(values) {
-  const standard = {};
-  const custom = {};
-  Object.entries(values ?? {}).forEach(([key, raw]) => {
-    if (Array.isArray(raw) && raw.length === 2 && typeof raw[0] === 'string' && CUSTOM[raw[0]]) custom[key] = CUSTOM[raw[0]](raw[1]);
-    else standard[key] = raw;
-  });
-  return { ...fmt.values(standard), ...custom };
-}
-
-/**
  * The sentence of a metric item `{ key, values }` ('' for nothing).
  * @param {{ key: string, values?: object } | null | undefined} item
  */
-export const textOf = (item) => (item?.key ? t(item.key, valuesOf(item.values)) : '');
+export const textOf = (item) => itemText(item, { hints: CUSTOM });
 
 /** Wait bucket label: "0–3 s", "7.5–10 s", "over 30 s". */
 export function waitLabel(row) {

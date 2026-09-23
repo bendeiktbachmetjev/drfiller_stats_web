@@ -5,7 +5,7 @@ import useLive from '../context/useLive.js';
 import {
   Card, CardHeader, DataNotes, Disclosure, EmptyState, KpiTile, NotRecorded, PageLayout, RightNowStrip, RuleStrip, ScaleProjection, SectionTitle,
 } from '../ui/index.js';
-import { creditsDeltaHidden } from '../data/metrics/recording.js';
+import { chartIsThin, creditsDeltaHidden } from '../data/metrics/recording.js';
 import { SONIOX_SINCE_MS } from '../data/eras.js';
 import { fmt } from '../format/format.js';
 import { t } from '../copy/index.js';
@@ -201,6 +201,8 @@ export default function RecordingPage() {
   const h = data?.headline ?? {};
   const basis = data?.basis ?? {};
   const loading = !data;
+  // The minutes chart answers "how much do we record", so it stays open once there is enough to draw.
+  const chartOpen = Boolean(data) && !chartIsThin(period, h.recordingsSinceSoniox);
 
   const doctorOf = useCallback((pid) => dataset?.doctors?.get?.(pid) ?? null, [dataset]);
   const exports = useMemo(() => exportTables(() => data, period, doctorOf), [data, period, doctorOf]);
@@ -223,15 +225,22 @@ export default function RecordingPage() {
         <>
           <SectionTitle id="business" title={t('recording.section.business')} description={t('recording.section.businessHint')} />
           <BusinessTiles metric={metric} h={h} basis={basis} loading={loading} fx={fx} />
+          {chartOpen && (
+            <div className="mt-3 md:mt-6">
+              <MinutesBlock data={data} period={period} doctorOf={doctorOf} loading={loading} />
+            </div>
+          )}
           {data && (
             <Disclosure id="recording.business">
               <Card padding="none" className="min-w-0 p-4 sm:p-6 lg:p-8">
                 <CardHeader title={t('recording.plan.title')} hintKey="recording.plan" />
                 <ScaleProjection rows={planRows} data={data.projection} />
               </Card>
-              <div className="mt-6">
-                <MinutesBlock data={data} period={period} doctorOf={doctorOf} loading={loading} />
-              </div>
+              {!chartOpen && (
+                <div className="mt-6">
+                  <MinutesBlock data={data} period={period} doctorOf={doctorOf} loading={loading} />
+                </div>
+              )}
             </Disclosure>
           )}
 

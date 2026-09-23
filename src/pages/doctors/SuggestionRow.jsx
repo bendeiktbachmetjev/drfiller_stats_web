@@ -2,7 +2,7 @@ import React from 'react';
 import { UserCheck } from 'lucide-react';
 import { t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
-import { doctorName } from './text.js';
+import { doctorName } from '../../format/items.js';
 import { useSuggestionDismissed } from './hooks.js';
 
 const BUTTON = 'relative inline-flex items-center h-9 px-4 rounded-full text-[13px] font-bold transition-colors after:absolute after:-inset-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60 disabled:cursor-not-allowed';

@@ -22,5 +22,3 @@ export const COMPUTE = Object.freeze({
   settings: computeSettings,
 });
 
-/** @param {string} name */
-export const isMetric = (name) => Object.hasOwn(COMPUTE, name);

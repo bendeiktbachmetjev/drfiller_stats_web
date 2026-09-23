@@ -428,7 +428,6 @@ SCHEMAS.settingsObject = obj({
 SCHEMAS.settings = obj({ settings: SCHEMAS.settingsObject });
 
 SCHEMAS.doctorEmail = obj({ pid: match(PID_RE), email: nullable(str) });
-SCHEMAS.doctorEmails = obj({ emails: rec(nullable(str)) });
 
 SCHEMAS.envelope = obj({
   success: oneOf([true]), schemaVersion: oneOf([SCHEMA_VERSION]), generatedAt: str,
@@ -447,7 +446,6 @@ export const ROUTE_SCHEMAS = Object.freeze({
   costs: 'costsMonthly',
   settings: 'settings',
   doctorEmail: 'doctorEmail',
-  doctorEmails: 'doctorEmails',
 });
 
 /**

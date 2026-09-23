@@ -290,10 +290,11 @@ export function withRecordingRows(scale) {
 // Answer and notes
 // ---------------------------------------------------------------------------------------------------
 
-function answerOf({ period, business, summary, live10, cap }) {
+function answerOf({ period, business, sonioxAll, summary, live10, cap }) {
   const answer = [];
-  if (isThin(period, business.recordingsSinceSoniox)) {
-    answer.push({ key: 'recording.answer.thin', values: { n: business.recordingsSinceSoniox }, tone: 'neutral' });
+  // "Too early" is about the new service, so it counts every account (the tiles below do too).
+  if (isThin(period, sonioxAll)) {
+    answer.push({ key: 'recording.answer.thin', values: { n: sonioxAll }, tone: 'neutral' });
   } else if (business.recordingsInPeriod === 0) {
     answer.push({ key: 'recording.answer.none', tone: 'neutral' });
   } else {
@@ -340,7 +341,7 @@ function notesOf({ business, conversations }) {
 /**
  * Pure. No Date.now() (clock = ds.nowMs), no window, no React, no copy strings, no formatting.
  * Headline: business `minutes, minutesLive, minutesDictation, cost, credits, recordings, recordingsSinceSoniox`
- * (scope) and the plan `cost10Eur, net1Eur, left10Eur, margin10` (unitEconomics().perCredit.live10: plan pack,
+ * (scope), `recordingsSinceSonioxAll` (all traffic: the answer's "too early" count) and the plan `cost10Eur, net1Eur, left10Eur, margin10` (unitEconomics().perCredit.live10: plan pack,
  * VAT setting) with `convTokensPerMin` (unitCosts); service `conversations, avgConversationMin, sonioxDictations, dictationsSinceSoniox, sonioxShare,
  * peakStreams, streamLimit, carriedMin` (all traffic) and `meanDoctors, safeDoctors` (capacity()).
  * Series `live, dictationSoniox, dictationOpenai` in minutes (scope). Tables `providers, limit, sessions,
@@ -365,6 +366,7 @@ export function computeRecording(ds, period, scope, opts = {}) {
   const lives = allRecordings.filter((row) => row.kind === 'live');
   const dictations = allRecordings.filter((row) => row.kind === 'dictation');
   const dictationsSince = dictations.filter((row) => row.t >= SONIOX_SINCE_MS);
+  const sonioxAll = allRecordings.filter((row) => row.t >= SONIOX_SINCE_MS).length;
   const sonioxDictations = dictationsSince.filter((row) => row.provider === 'soniox').length;
   const liveMinutes = lives.reduce((acc, row) => acc + minutesOf(row), 0);
   const peak = period.effToMs > LIVE_SINCE_MS ? peakStreams(lives) : null;
@@ -378,6 +380,7 @@ export function computeRecording(ds, period, scope, opts = {}) {
     credits: summary.creditsSpent.recording,
     recordings: business.recordingsInPeriod,
     recordingsSinceSoniox: business.recordingsSinceSoniox,
+    recordingsSinceSonioxAll: sonioxAll,
     cost10Eur: live10.costEur,
     net1Eur: live10.netEur,
     left10Eur: live10.leftEur,
@@ -403,6 +406,7 @@ export function computeRecording(ds, period, scope, opts = {}) {
     credits: creditsBasis(summary.creditsSpent.recordingBasis),
     recordings: 'exact',
     recordingsSinceSoniox: 'exact',
+    recordingsSinceSonioxAll: 'exact',
     cost10Eur: 'model',
     net1Eur: 'model',
     left10Eur: 'model',
@@ -424,7 +428,7 @@ export function computeRecording(ds, period, scope, opts = {}) {
     empty: allRecordings.length === 0,
     headline,
     basis,
-    answer: answerOf({ period, business, summary, live10, cap }),
+    answer: answerOf({ period, business, sonioxAll, summary, live10, cap }),
     series: business.series,
     tables: {
       providers: providersTable(allRecordings),

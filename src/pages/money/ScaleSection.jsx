@@ -36,7 +36,7 @@ function SensitivityCard({ rows, scale }) {
         </ul>
       )}
       <Disclosure id="money.sensitivity" label={t('money.sensitivity.table')}>
-        <DataTable columns={sensitivityColumns(maxAbs)} rows={rows} caption={t('money.sensitivity.title')} maxHeight={null} />
+        <DataTable columns={sensitivityColumns(maxAbs)} rows={rows} caption={t('money.sensitivity.title')} limit={0} />
       </Disclosure>
     </Card>
   );
@@ -66,10 +66,10 @@ export default function ScaleSection({ metric, scenario, onScenario }) {
         />
         <ScaleProjection data={projection} rows={scaleRows()} columns={['now', 'visit', 'doctor', 's0', 's1']} />
         <Disclosure id="money.scaleSteps" label={t('money.scaleSteps.toggle')}>
-          <DataTable columns={stepColumns({ scales, showNow })} rows={data.tables.scaleSteps ?? []} caption={t('money.scaleTable.title')} maxHeight={null} />
+          <DataTable columns={stepColumns({ scales, showNow })} rows={data.tables.scaleSteps ?? []} caption={t('money.scaleTable.title')} limit={0} />
         </Disclosure>
       </Card>
-      <div className="mt-3 md:mt-6 grid grid-cols-1 gap-3 md:gap-6 lg:grid-cols-12">
+      <div className="mt-3 md:mt-6 grid grid-cols-1 items-start gap-3 md:gap-6 lg:grid-cols-12">
         <SensitivityCard rows={data.tables.sensitivity ?? []} scale={scales[0]} />
         <CapacityCard className="lg:col-span-5" rows={data.tables.capacity ?? []} scales={scales} />
       </div>

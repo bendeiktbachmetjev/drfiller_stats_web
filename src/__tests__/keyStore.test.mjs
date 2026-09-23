@@ -70,3 +70,13 @@ test('keyStore: empty keys are refused, blocked storage never throws', () => {
   assert.doesNotThrow(() => clearKey(missing));
   assert.doesNotThrow(() => readKey(), 'no window in Node: default stores are null');
 });
+
+test('API base: ?server= only on the dev server and only to localhost (code-review L15)', async () => {
+  const { resolveApiBase } = await import('../app/apiBase.js');
+  const DEFAULT = 'https://api.example.test';
+  assert.equal(resolveApiBase({ dev: false, search: '?server=https://evil.example', defaultUrl: DEFAULT }), DEFAULT);
+  assert.equal(resolveApiBase({ dev: false, search: '?server=http://localhost:8323', defaultUrl: DEFAULT }), DEFAULT, 'never in production');
+  assert.equal(resolveApiBase({ dev: true, search: '?server=http://localhost:8323', defaultUrl: DEFAULT }), 'http://localhost:8323');
+  assert.equal(resolveApiBase({ dev: true, search: '?server=https://evil.example', defaultUrl: DEFAULT }), DEFAULT);
+  assert.equal(resolveApiBase({ dev: true, search: '', envUrl: '', defaultUrl: DEFAULT }), '', 'an empty VITE_API_URL = same origin');
+});

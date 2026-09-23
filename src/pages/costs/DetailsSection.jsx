@@ -68,7 +68,7 @@ function SonioxCheck({ check, days }) {
             columns={sonioxDayColumns()}
             rows={days.map((day) => ({ ...day, date: fmt.date(day.day) }))}
             defaultSort={{ key: 'date', dir: 'desc' }}
-            maxHeight={280}
+            limit={7}
             caption={t('costs.soniox.title')}
           />
         </>

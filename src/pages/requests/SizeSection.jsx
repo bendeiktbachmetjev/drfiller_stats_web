@@ -38,6 +38,7 @@ export default function SizeSection({ metric, doctors, segment, onSegment }) {
           label={t('requests.tile.promptMean')}
           value={h.promptMean}
           format="tokens"
+          unit={t('common.unit.tokens')}
           sub={t('requests.tile.promptMean.sub', { pages: fmt.pages(h.promptMean) })}
           delta={metric.delta((d) => d.headline.promptMean)}
           goodWhen="down"
@@ -49,6 +50,7 @@ export default function SizeSection({ metric, doctors, segment, onSegment }) {
           label={t('requests.tile.outputMean')}
           value={h.outputMean}
           format="tokens"
+          unit={t('common.unit.tokens')}
           sub={t('requests.tile.outputMean.sub', { pages: fmt.pages(h.outputMean) })}
           delta={metric.delta((d) => d.headline.outputMean)}
           goodWhen="down"
@@ -61,6 +63,7 @@ export default function SizeSection({ metric, doctors, segment, onSegment }) {
           wide
           value={h.baseTokens}
           format="tokens"
+          unit={t('common.unit.tokens')}
           sub={
             Number.isFinite(h.baseTokens)
               ? t('requests.tile.baseTokens.sub', { share: fmt.pct(h.baseShare) })

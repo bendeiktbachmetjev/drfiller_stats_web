@@ -179,11 +179,23 @@ export function modelPriceColumns() {
       key: 'formEur2027',
       header: t('prices.col.from2027'),
       type: 'eurUnit',
-      render: (row) => (isNum(row.formEur2027) ? fmt.eurUnit(row.formEur2027) : t('prices.from2027.none')),
+      render: (row) => <span className="whitespace-nowrap">{isNum(row.formEur2027) ? fmt.eurUnit(row.formEur2027) : t('prices.from2027.none')}</span>,
       priority: 3,
     },
-    { key: 'status', header: t('prices.col.status'), type: 'text', render: (row) => statusLabel(row.status), priority: 3 },
-    { key: 'shutdown', header: t('prices.col.shutdown'), type: 'text', render: shutdownText, sortable: false, priority: 3 },
+    // Status and switch-off share one cell (the date as a quiet second line), so rows stay short.
+    {
+      key: 'status',
+      header: t('prices.col.status'),
+      type: 'node',
+      sortValue: (row) => statusLabel(row.status),
+      render: (row) => (
+        <span className="block min-w-[12rem] whitespace-normal">
+          {statusLabel(row.status)}
+          <span className="block text-xs font-medium text-ink-mute">{shutdownText(row)}</span>
+        </span>
+      ),
+      priority: 3,
+    },
     { key: 'source', header: t('prices.col.source'), type: 'node', render: sourceCell, sortable: false, priority: 3 },
   ];
 }

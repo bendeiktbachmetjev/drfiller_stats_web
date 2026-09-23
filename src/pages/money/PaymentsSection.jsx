@@ -136,7 +136,9 @@ function PurchasesCard({ data, ds, vatPayer }) {
   const h = data.headline;
   const incomeOk = h.incomeStatus === 'ok';
   const rows = data.tables.payments ?? [];
-  const columns = useMemo(() => paymentColumns({ ds, vatPayer }), [ds, vatPayer]);
+  // Discount and refund columns only when some row has one (they are €0 in almost every purchase).
+  const hideZero = useMemo(() => ['discountEur', 'refundEur'].filter((key) => rows.every((row) => !(Math.abs(row[key] ?? 0) > 0))), [rows]);
+  const columns = useMemo(() => paymentColumns({ ds, vatPayer }).filter((column) => !hideZero.includes(column.key)), [ds, vatPayer, hideZero]);
   const footerRow = useMemo(() => {
     if (rows.length < 2) return null;
     const total = { key: 'total', t: 'total', total: true };
@@ -166,14 +168,13 @@ function PurchasesCard({ data, ds, vatPayer }) {
         footerRow={footerRow}
         emptyText={emptyText}
         caption={t('money.payments.title')}
-        maxHeight={420}
       />
       {incomeOk && h.otherStripeFeesEur > 0 && (
         <p className="mt-3 text-xs font-medium text-ink-soft">{t('money.otherStripeFees', { x: fmt.eur(h.otherStripeFeesEur) })}</p>
       )}
       <Disclosure id="money.packs" label={t('money.packs.toggle')}>
         <CardHeader title={t('money.packs.title')} hintKey="money.packs" className="mb-3" />
-        <DataTable columns={packColumns({ vatPayer })} rows={data.tables.packs ?? []} caption={t('money.packs.title')} maxHeight={null} />
+        <DataTable columns={packColumns({ vatPayer })} rows={data.tables.packs ?? []} caption={t('money.packs.title')} limit={0} />
       </Disclosure>
     </Card>
   );

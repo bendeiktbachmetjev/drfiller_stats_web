@@ -45,8 +45,6 @@ export function setLang(lang) {
   return true;
 }
 
-/** @returns {string} the active language id ('en') */
-export const getLang = () => currentLang;
 /** @returns {string} the number/date locale of the active language ('en-GB') */
 export const getLocale = () => current.locale;
 
@@ -191,8 +189,6 @@ export function errorKindLabel(kind) {
 
 /** @param {string} cls a Doctor.class value */
 export const classLabel = (cls) => t(`common.class.${cls}`);
-/** @param {string} cls a Doctor.displayClass value */
-export const displayClassLabel = (cls) => t(`common.displayClass.${cls}`);
 
 /**
  * How a doctor is shown (OVERRIDES O2): the email when the server sent one, else "Doctor NN",
@@ -205,6 +201,3 @@ export function doctorLabel(doctor) {
   if (doctor.noText) return t('common.doctor.name', { no: doctor.noText });
   return t('common.doctor.deleted');
 }
-
-/** The language table currently in use (tests and the Settings page). */
-export const currentTable = () => current;

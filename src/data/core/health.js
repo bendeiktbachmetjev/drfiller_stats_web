@@ -12,10 +12,11 @@ import { remember } from './memo.js';
  *   over25: number, over25Share: number|null, mainP50Ms: number|null,
  *   fallbackEligible: number, fallbackCount: number, fallbackShare: number|null, fallbackBasis: import('./basis.js').Basis,
  *   fallbackWaitP50Ms: number|null,
- *   serviceFailures: number|null, serviceFailureRate: number|null, refusals: number|null,
+ *   serviceFailures: number|null, serviceFailureRate: number|null, serviceRequests: number|null, refusals: number|null,
  *   failuresByKind: Record<string, number>, refusalsByKind: Record<string, number>,
  *   word: 'ok'|'slow'|'bad'
  * }} Health
+ *   serviceRequests = successful requests + service failures since failures are recorded (the rate's denominator).
  */
 
 /** @returns {Health} */
@@ -23,7 +24,7 @@ export function emptyHealth() {
   return {
     forms: 0, p50Ms: null, p90Ms: null, over15: 0, over15Share: null, over25: 0, over25Share: null, mainP50Ms: null,
     fallbackEligible: 0, fallbackCount: 0, fallbackShare: null, fallbackBasis: 'estimate', fallbackWaitP50Ms: null,
-    serviceFailures: null, serviceFailureRate: null, refusals: null, failuresByKind: {}, refusalsByKind: {},
+    serviceFailures: null, serviceFailureRate: null, serviceRequests: null, refusals: null, failuresByKind: {}, refusalsByKind: {},
     word: 'ok',
   };
 }
@@ -36,15 +37,18 @@ export function emptyHealth() {
 export const fallbackEligible = (row) => row.kind === 'form' && row.eraStandard && row.t >= FALLBACK_FEATURE_SINCE_MS;
 
 /**
- * The health word (§4.1): bad when service failures ≥ 3 or ≥ 5% of forms took over 15 s; ok when under
- * 2% took over 15 s, the backup model answered under 1% and no service failure is recorded; else slow.
- * @param {{ over15Share: number|null, fallbackShare: number|null, serviceFailures: number|null }} numbers
+ * The health word (§4.1): bad when service failures are ≥ 3 and ≥ 0.5% of requests, or ≥ 5% of forms
+ * took over 15 s; ok when under 2% took over 15 s, the backup model answered under 1% and no service
+ * failure is recorded; else slow. `over15Share` here is the share among standard-setup forms (see
+ * computeHealth), so a finished test week does not keep the word at "bad".
+ * @param {{ over15Share: number|null, fallbackShare: number|null, serviceFailures: number|null, serviceFailureRate?: number|null }} numbers
  * @returns {'ok'|'slow'|'bad'}
  */
-export function healthWord({ over15Share, fallbackShare, serviceFailures }) {
+export function healthWord({ over15Share, fallbackShare, serviceFailures, serviceFailureRate = null }) {
   const slowShare = over15Share ?? 0;
   const failures = serviceFailures ?? 0;
-  if (failures >= HEALTH.badServiceFailures || slowShare >= HEALTH.badOver15Share) return 'bad';
+  const manyFailures = failures >= HEALTH.badServiceFailures && (serviceFailureRate ?? 1) >= HEALTH.badServiceFailureRate;
+  if (manyFailures || slowShare >= HEALTH.badOver15Share) return 'bad';
   if (slowShare < HEALTH.okOver15Share && (fallbackShare ?? 0) < HEALTH.okFallbackShare && failures === 0) return 'ok';
   return 'slow';
 }
@@ -65,6 +69,9 @@ function computeHealth(ds, period) {
   const durations = [];
   const mainDurations = [];
   const fallbackDurations = [];
+  // The word looks at standard-setup forms only: test days and the Vertex-EU week stay in the numbers.
+  let standardTimed = 0;
+  let standardOver15 = 0;
   let fallbackFromB2 = true;
   const b2Since = ds.v2LoggingSince?.forms ?? null;
 
@@ -76,6 +83,10 @@ function computeHealth(ds, period) {
       if (row.durMs > HEALTH.slowMs) health.over15 += 1;
       if (row.durMs > HEALTH.fallbackWaitMs) health.over25 += 1;
       if (row.role === 'main') mainDurations.push(row.durMs);
+      if (row.eraStandard) {
+        standardTimed += 1;
+        if (row.durMs > HEALTH.slowMs) standardOver15 += 1;
+      }
     }
     if (!fallbackEligible(row)) return;
     health.fallbackEligible += 1;
@@ -115,9 +126,11 @@ function computeHealth(ds, period) {
     });
     health.serviceFailures = service;
     health.refusals = refusals;
-    health.serviceFailureRate = successes + service > 0 ? service / (successes + service) : null;
+    health.serviceRequests = successes + service;
+    health.serviceFailureRate = health.serviceRequests > 0 ? service / health.serviceRequests : null;
   }
 
-  health.word = healthWord(health);
+  const wordSlowShare = standardTimed > 0 ? standardOver15 / standardTimed : health.over15Share;
+  health.word = healthWord({ ...health, over15Share: wordSlowShare });
   return health;
 }

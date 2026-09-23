@@ -110,16 +110,17 @@ test('service numbers ignore the scope switch; shared numbers are the core value
     assert.deepEqual(on.tables.waitHist, off.tables.waitHist);
 
     const health = summarizeHealth(ds, period);
-    assert.ok(on.headline.p50Ms === health.p50Ms);
-    assert.ok(on.headline.over15Share === health.over15Share);
-    assert.ok(on.headline.fallbackCount === health.fallbackCount);
-    assert.ok(on.headline.serviceFailures === health.serviceFailures);
+    assert.equal(on.headline.p50Ms, health.p50Ms);
+    assert.equal(on.headline.over15Share, health.over15Share);
+    assert.equal(on.headline.fallbackCount, health.fallbackCount);
+    assert.equal(on.headline.serviceFailures, health.serviceFailures);
   });
   const { tables } = computeModels(ds, last30(ds), scopeOf(ds));
   const soniox = tables.risks.find((row) => row.key === 'sonioxLimit');
   const cap = capacity(ds, { planning: ds.settings.planning }).soniox;
-  assert.ok(soniox.values.meanDoctors === cap.meanDoctors && soniox.values.limitDoctors === cap.limitDoctors);
-  assert.ok(soniox.values.limit === cap.limit);
+  assert.equal(soniox.values.meanDoctors, cap.meanDoctors);
+  assert.equal(soniox.values.limitDoctors, cap.limitDoctors);
+  assert.equal(soniox.values.limit, cap.limit);
 });
 
 test('wait histogram: 9 fixed buckets holding every form; p50 / p90 points need 5 forms', () => {

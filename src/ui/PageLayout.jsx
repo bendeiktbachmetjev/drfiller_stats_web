@@ -2,8 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAnalytics, usePeriod, useScope } from '../context/AnalyticsContext.jsx';
 import { sectionById } from '../app/nav.js';
-import { summarize } from '../data/core/summary.js';
-import { hidesInternal } from '../data/core/scope.js';
+import { hiddenImpact } from '../data/core/summary.js';
 import { fmt } from '../format/format.js';
 import { has, t } from '../copy/index.js';
 import AnswerBlock from './AnswerBlock.jsx';
@@ -28,19 +27,14 @@ export function scopeLineOf({ id, period, compareLabel, scope, internalCount, se
 }
 
 /**
- * The HiddenNote values (§3.4) for a business page while "Without my and test accounts" hides something:
- * the period's cost and result WITH those accounts, from the one `summarize()`. null when nothing changes.
+ * The HiddenNote values (§3.4) for a business page while "Without my and test accounts" hides something;
+ * the numbers come from the data layer (core/summary.js#hiddenImpact). null when nothing changes.
  * @returns {{ n: number, costEur: number, resultEur: number|null } | null}
  */
 export function hiddenNoteOf(dataset, period, scope, internalCount) {
-  if (!dataset || !period || !scope || !hidesInternal(dataset, scope)) return null;
   try {
-    const shown = summarize(dataset, period, scope);
-    const all = summarize(dataset, period, { ...scope, excludeInternal: false });
-    const incomeOk = all.income?.status === 'ok';
-    const resultEur = incomeOk ? all.resultEur : null;
-    if (all.cost.totalEur === shown.cost.totalEur && resultEur === (incomeOk ? shown.resultEur : null)) return null;
-    return { n: internalCount, costEur: all.cost.totalEur, resultEur };
+    const impact = hiddenImpact(dataset, period, scope);
+    return impact ? { n: internalCount, ...impact } : null;
   } catch (err) {
     // The note is a side line: a fault in it must not take the page down.
     console.error('Dr.Filler stats: hidden-accounts note could not be computed', err);

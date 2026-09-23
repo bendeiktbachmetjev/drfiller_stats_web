@@ -60,15 +60,15 @@ export const COPY = {
   'prices.vertex.bestEuNarrow': 'Its quality is ahead of the next option ({runner}) by just one check out of {total}.',
 
   // --- Today, for comparison (tiles) ------------------------------------------------------------------------
-  'prices.tile.form': 'One form now',
-  'prices.tile.speed': 'A form usually takes',
+  'prices.tile.form': 'One form, current setup',
+  'prices.tile.speed': 'Current setup: a form usually takes',
   'prices.tile.perDoctor': 'Forms only, per doctor per month',
-  'prices.tile.forms': 'Our forms, last 30 days',
-  'prices.tile.sub.form': 'at list price, current setup',
-  'prices.tile.sub.speed': 'half of the forms are faster',
+  'prices.tile.forms': 'Forms with the current setup',
+  'prices.tile.sub.form': 'at list price',
+  'prices.tile.sub.speed': 'half are faster',
   'prices.tile.sub.speedTest': 'from the test — too few of our forms',
   'prices.tile.sub.perDoctor': 'at {visits} visits a month',
-  'prices.tile.sub.forms': 'current setup, no conversation text',
+  'prices.tile.sub.forms': 'last 30 days',
 
   // --- Options (#whatif) ---------------------------------------------------------------------------------------
   'prices.whatIf.title': 'Options',
@@ -184,12 +184,11 @@ export const COPY = {
   'prices.tab.transcription': 'Transcription',
   'prices.tab.payments': 'Payments',
   'prices.col.model': 'Model',
-  'prices.col.inPerM': 'Input, $ per 1M tokens',
-  'prices.col.outPerM': 'Output, $ per 1M tokens',
+  'prices.col.inPerM': 'In, $/1M',
+  'prices.col.outPerM': 'Out, $/1M',
   'prices.col.cloudEu': 'Google Cloud in the EU',
   'prices.col.formOurs': 'One of our forms',
   'prices.col.status': 'Status',
-  'prices.col.shutdown': 'Switch-off',
   'prices.col.source': 'Source',
   'prices.cloudEu.surcharge': '+{pct}',
   'prices.cloudEu.same': 'same price',
@@ -289,7 +288,7 @@ export const DEFS = {
   },
   'prices.prices': {
     short: 'Prices from the vendors’ websites. For models — $ per million tokens.',
-    long: 'We convert dollars to euros once, at the ECB rate. The (i) of every cost tile names the rate.',
+    long: '“In, $/1M” is the price of 1 million tokens we send (the request); “Out, $/1M” of 1 million tokens the model writes back. Under the status: when Google switches the model off. We convert dollars to euros once, at the ECB rate. The (i) of every cost tile names the rate.',
   },
   'prices.transcription': {
     short: 'What recording costs with each service.',

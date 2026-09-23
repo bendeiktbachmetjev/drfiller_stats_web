@@ -19,7 +19,7 @@ const MENU_ITEM = `w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] t
 
 const SETTINGS_PATH = sectionById('settings').path;
 
-/** Section pills; groups 0–3 stand apart (`ml-4`). Scrolls sideways while they do not fit. */
+/** Section pills; a thin divider stands between groups 0–3. Scrolls sideways while they do not fit. */
 function SectionPills({ navRef, className = '' }) {
   return (
     <nav ref={navRef} aria-label={t('common.sections')} className={`sf-nav-scroll relative min-w-0 flex overflow-x-auto ${className}`}>
@@ -27,13 +27,12 @@ function SectionPills({ navRef, className = '' }) {
         {PILL_SECTIONS.map((section, index) => {
           const newGroup = index > 0 && PILL_SECTIONS[index - 1].group !== section.group;
           return (
-            <NavLink
-              key={section.id}
-              to={section.path}
-              className={({ isActive }) => `${PILL_BASE} ${isActive ? PILL_ACTIVE : PILL_IDLE}${newGroup ? ' ml-4' : ''}`}
-            >
-              {section.label}
-            </NavLink>
+            <React.Fragment key={section.id}>
+              {newGroup && <span aria-hidden="true" className="mx-2 h-4 w-px shrink-0 bg-line" />}
+              <NavLink to={section.path} className={({ isActive }) => `${PILL_BASE} ${isActive ? PILL_ACTIVE : PILL_IDLE}`}>
+                {section.label}
+              </NavLink>
+            </React.Fragment>
           );
         })}
       </div>

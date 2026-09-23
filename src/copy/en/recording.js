@@ -8,13 +8,13 @@ export const COPY = {
 
   // --- Answer ------------------------------------------------------------------------------------------
   'recording.answer.thin':
-    'Soniox has worked since 22 Sep; live recording and per-minute billing since 23 Sep. So far there are {n} recordings — too early to draw conclusions.',
+    'Soniox has worked since 22 Sep; live recording and per-minute billing since 23 Sep. Recordings so far, all accounts: {n} — too early to draw conclusions.',
   'recording.answer.none': 'Nothing was recorded in this period.',
   'recording.answer.volume': 'Recorded {minutes}: conversations {live}, dictations {dict}. Costs {cost}; doctors paid about {credits} for it.',
   'recording.answer.unit': '10 minutes of conversation cost us {cost10}. The credit for them brings {net1}, so we keep {left}.',
   'recording.answer.unitLoss': '10 minutes of conversation cost us {cost10}. The credit for them brings only {net1}, so we lose {loss}.',
   'recording.answer.limit':
-    'Soniox allows {limit} conversations at once. On average that is enough for {mean} doctors who record every visit; for about {safe} if nobody should hear “busy”.',
+    'Soniox allows {limit} conversations at once. That is enough for about {mean} doctors who record every visit, or {safe} if nobody should ever hear “busy”.',
 
   // --- Sections ----------------------------------------------------------------------------------------
   'recording.section.business': 'How much and at what price',

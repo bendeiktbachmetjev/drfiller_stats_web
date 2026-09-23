@@ -127,11 +127,13 @@ export function normalizeUsageRows(apiRows, { config = null, prices, fx }) {
     }
 
     const { audioSec, audioBasis } = audioOf(api, kind, provider);
-    if (kind === 'dictation' && provider === 'openai' && audioSec === null) quality.openaiRowsNoLength += 1;
+    // "No length" = no measured length: the file-size estimate fills audioSec, but it is not a measurement.
+    if (kind === 'dictation' && provider === 'openai' && (audioSec === null || audioBasis === 'bytes_estimate')) quality.openaiRowsNoLength += 1;
     if (kind === 'dictation' && api.audioBytes === 0 && num(api.audioMs) === null && num(api.audioSec) === null) quality.zeroByteDictations += 1;
 
     const thinkTok = num(api.thinkTok);
-    if (kind === 'form' && thinkTok !== null && api.priceKnown === undefined) quality.derivedThinkingRows += 1;
+    // Old rows get thinkTok = total − prompt − completion; only a non-zero rest is a worked-out value.
+    if (kind === 'form' && thinkTok > 0 && api.priceKnown === undefined) quality.derivedThinkingRows += 1;
 
     const row = {
       key: api.id,

@@ -24,7 +24,7 @@ export default function TableCard({ title, hintKey, columns, rows = [], emptyTex
         <p className="text-sm font-medium text-ink-soft">{note}</p>
       ) : (
         <>
-          <DataTable columns={columns} rows={shown} emptyText={emptyText} caption={title} maxHeight={560} phoneRows={0} />
+          <DataTable columns={columns} rows={shown} emptyText={emptyText} caption={title} limit={0} />
           {rest > 0 && (
             <button type="button" className={BUTTON_CLASS} onClick={() => setCount((n) => n + MORE_ROWS)}>
               {t('recording.showMore', { n: fmt.int(Math.min(rest, MORE_ROWS)), total: fmt.int(rows.length) })}

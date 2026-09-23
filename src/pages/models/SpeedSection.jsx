@@ -159,7 +159,7 @@ export default function SpeedSection({ metric, doctors, timeoutMs = HEALTH.fallb
         <Disclosure id="models.slow" label={t('models.slow.show', { n: fmt.int(over15) })}>
           <TableCard title={t('models.slow.title')} hintKey="models.slow">
             {slow.length < over15 && <p className="mb-3 text-xs font-medium text-ink-soft">{t('models.slow.capped', { n: fmt.int(slow.length), total: fmt.int(over15) })}</p>}
-            <DataTable columns={columns} rows={slow} caption={t('models.slow.title')} emptyText={t('models.slow.empty')} />
+            <DataTable columns={columns} rows={slow} caption={t('models.slow.title')} emptyText={t('models.slow.empty')} phoneRows={3} />
           </TableCard>
         </Disclosure>
       )}

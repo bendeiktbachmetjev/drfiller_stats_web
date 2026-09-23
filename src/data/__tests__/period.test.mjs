@@ -56,8 +56,8 @@ test('month factor, money granularity and phone buckets', () => {
 test('compareCaveat has the frozen shape', () => {
   const period = resolvePeriod('last7', NOW);
   const caveat = compareCaveat(period, previousPeriod(period));
-  assert.deepEqual(Object.keys(caveat).sort(), ['billingEraChanged', 'era', 'modelEraChanged']);
-  assert.deepEqual(compareCaveat(period, null), { modelEraChanged: false, billingEraChanged: false, era: null });
+  assert.deepEqual(Object.keys(caveat).sort(), ['billingEraChanged', 'currentEra', 'era', 'modelEraChanged']);
+  assert.deepEqual(compareCaveat(period, null), { modelEraChanged: false, billingEraChanged: false, era: null, currentEra: null });
 });
 
 // --- F0-DATA: DST, stepping, custom granularity, every compare kind, caveats ---------------------------

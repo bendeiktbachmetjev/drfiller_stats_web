@@ -1,8 +1,11 @@
 import React from 'react';
-import { FlaskConical } from 'lucide-react';
+import { Check, FlaskConical, Info } from 'lucide-react';
 import { Card, CardHeader, InsightRow } from '../../ui/index.js';
 import { t } from '../../copy/index.js';
 import { textOf } from './text.js';
+
+/** Plain facts get a plain icon; a good fact a check; warnings keep the tone's own icon. */
+const FACT_ICONS = { neutral: Info, quiet: Info, good: Check };
 
 /**
  * "What the test showed" (§4.7 #findings): six sentences; the money and time in them are repriced on our own forms,
@@ -17,7 +20,7 @@ export default function FindingsSection({ rows = [] }) {
         <CardHeader title={<span id="prices-findings-title">{t('prices.findings.title')}</span>} icon={FlaskConical} hintKey="prices.findings" />
         <div className="flex flex-col gap-1">
           {rows.map((row) => (
-            <InsightRow key={row.key} tone={row.tone} parts={[{ t: textOf(row) }]} />
+            <InsightRow key={row.key} tone={row.tone} icon={FACT_ICONS[row.tone]} parts={[{ t: textOf(row) }]} />
           ))}
         </div>
       </Card>

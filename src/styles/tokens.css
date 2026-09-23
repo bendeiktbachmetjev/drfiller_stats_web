@@ -17,6 +17,7 @@
   /* brand */
   --color-brand: #1F4FB8;         /* 7.3:1 — links, active pill, income, forms, main model, Gemini */
   --color-brand-strong: #163A87;  /* 10.6:1 — hover, hero gradient start, text on the white hero pill */
+  --color-brand-light: #6A89CF;   /* 3.5:1 — a lighter brand part next to brand ("Free 15" next to "Paying"; graphics only) */
   --color-accent: #2D6CDF;        /* focus ring ONLY, never data */
 
   /* money and states */

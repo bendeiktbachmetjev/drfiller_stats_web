@@ -23,7 +23,7 @@ export const COPY = {
 
   // --- Costs by account type -------------------------------------------------------------------------
   'doctors.byClass.title': 'Costs by account type',
-  'doctors.byClass.internal': 'Mine and test',
+  'doctors.byClass.internal': 'My and test',
   'doctors.byClass.gifted': 'Gift',
   'doctors.byClass.free': 'Free 15',
   'doctors.byClass.paid': 'Paying',
@@ -80,7 +80,6 @@ export const COPY = {
   'doctors.col.mine': 'Mine / test',
   'doctors.table.emptyActive': 'No doctor made a request in this period. “All” lists every account.',
   'doctors.table.emptySearch': 'No doctor matches “{q}”.',
-  'doctors.noAccount': 'No account',
   'doctors.last.never': 'never',
   'doctors.last.title': 'Last request: {when}',
 
@@ -124,7 +123,7 @@ export const DEFS = {
   'doctors.byClass': {
     short: 'Who creates the costs: paying doctors or free accounts.',
     long:
-      'Paying: there is a payment. Gift: credits were added by hand, the old plan, or “purchase not found” (the balance looks bought, but Stripe has no payment). Free 15: only the 15 credits every new account gets. Mine and test: marked in the table below. Server costs are not split by account.',
+      'Paying: there is a payment. Gift: credits were added by hand, the old plan, or “purchase not found” (the balance looks bought, but Stripe has no payment). Free 15: only the 15 credits every new account gets. My and test: marked in the table below. Server costs are not split by account.',
   },
   'doctors.table': {
     short: 'Each doctor: what they did, what they brought in and what they cost.',

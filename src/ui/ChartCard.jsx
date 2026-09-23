@@ -164,7 +164,7 @@ export default function ChartCard({
 
       {hasTable && (
         <div className={tableView ? 'print:mt-4' : 'hidden print:block print:mt-4'} style={{ minHeight: tableView && !thin ? height : undefined }}>
-          <DataTable columns={table.columns} rows={table.rows} defaultSort={table.defaultSort} footerRow={table.footerRow} maxHeight={printing ? null : height} caption={label} />
+          <DataTable columns={table.columns} rows={table.rows} defaultSort={table.defaultSort} footerRow={table.footerRow} caption={label} />
         </div>
       )}
     </Card>

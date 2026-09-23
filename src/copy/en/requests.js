@@ -8,9 +8,9 @@ export const COPY = {
 
   // --- Answer --------------------------------------------------------------------------------------
   'requests.answer.byType':
-    'The biggest requests are the medical history summary ({anam}) and a long conversation ({live}). A form costs {form}, but there are far more forms, so they take {share} of the costs.',
+    'The biggest requests are the medical history summary ({anam}) and a long conversation ({live}). A form costs {form}, but there are far more forms, so they take {share} of what requests cost.',
   'requests.answer.byTypeNoAnam':
-    'The biggest request is a 15-minute conversation ({live}). A form costs {form}, but there are far more forms, so they take {share} of the costs.',
+    'The biggest request is a 15-minute conversation ({live}). A form costs {form}, but there are far more forms, so they take {share} of what requests cost.',
   'requests.answer.size': 'An average form sends {pages} of text to the model ({tokens} tokens).',
   'requests.answer.base.most':
     "Almost all of it is our instructions and the patient's history from the page; the doctor's own words are only about {chars} characters.",
@@ -34,7 +34,7 @@ export const COPY = {
   'requests.type.dictation.unit': '1 minute',
   'requests.type.live': 'Conversation',
   'requests.type.live.unit': '15 minutes',
-  'requests.type.anamnesis': 'History summary',
+  'requests.type.anamnesis': 'Medical history summary',
   'requests.type.anamnesis.unit': 'one summary',
   'requests.type.summaryV1': 'Old PDF summary',
   'requests.type.summaryV1.unit': 'one summary, old way',
@@ -98,7 +98,6 @@ export const COPY = {
   'requests.tile.anamRuns.old': '{n} of them the old PDF way',
   'requests.tile.anamRuns.calls': '{n} model calls',
   'requests.tile.anamCostPerRun': 'Cost of one summary',
-  'requests.tile.anamCostPerRun.sub': 'a typical summary',
   'requests.tile.anamCreditsPerRun': 'Credits per summary',
   'requests.tile.anamCreditsPerRun.sub': '{eur} for us after fees',
   'requests.tile.anamLeft': 'Kept, %',
@@ -128,7 +127,7 @@ export const COPY = {
   'requests.cut.yes': 'yes',
 
   // --- Notes and export ----------------------------------------------------------------------------
-  'requests.note.testDay': 'Forms from 1 Sep 2026, a day of model tests, count as neither the main nor the backup model: {n}.',
+  'requests.note.testDay': '{n} forms from 1 Sep 2026 (a day of model tests) count as neither the main nor the backup model.',
   'requests.note.capped': "Forms that hit the 3,000-character limit for the doctor's text: {n}.",
   'requests.export.byType': 'Price of one request',
   'requests.export.sizeBuckets': 'Big and small forms',

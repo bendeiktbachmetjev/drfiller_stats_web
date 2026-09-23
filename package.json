@@ -8,7 +8,7 @@
     "dev": "vite",
     "dev:mock": "node dev/mock-server.js",
     "build": "vite build",
-    "start": "serve dist -s -l tcp://0.0.0.0:${PORT:-3000}",
+    "start": "NO_UPDATE_CHECK=1 serve dist -s -l tcp://0.0.0.0:${PORT:-3000}",
     "test": "TZ=Europe/Vilnius node --test \"src/**/*.test.mjs\"",
     "sync:prices": "node scripts/sync-prices.mjs",
     "sync:benchmark": "node scripts/slim-benchmark.mjs"

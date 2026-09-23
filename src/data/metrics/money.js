@@ -180,17 +180,19 @@ function capacityRows(cap, scales) {
 }
 
 /** The sensitivity rows (core order: |difference| desc) with a sentence; the top 3 that matter are marked. */
-function sensitivityRows(rows) {
+function sensitivityRows(rows, doctors) {
   let shown = 0;
   return rows.map((row) => {
     const top = shown < TOP_SENSITIVITY && Math.abs(row.diffEur) >= SENSITIVITY_MIN_EUR;
     if (top) shown += 1;
+    // The sentence names the change ("… €960 less a month"), never a bare signed sum that reads as the new result.
+    const values = { change: { key: `money.sensitivity.change.${row.key}` }, diff: ['eur', Math.abs(row.diffEur)], doctors };
     return {
       key: row.key,
       resultEur: row.resultEur,
       diffEur: row.diffEur,
       top,
-      line: { key: 'money.sensitivity.row', values: { change: { key: `money.sensitivity.change.${row.key}` }, diff: ['eurSigned', row.diffEur] } },
+      line: { key: row.diffEur >= 0 ? 'money.sensitivity.more' : 'money.sensitivity.less', values },
     };
   });
 }
@@ -420,7 +422,7 @@ export function computeMoney(ds, period, scope, opts = {}) {
       visitTypes: visitTypes.map((row) => ({ key: row.id, ...row })),
       scaleTable: scaleRowsOf(projection, SCALE_ROWS, SCALE_COLUMNS),
       scaleSteps: scaleRowsOf(projection, STEP_ROWS, SCALE_COLUMNS),
-      sensitivity: sensitivityRows(sensitivity(ds, period, scope)),
+      sensitivity: sensitivityRows(sensitivity(ds, period, scope), projection.scales[0]),
       capacity: capacityRows(cap, projection.scales),
     },
     takeaways,

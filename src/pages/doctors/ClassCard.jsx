@@ -4,13 +4,16 @@ import { COLORS, SERIES } from '../../charts/theme.js';
 import { t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
 
-/** Fixed colours of the account types (identity, never rank): paying = brand, like income. */
+/**
+ * Fixed colours of the account types (identity, never rank): paying = brand, like income; free = a lighter
+ * brand; gift and own accounts in greys. Orange stays for the backup model and warnings only.
+ */
 const CLASS_COLORS = {
   internal: COLORS.cost,
-  gifted: SERIES.fallback,
-  free: SERIES.dictation,
+  gifted: COLORS['data-mute'],
+  free: COLORS['brand-light'],
   paid: SERIES.income,
-  other: SERIES.other,
+  other: COLORS['ink-mute'],
 };
 
 const CARD = 'min-w-0 p-4 sm:p-6 lg:p-8';

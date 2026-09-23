@@ -58,12 +58,23 @@ test('quality counters: before origin, duplicate id, unknown model, derived thin
     droppedBeforeOrigin: 1,
     duplicateIds: 1,
     unknownModels: ['gemini-9-ultra'],
-    openaiRowsNoLength: 0,
+    openaiRowsNoLength: 2,
     derivedThinkingRows: 1,
     zeroByteDictations: 1,
   });
   assert.ok(ds.rows.every((row, i) => i === 0 || ds.rows[i - 1].t <= row.t), 'rows are sorted by time');
   assert.ok(Object.isFrozen(ds) && Object.isFrozen(ds.rows));
+});
+
+test('quality: an OpenAI dictation with only a file size counts as "no length"; a zero thinking rest is not "worked out"', () => {
+  const rows = [
+    dictationRow('2026-08-10 09:00', { model: 'gpt-4o-mini-transcribe-2025-12-15', audioSec: undefined, audioBytes: 44 + 90 * 32000 }),
+    formRow('2026-08-10 09:05', { thinkTok: 0, priceKnown: undefined }),
+    formRow('2026-08-10 09:06', { thinkTok: 120, priceKnown: undefined }),
+  ];
+  const { quality } = normalizeUsageRows(rows, context);
+  assert.equal(quality.openaiRowsNoLength, 1);
+  assert.equal(quality.derivedThinkingRows, 1);
 });
 
 test('"Doctor NN": numbered by signup, ties by pid; deleted accounts get no number; emails pass through (O2)', () => {

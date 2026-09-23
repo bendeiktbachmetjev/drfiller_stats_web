@@ -46,7 +46,7 @@ export default function AvailabilitySection({ rows = [], facts = [] }) {
     <section id="availability" aria-labelledby="prices-availability-title" className="mt-12">
       <Card padding="none" className="min-w-0 p-4 sm:p-6 lg:p-8">
         <CardHeader title={<span id="prices-availability-title">{t('prices.availability.title')}</span>} icon={MapPin} hintKey="prices.availability" />
-        {isPhone ? <PhoneCards rows={rows} /> : <DataTable columns={columns} rows={rows} maxHeight={null} caption={t('prices.availability.title')} />}
+        {isPhone ? <PhoneCards rows={rows} /> : <DataTable columns={columns} rows={rows} limit={0} caption={t('prices.availability.title')} />}
         {facts.length > 0 && (
           <div className="mt-4 flex flex-col">
             {facts.map((fact) => (

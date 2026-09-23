@@ -2,7 +2,7 @@ import React from 'react';
 import { KpiTile } from '../../ui/index.js';
 import { t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
-import { doctorName } from './text.js';
+import { doctorName } from '../../format/items.js';
 
 /**
  * The four tiles of the Doctors page (§4.8): active, new, paying, the busiest doctor's share of costs.

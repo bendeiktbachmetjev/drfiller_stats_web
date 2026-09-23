@@ -5,7 +5,7 @@ import { loadAll } from '../load.js';
 import { buildDataset } from '../buildDataset.js';
 import { inPeriod, resolvePeriod } from '../period.js';
 import { isInternal, makeScope } from '../core/scope.js';
-import { summarize } from '../core/summary.js';
+import { hiddenImpact, summarize } from '../core/summary.js';
 import { summarizeHealth } from '../core/health.js';
 import { summarizeToday } from '../core/today.js';
 import { capacity, planningOf, projectScale, unitCosts } from '../core/projection.js';
@@ -251,6 +251,11 @@ test('the scope switch removes only rows of internal accounts; service numbers i
       Object.keys(a.cost.byPid).forEach((pid) => close(a.cost.byPid[pid], b.cost.byPid[pid], `${label} ${pid}`));
 
       assert.deepEqual(COMPUTE.models(ds, period, on, {}).headline, COMPUTE.models(ds, period, off, {}).headline, `${label} models`);
+
+      // HiddenNote (code-review L9): the numbers WITH the hidden accounts are the all-accounts summary.
+      const impact = hiddenImpact(ds, period, on);
+      if (mine.length > 0) assert.equal(impact?.costEur, b.cost.totalEur, `${label} hidden note cost`);
+      assert.equal(hiddenImpact(ds, period, off), null, `${label} nothing hidden with all accounts`);
     }
     const planA = unitCosts(ds, makeScope({ excludeInternal: true, settings: ds.settings }).planning);
     const planB = unitCosts(ds, makeScope({ excludeInternal: false, settings: ds.settings }).planning);

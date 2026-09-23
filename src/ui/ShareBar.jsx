@@ -12,10 +12,12 @@ const shareOf = (v, total) => {
 };
 
 // One bar split into parts of a whole (at most five), with the numbers in a legend below.
-//   items  [{ key, label, value, color }] — fixed order and fixed colours, never sorted by size
-//   format fmt key or function for the values
+//   items         [{ key, label, value, color }] — fixed order and fixed colours, never sorted by size
+//   format        fmt key or function for the values
+//   legendValues  false = the legend shows swatch + label only; values and shares stay in the tooltip
+//                 and the accessible name (a small tile foot, §4.1)
 // Parts are separated by a 2 px gap in the surface colour; a zero part keeps its legend entry.
-export default function ShareBar({ items = [], format = 'int', className = '' }) {
+export default function ShareBar({ items = [], format = 'int', legendValues = true, className = '' }) {
   const tip = useChartTooltip();
 
   const parts = (Array.isArray(items) ? items : []).map((item) => ({
@@ -56,7 +58,7 @@ export default function ShareBar({ items = [], format = 'int', className = '' })
           label: part.label,
           color: part.color,
           shape: 'rect',
-          value: describe(part),
+          value: legendValues ? describe(part) : undefined,
         }))}
       />
 

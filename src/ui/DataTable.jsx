@@ -22,6 +22,7 @@ const TD_MUTED = 'px-3 py-3 border-b border-line/40 font-medium text-ink-soft gr
 const TD_TOTAL = 'px-3 py-3 font-extrabold text-ink border-t border-line';
 
 const CARD = 'rounded-[16px] border border-line/60 bg-surface p-4';
+const SHOW_ALL = `mt-3 inline-flex items-center h-9 px-3.5 rounded-full border border-line bg-surface text-[13px] font-semibold text-ink-soft hover:bg-line/20 transition-colors print:hidden ${RING}`;
 const SELECT = `h-9 max-w-full rounded-full border border-line bg-surface px-3 text-[13px] font-semibold text-ink ${RING}`;
 
 const NUMERIC_TYPES = ['int', 'dec', 'pct', 'pp', 'eur', 'eurSigned', 'eurUnit', 'usd', 'credits', 'tokens', 'sec', 'ms', 'minutes', 'duration', 'bar', 'signedBar', 'hours', 'decimal'];
@@ -29,6 +30,8 @@ const NEXT_DIR = { none: 'desc', desc: 'asc', asc: 'none' };
 const ARIA_SORT = { asc: 'ascending', desc: 'descending', none: 'none' };
 /** Tables with at most this many columns scroll sideways on phones instead of turning into cards. */
 const PHONE_TABLE_MAX_COLUMNS = 4;
+/** Phone cards shown before "Show all N" (a card is ≈ 170 px; 200 of them made a 33,000 px page). */
+const PHONE_ROWS = 10;
 
 const isRight = (column) => (column.align ? column.align === 'right' : NUMERIC_TYPES.includes(column.type));
 const canSort = (column) => column.sortable !== false && (column.type !== 'node' || typeof column.sortValue === 'function');
@@ -182,6 +185,7 @@ function PhoneCards({ columns, rows, sort, setSort, defaultSort, emptyText, capt
 //   footerRow   totals row, same keys as a row
 //   caption     accessible name of the table
 //   phone       force (true/false) the phone card mode; defaults to the screen width
+//   phoneRows   phone cards: the first N rows AFTER sorting, then "Show all N" (default 10; 0 = all)
 // A header click sorts descending, then ascending, then returns to the default order.
 export default function DataTable({
   columns = [],
@@ -192,18 +196,34 @@ export default function DataTable({
   emptyText,
   caption,
   phone,
+  phoneRows = PHONE_ROWS,
   className = '',
 }) {
   const [userSort, setUserSort] = useState(null);
+  const [allCards, setAllCards] = useState(false);
   const sort = userSort ?? defaultSort;
   const sortedRows = useSortedRows(rows, columns, sort);
   const isPhone = useIsPhone();
   const phoneMode = phone ?? isPhone;
 
   if (phoneMode && columns.length > PHONE_TABLE_MAX_COLUMNS) {
+    const cut = phoneRows > 0 && !allCards && sortedRows.length > phoneRows;
     return (
       <div className={className}>
-        <PhoneCards columns={columns} rows={sortedRows} sort={sort} setSort={setUserSort} defaultSort={defaultSort} emptyText={emptyText} caption={caption} />
+        <PhoneCards
+          columns={columns}
+          rows={cut ? sortedRows.slice(0, phoneRows) : sortedRows}
+          sort={sort}
+          setSort={setUserSort}
+          defaultSort={defaultSort}
+          emptyText={emptyText}
+          caption={caption}
+        />
+        {cut && (
+          <button type="button" onClick={() => setAllCards(true)} className={SHOW_ALL}>
+            {t('common.list.showAll', { n: fmt.int(sortedRows.length) })}
+          </button>
+        )}
       </div>
     );
   }

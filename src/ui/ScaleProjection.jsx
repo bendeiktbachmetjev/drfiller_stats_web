@@ -23,7 +23,7 @@ const headerOf = (column, data, nowRange) => {
   if (column === 'now') return { title: t('common.col.now'), sub: nowRange ? t('common.col.nowSub', { range: nowRange }) : null };
   if (column === 'nowTotal') return { title: nowRange ?? '', sub: null };
   if (column === 'visit') return { title: t('common.col.visit'), sub: null };
-  if (column === 'doctor') return { title: t('common.col.doctor'), sub: null };
+  if (column === 'doctor') return { title: t('common.col.doctorMonth'), sub: null };
   const n = column === 's0' ? data?.scales?.[0] : data?.scales?.[1];
   return { title: t('common.col.scale', { n: fmt.int(n) }), sub: null };
 };

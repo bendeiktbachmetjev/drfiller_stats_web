@@ -23,8 +23,10 @@ const DENSE_COLUMNS = 16;
 //   valueFormat fmt key or function, used by the tooltip, the axis and the two direct labels
 //   footer      (row) => string | string[] for the tooltip
 //   height      px; inside a ChartCard it follows the card's plot box
+//   muteColor   when set, only rows with `highlight: true` get `color`; the others are muted context in this
+//               colour (the months of the period among all months)
 // The partial bucket is hatched (§3.12); a future bucket stays an empty slot; no direct labels on phones.
-export default function TimeColumns({ rows = [], valueKey = 'value', color = COLORS.brand, unit, valueFormat = 'int', footer, height, ariaLabel }) {
+export default function TimeColumns({ rows = [], valueKey = 'value', color = COLORS.brand, muteColor, unit, valueFormat = 'int', footer, height, ariaLabel }) {
   const frame = useContext(ChartFrameContext);
   const tap = useTapTooltip();
   const { printing } = usePrintMode();
@@ -42,12 +44,14 @@ export default function TimeColumns({ rows = [], valueKey = 'value', color = COL
       tipTitle: labels[index].title,
       value: row.isFuture || !Number.isFinite(row[valueKey]) ? null : row[valueKey],
       isPartial: Boolean(row.isPartial) && !row.isFuture,
+      fill: muteColor && !row.highlight ? muteColor : color,
       row,
     }));
-  }, [rows, valueKey]);
+  }, [rows, valueKey, color, muteColor]);
 
   const { margin, ...axis } = useMemo(() => bucketAxisProps(data, chart.margin), [data]);
-  const scale = useMemo(() => chart.yScale(Math.max(0, ...data.map((d) => d.value ?? 0))), [data]);
+  const money = chart.isMoney(valueFormat);
+  const scale = useMemo(() => chart.yScale(Math.max(0, ...data.map((d) => d.value ?? 0)), money ? 0 : 4, !money), [data, money]);
 
   // Direct labels stay sparing: the tallest column and the latest one that has a value.
   const labelled = useMemo(() => {
@@ -67,7 +71,8 @@ export default function TimeColumns({ rows = [], valueKey = 'value', color = COL
   }, [data, isPhone]);
 
   // The hovered column dims a little but keeps its hatch when it is the running bucket.
-  const activeBar = (props) => <Rectangle {...props} fill={props.payload?.isPartial ? hatchFill(color) : color} fillOpacity={0.85} />;
+  const fillOf = (d) => (d?.isPartial ? hatchFill(d.fill) : d?.fill ?? color);
+  const activeBar = (props) => <Rectangle {...props} fill={fillOf(props.payload)} fillOpacity={0.85} />;
 
   const labelOf = (entry) => {
     const datum = entry?.payload;
@@ -79,14 +84,14 @@ export default function TimeColumns({ rows = [], valueKey = 'value', color = COL
     <div ref={tap.frameRef} className={FRAME_CLASS} style={{ height: boxHeight }}>
       <ResponsiveContainer {...chart.container(boxHeight)}>
         <BarChart {...tap.chartProps} data={data} margin={margin} barCategoryGap={chart.barCategoryGap} aria-label={ariaLabel ?? frame?.title}>
-          <HatchDefs colors={[color]} />
+          <HatchDefs colors={muteColor ? [color, muteColor] : [color]} />
           <CartesianGrid {...chart.grid} />
           <XAxis {...chart.xAxis} {...axis} />
-          <YAxis {...chart.yAxis} width={isPhone ? chart.yAxisPhoneWidth : chart.yAxis.width} tick={chart.tick} tickFormatter={tickFormat} domain={scale.domain} ticks={scale.ticks} />
+          <YAxis {...chart.yAxis} allowDecimals={money} width={chart.yAxisWidth(scale.ticks, tickFormat, isPhone)} tick={chart.tick} tickFormatter={tickFormat} domain={scale.domain} ticks={scale.ticks} />
           <Tooltip {...chart.tooltip} {...tap.tooltipProps} content={<ChartTooltip unit={unit} valueFormat={valueFormat} footer={footer} />} />
           <Bar dataKey="value" name={unit} fill={color} {...chart.bar} activeBar={activeBar} {...chart.anim(first, reduced, printing)} onAnimationEnd={() => setFirst(false)}>
             {data.map((d) => (
-              <Cell key={d.bucket} fill={d.isPartial ? hatchFill(color) : color} />
+              <Cell key={d.bucket} fill={fillOf(d)} />
             ))}
             <LabelList {...chart.label} valueAccessor={labelOf} />
           </Bar>

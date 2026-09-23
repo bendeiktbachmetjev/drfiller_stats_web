@@ -48,7 +48,7 @@ function StaleOnNavigate({ section }) {
  * PageErrorBoundary keyed by section, so one broken page never blanks the others.
  */
 export default function AdminShell() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const { printing } = usePrintMode();
   const section = sectionFromPath(pathname);
 
@@ -62,13 +62,14 @@ export default function AdminShell() {
     }
   }, [section]);
 
-  // A new section starts at its top; the first render keeps the browser's restored position.
+  // A new section starts at its top (a link with an #anchor scrolls there instead, see PageLayout);
+  // the first render keeps the browser's restored position.
   const previousSection = useRef(section);
   useEffect(() => {
     if (previousSection.current === section) return;
     previousSection.current = section;
-    window.scrollTo(0, 0);
-  }, [section]);
+    if (!hash) window.scrollTo(0, 0);
+  }, [section, hash]);
 
   // Print mode narrows the page to A4 width so the charts re-measure before the dialog opens.
   const pagesStyle = printing ? { width: 700, margin: '0 auto' } : undefined;

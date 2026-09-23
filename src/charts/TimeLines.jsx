@@ -18,8 +18,8 @@ const TONE = { attention: COLORS.warn, bad: COLORS.bad, neutral: COLORS['ink-mut
 //   format          fmt key or function for axis and tooltip
 //   referenceLines  [{ y, label, tone: 'attention'|'bad'|'neutral' }] (e.g. 15 s and 25 s)
 //   bands           [{ fromKey, toKey, label }] shaded in line/30 (a setup era, a test day)
-//   yFloor          the axis top is at least this value
-export default function TimeLines({ rows = [], series = [], format = 'int', referenceLines = [], bands = [], yFloor = 0, height, ariaLabel, footer }) {
+//   yFloor          the axis top is at least this value (default 4 for counts, 0 otherwise)
+export default function TimeLines({ rows = [], series = [], format = 'int', referenceLines = [], bands = [], yFloor, height, ariaLabel, footer }) {
   const frame = useContext(ChartFrameContext);
   const tap = useTapTooltip();
   const { printing } = usePrintMode();
@@ -40,9 +40,10 @@ export default function TimeLines({ rows = [], series = [], format = 'int', refe
   }, [rows, series]);
 
   const { margin, ...axis } = useMemo(() => bucketAxisProps(data, chart.margin), [data]);
-  const max = Math.max(yFloor, ...referenceLines.map((line) => line.y), ...data.flatMap((d) => series.map((s) => d[s.key] ?? 0)));
   const integer = format === 'int';
-  const scale = chart.yScale(max, yFloor || 4, integer);
+  const floor = yFloor ?? (integer ? 4 : 0);
+  const max = Math.max(floor, ...referenceLines.map((line) => line.y), ...data.flatMap((d) => series.map((s) => d[s.key] ?? 0)));
+  const scale = chart.yScale(max, floor, integer);
   const tickFormat = axisFormat(format);
   const labelOf = (key) => data.find((d) => d.bucket === key)?.label;
 
@@ -52,7 +53,7 @@ export default function TimeLines({ rows = [], series = [], format = 'int', refe
         <LineChart {...tap.chartProps} data={data} margin={margin} aria-label={ariaLabel ?? frame?.title}>
           <CartesianGrid {...chart.grid} />
           <XAxis {...chart.xAxis} {...axis} />
-          <YAxis {...chart.yAxis} allowDecimals={!integer} width={isPhone ? chart.yAxisPhoneWidth : chart.yAxis.width} tick={chart.tick} tickFormatter={tickFormat} domain={scale.domain} ticks={scale.ticks} />
+          <YAxis {...chart.yAxis} allowDecimals={!integer} width={chart.yAxisWidth(scale.ticks, tickFormat, isPhone)} tick={chart.tick} tickFormatter={tickFormat} domain={scale.domain} ticks={scale.ticks} />
           {bands.map((band) => (
             <ReferenceArea key={`${band.fromKey}-${band.toKey}`} x1={labelOf(band.fromKey)} x2={labelOf(band.toKey)} fill={COLORS.line} fillOpacity={0.3} ifOverflow="hidden" />
           ))}

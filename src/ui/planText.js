@@ -4,7 +4,8 @@ import { PACK_SIZES } from '../data/constants.js';
 import { fmt } from '../format/format.js';
 import { t } from '../copy/index.js';
 
-const packSizeOf = (pack) => PACK_SIZES[pack] ?? null;
+/** Pack sizes are names ('pack 1500'), not amounts: no thousands separator. */
+const packSizeOf = (pack) => (PACK_SIZES[pack] ? String(PACK_SIZES[pack]) : null);
 
 /**
  * How the doctors of a scenario work, in words (§3.8): "15 min conversation", "1 min dictation",

@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAnalytics, usePeriod, useScope } from '../context/AnalyticsContext.jsx';
 import { sectionById } from '../app/nav.js';
 import { summarize } from '../data/core/summary.js';
@@ -48,9 +49,24 @@ export function hiddenNoteOf(dataset, period, scope, internalCount) {
 }
 
 /**
- * The fixed top of every page except Settings, in this order (§3.2; a page never reorders it):
+ * Links such as /money#payments or /settings#planning arrive by client-side navigation, which does not
+ * scroll by itself: once the page has its data (the section exists), bring the anchor into view.
+ * @param {boolean} ready
+ */
+export function useScrollToHash(ready) {
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!ready || !hash) return;
+    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' });
+  }, [ready, hash]);
+}
+
+/**
+ * The fixed top of every page, in this order (§3.2; a page never reorders it):
  * PageHeader (h1 · question · scope line) → FilterBar (one row) → AnswerBlock → HiddenNote → SourceBanners,
  * then the page's children (alerts, strip, section nav, tiles, plan, charts, tables, notes, footnote).
+ * Settings (§4.9) has no filter row: `filterBar={false}`, its own scope line and "Updated HH:mm ⟳" as `aside`.
+ * A link's #anchor is scrolled into view once the metric has data.
  *   id            section id ('overview' …): title and question come from copy `<id>.title` / `<id>.question`
  *   metric        the useMetric('<id>') result (period, compare label, scope, sources, status, error)
  *   serviceScope  service page: static "All traffic — all accounts" chip (Models, Prices); defaults from nav.js
@@ -61,6 +77,9 @@ export function hiddenNoteOf(dataset, period, scope, internalCount) {
  *   sources       source names whose trouble this page must mention, e.g. ['usage', 'revenue', 'config']
  *   exportTables  ExportMenu tables
  *   filters       extra controls placed in the filter row
+ *   filterBar     false = no filter row (Settings)
+ *   scopeLine     ready text instead of the built scope line (null hides it)
+ *   aside         node at the right of the title (Settings: updated time + refresh)
  */
 export default function PageLayout({
   id,
@@ -72,6 +91,9 @@ export default function PageLayout({
   sources = ['usage', 'config'],
   exportTables,
   filters,
+  filterBar = true,
+  scopeLine: scopeLineText,
+  aside,
   children,
 }) {
   const { status, error, isStale, lastUpdated, refresh, dataset } = useAnalytics();
@@ -83,7 +105,8 @@ export default function PageLayout({
   const question = has(`${id}.question`) ? t(`${id}.question`) : null;
   const period = metric?.period ?? periodContext.period;
   const scope = metric?.scope ?? currentScope;
-  const scopeLine = scopeLineOf({
+  useScrollToHash(Boolean(metric?.data));
+  const builtScopeLine = scopeLineOf({
     id,
     period,
     compareLabel: section?.usesPeriod === false ? null : metric?.compareLabel ?? periodContext.compareLabel,
@@ -92,6 +115,8 @@ export default function PageLayout({
     service,
     lastUpdated,
   });
+
+  const scopeLine = scopeLineText === undefined ? builtScopeLine : scopeLineText;
 
   const autoNote = useMemo(
     () => (hiddenNote === undefined && !service ? hiddenNoteOf(dataset, period, scope, internalCount) : null),
@@ -110,10 +135,12 @@ export default function PageLayout({
   return (
     <>
       <PrintHeader section={id} />
-      <PageHeader title={title} question={question} scopeLine={scopeLine} />
-      <FilterBar usesPeriod={section?.usesPeriod !== false} serviceScope={service} vatChip={vatChip} exportTables={exportTables}>
-        {filters}
-      </FilterBar>
+      <PageHeader title={title} question={question} scopeLine={scopeLine} aside={aside} />
+      {filterBar && (
+        <FilterBar usesPeriod={section?.usesPeriod !== false} serviceScope={service} vatChip={vatChip} exportTables={exportTables}>
+          {filters}
+        </FilterBar>
+      )}
       {status === 'error' && !dataset ? (
         <ErrorBanner error={error} onRetry={refresh} className="mb-6" />
       ) : (

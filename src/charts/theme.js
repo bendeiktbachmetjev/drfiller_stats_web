@@ -83,6 +83,12 @@ const niceTicks = (top, integer = true) => {
 /** Axis tick style: 12 px, weight 600, ink-soft (§5.3.4). */
 const TICK = { fill: COLORS['ink-soft'], fontSize: 12, fontWeight: 600 };
 
+/** Money formats: their axis starts at 0 without a floor of 4 and may step in cents. */
+const MONEY_FORMATS = new Set(['eur', 'eurSigned', 'eurUnit']);
+// 12 px semibold digits are ≈ 7.2 px wide; recharts keeps ≈ 10 px between the tick text and the plot.
+const TICK_CHAR_PX = 7.2;
+const TICK_GAP_PX = 10;
+
 export const chart = {
   single: COLORS.brand,
   singleHover: COLORS['brand-strong'],
@@ -103,8 +109,20 @@ export const chart = {
     height: 32,
   },
   yAxis: { axisLine: false, tickLine: false, width: 40, tickCount: 4, allowDecimals: false },
-  /** Phone y-axis width (§3.2). */
+  /** Phone y-axis width (§3.2); the minimum, see yAxisWidth. */
   yAxisPhoneWidth: 32,
+  /**
+   * Y-axis width that fits the longest tick text ("150k", "€400", "€0.60"), never below 40 px (32 on phones).
+   * @param {number[]} ticks
+   * @param {(v: number) => string} format the tick formatter
+   * @param {boolean} isPhone
+   */
+  yAxisWidth: (ticks, format, isPhone) => {
+    const longest = Math.max(0, ...(ticks ?? []).map((v) => String(format(v)).replace(/\u2060/g, '').length));
+    return Math.max(isPhone ? 32 : 40, Math.ceil(longest * TICK_CHAR_PX + TICK_GAP_PX));
+  },
+  /** Is this value format money (axis from 0, steps in cents allowed)? */
+  isMoney: (format) => MONEY_FORMATS.has(format),
   tooltip: {
     cursor: { fill: COLORS.line, fillOpacity: 0.3, radius: 8 },
     isAnimationActive: false,

@@ -68,7 +68,12 @@ export default function StackedColumns({
   }, [rows, series]);
 
   const { margin, ...axis } = useMemo(() => bucketAxisProps(data, chart.margin), [data]);
-  const scale = useMemo(() => chart.yScale(Math.max(0, ...data.map((d) => d.stackTotal))), [data]);
+  const money = chart.isMoney(valueFormat);
+  const scale = useMemo(
+    () => chart.yScale(Math.max(0, ...data.map((d) => d.stackTotal)), money ? 0 : 4, !money),
+    [data, money]
+  );
+  const tickFormat = axisFormat(valueFormat);
 
   // Which segment ends a column differs from column to column, so the radius is decided per datum.
   const shapes = useMemo(
@@ -113,9 +118,10 @@ export default function StackedColumns({
               <XAxis {...chart.xAxis} {...axis} />
               <YAxis
                 {...chart.yAxis}
-                width={isPhone ? chart.yAxisPhoneWidth : chart.yAxis.width}
+                allowDecimals={money}
+                width={chart.yAxisWidth(scale.ticks, tickFormat, isPhone)}
                 tick={chart.tick}
-                tickFormatter={axisFormat(valueFormat)}
+                tickFormatter={tickFormat}
                 domain={scale.domain}
                 ticks={scale.ticks}
               />

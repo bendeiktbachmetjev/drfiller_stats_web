@@ -2,7 +2,7 @@
 // Pure: no React, no window, no clock. Dates are shown in Europe/Vilnius time.
 // Metrics return raw base units (€, ms, tokens, counts, shares 0..1); rounding happens only here.
 import { CHARS_PER_PAGE, CHARS_PER_TOKEN, TIMEZONE } from '../data/constants.js';
-import { getLocale, modelLabel, plural, t } from '../copy/index.js';
+import { endpointLabel, getLocale, modelLabel, plural, t } from '../copy/index.js';
 
 const NBSP = ' ';
 const MINUS = '−';
@@ -329,15 +329,18 @@ const delta = (d) => {
 /** Format keys usable in tiles, tables, charts and `values` maps (§5.3.6). */
 export const FORMAT_KEYS = Object.freeze([
   'int', 'dec', 'pct', 'pp', 'eur', 'eurSigned', 'eurUnit', 'usd', 'credits', 'tokens', 'pages', 'sec', 'ms',
-  'minutes', 'duration', 'date', 'dayShort', 'month', 'time', 'dateTime', 'compact', 'text', 'model',
+  'minutes', 'duration', 'date', 'dayShort', 'month', 'time', 'dateTime', 'compact', 'text', 'model', 'endpoint',
 ]);
 
 /** A model id → its friendly name ('gemini-3-flash-preview' → 'Gemini 3 Flash (trial version)'). */
 const model = (id) => modelLabel(id);
 
+/** Where a model runs, from `{ endpoint, location }` ('Google Cloud, EU only'). */
+const endpoint = (where) => endpointLabel(where?.endpoint ?? null, where?.location ?? null);
+
 const FORMATTERS = {
   int, dec, pct, pp, eur, eurSigned, eurUnit, usd, credits, tokens, pages, sec, ms, minutes, duration,
-  date, dayShort, month, time, dateTime, compact, model,
+  date, dayShort, month, time, dateTime, compact, model, endpoint,
 };
 
 /** Formats that take a string input (day keys, model ids) instead of passing strings through. */
@@ -387,9 +390,12 @@ const parts = (v, format = 'int', ref = v) => {
   }
 };
 
+const isItem = (raw) => Boolean(raw) && typeof raw === 'object' && !Array.isArray(raw) && typeof raw.key === 'string';
+
 /**
  * Formats a `values` map of an AreaResult item: `{ cost: ['eur', 12.3], n: 5, name: 'x' }` →
- * `{ cost: '€12.30', n: '5', name: 'x' }`. Plain numbers use `int`.
+ * `{ cost: '€12.30', n: '5', name: 'x' }`. Plain numbers use `int`; a nested item `{ key, values }`
+ * (a plan scenario, a pack chip) becomes its own sentence.
  * @param {Record<string, unknown>} [values]
  * @returns {Record<string, string>}
  */
@@ -397,7 +403,8 @@ const values = (input) => {
   const out = {};
   if (!input) return out;
   Object.entries(input).forEach(([key, raw]) => {
-    if (Array.isArray(raw) && raw.length === 2 && typeof raw[0] === 'string') out[key] = value(raw[1], raw[0]);
+    if (isItem(raw)) out[key] = textOf(raw);
+    else if (Array.isArray(raw) && raw.length === 2 && typeof raw[0] === 'string') out[key] = value(raw[1], raw[0]);
     else if (typeof raw === 'number') out[key] = int(raw);
     else if (raw == null) out[key] = EMPTY;
     else out[key] = String(raw);
@@ -406,7 +413,8 @@ const values = (input) => {
 };
 
 /**
- * Text of an AreaResult item (`answer`, `facts`, `notes`, `takeaways`): `t(key, values(values))`.
+ * Text of an AreaResult item (`answer`, `facts`, `notes`, `takeaways`): `t(key, values(values))`, nested
+ * items included. Page-level hints that need the dataset (['doctor', pid]) stay with the page.
  * @param {{ key: string, values?: object } | null} item
  */
 const textOf = (item) => (item?.key ? t(item.key, values(item.values)) : '');

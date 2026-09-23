@@ -4,6 +4,7 @@ import { fmt } from '../format/format.js';
 import { t } from '../copy/index.js';
 import { COLORS as TOKENS } from '../charts/theme.js';
 import { usePrintMode } from '../context/usePrintMode.js';
+import useIsPhone from '../context/useIsPhone.js';
 import useChartTooltip from '../charts/useChartTooltip.jsx';
 import Legend from './Legend.jsx';
 
@@ -46,6 +47,7 @@ const PAIR_REFERENCE =
 const PAIR_MAIN =
   'h-1.5 min-w-[2px] rounded-r-[3px] bg-brand group-hover:bg-brand-strong transition-[width,background-color] duration-[400ms] ease-out motion-reduce:transition-none';
 const PAIR_ZERO = 'h-1.5 w-[2px] bg-line';
+const STACKED_BAR = 'h-1.5 rounded-r-[3px]';
 
 const COLORS = { main: TOKENS.brand, reference: TOKENS['data-mute'], ghost: TOKENS.line };
 const DEFAULT_SERIES = {
@@ -61,8 +63,19 @@ const shareOf = (v, total) => {
   return share > 0 && share < 1 ? '<1%' : `${Math.round(share)}%`;
 };
 
+/** Name, then a quiet detail on its own line, so a long label fits the narrow phone column uncut. */
+function TwoLineLabel({ title, detail }) {
+  return (
+    <>
+      <span className="block truncate leading-5">{title}</span>
+      <span className="block truncate text-xs font-medium leading-4 text-ink-soft">{detail}</span>
+    </>
+  );
+}
+
 // Ranking as HTML bars (no chart library): label · bar · value.
-//   items     [{ key, label, value, sub?, to?, muted?, ghost?, valueLabel?, color? }]
+//   items     [{ key, label, detail?, value, sub?, to?, muted?, ghost?, valueLabel?, color? }]
+//             detail = a quiet second line under the label (size bucket "11–20 pages")
 //             color = identity colour of the bar (charts/theme.js#SERIES), never by rank
 //             ghost = reference number (planned, booked) drawn in gray; valueLabel replaces the value text
 //   format    fmt key or function for the numbers
@@ -70,7 +83,8 @@ const shareOf = (v, total) => {
 //   variant   'single' — one bar (brand, or the item's identity colour), `ghost` drawn behind it at its own width,
 //             value "9 of 11"
 //             'compare' — two thin bars per row, reference (grey) over main (brand), value "3 h / 12 h",
-//                         with its legend above the list
+//                         with its legend above the list; on phones each row stacks: name and numbers on
+//                         one line, both bars below at the full card width
 //   series    [{ key, label }, { key, label }] = [reference, main]: legend and tooltip names. A number is read
 //             from item[key] when the item has that field, else from item.ghost / item.value.
 //   showShare adds each row's share of the total
@@ -89,9 +103,11 @@ export default function BarList({
 }) {
   const [expanded, setExpanded] = useState(false);
   const { printing } = usePrintMode();
+  const isPhone = useIsPhone();
   const tip = useChartTooltip();
 
   const compare = variant === 'compare';
+  const stacked = compare && isPhone && !printing;
   const rowClass = compare ? ROWS.compare : ROWS.single;
   const [referenceSeries, mainSeries] =
     Array.isArray(series) && series.length === 2 ? series : DEFAULT_SERIES[compare ? 'compare' : 'single'];
@@ -115,11 +131,12 @@ export default function BarList({
   const tooltipOf = ({ item, main, reference }) => () => {
     const share = showShare ? shareOf(main, total) : '';
     const footer = [item.sub, share && t('common.list.shareOfTotal', { share })];
+    const title = item.detail ? `${item.label} · ${item.detail}` : item.label;
     if (reference == null) {
-      return { title: item.label, rows: [{ value: item.valueLabel ?? text(main), name: unit }], footer };
+      return { title, rows: [{ value: item.valueLabel ?? text(main), name: unit }], footer };
     }
     return {
-      title: item.label,
+      title,
       rows: [
         { key: 'main', value: text(main), name: mainSeries.label || unit, color: item.muted ? COLORS.reference : item.color ?? COLORS.main },
         { key: 'reference', value: text(reference), name: referenceSeries.label, color: compare ? COLORS.reference : COLORS.ghost },
@@ -172,17 +189,59 @@ export default function BarList({
     );
   };
 
+  const legend = compare && (
+    <Legend
+      className="mb-3"
+      items={[
+        { key: 'reference', label: referenceSeries.label, color: COLORS.reference, shape: 'rect' },
+        { key: 'main', label: mainSeries.label, color: COLORS.main, shape: 'rect' },
+      ]}
+    />
+  );
+
+  const toggle = collapsible && (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      onClick={() => setExpanded((open) => !open)}
+      className={`mt-2 rounded-[6px] text-xs font-bold text-brand hover:text-brand-strong transition-colors ${RING}`}
+    >
+      {expanded ? t('common.list.showFewer') : t('common.list.showAll', { n: items.length })}
+    </button>
+  );
+
+  if (stacked) {
+    const barOf = (v, tone) => (
+      <div className={`${STACKED_BAR} ${tone}${v > 0 ? ' min-w-[2px]' : ''}`} style={{ width: widthOf(v ?? 0, max) }} />
+    );
+    return (
+      <div className={className}>
+        {legend}
+        <ul role="list" className="flex flex-col gap-3">
+          {rows.slice(0, showAll ? rows.length : maxRows).map((row) => (
+            <li key={row.item.key ?? row.item.label}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className={`min-w-0 text-sm font-semibold ${row.item.muted ? 'text-ink-soft' : 'text-ink'}`}>
+                  {row.item.label}
+                  {row.item.detail && <span className="text-xs font-medium text-ink-soft whitespace-nowrap"> {row.item.detail}</span>}
+                </span>
+                <span className="shrink-0">{renderValue(row)}</span>
+              </div>
+              <div className="mt-1.5 flex flex-col gap-0.5" aria-hidden="true">
+                {barOf(row.reference, 'bg-data-mute')}
+                {barOf(row.main, 'bg-brand')}
+              </div>
+            </li>
+          ))}
+        </ul>
+        {toggle}
+      </div>
+    );
+  }
+
   return (
     <div className={className}>
-      {compare && (
-        <Legend
-          className="mb-3"
-          items={[
-            { key: 'reference', label: referenceSeries.label, color: COLORS.reference, shape: 'rect' },
-            { key: 'main', label: mainSeries.label, color: COLORS.main, shape: 'rect' },
-          ]}
-        />
-      )}
+      {legend}
 
       <ul role="list" className={LIST_CLASS}>
         {rows.map((row, index) => {
@@ -191,7 +250,9 @@ export default function BarList({
           const classes = `${visible ? rowClass.shown : rowClass.hidden} ${SUBGRID}`;
           const cells = (
             <>
-              <span className={item.muted ? LABEL_MUTED : LABEL}>{item.label}</span>
+              <span className={item.muted ? LABEL_MUTED : LABEL}>
+                {item.detail ? <TwoLineLabel title={item.label} detail={item.detail} /> : item.label}
+              </span>
               {renderBars(row)}
               <span className="flex items-baseline">
                 {renderValue(row)}
@@ -225,16 +286,7 @@ export default function BarList({
         })}
       </ul>
 
-      {collapsible && (
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((open) => !open)}
-          className={`mt-2 rounded-[6px] text-xs font-bold text-brand hover:text-brand-strong transition-colors ${RING}`}
-        >
-          {expanded ? t('common.list.showFewer') : t('common.list.showAll', { n: items.length })}
-        </button>
-      )}
+      {toggle}
 
       {tip.tooltip}
     </div>

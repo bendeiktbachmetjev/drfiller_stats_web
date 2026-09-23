@@ -64,6 +64,9 @@ export const quantile = (values, q) => {
   return sorted[rank];
 };
 
+/** Under this many euros a change of a sum reads as a € difference, not a percentage (kind `money`). */
+const SMALL_MONEY_EUR = 10;
+
 /** A comparison is shown only when the earlier window holds recorded activity. */
 export const comparable = (ds, prevPeriod) => {
   if (!ds || !prevPeriod || !Number.isFinite(ds.firstActivityMs)) return false;
@@ -77,10 +80,12 @@ export const comparable = (ds, prevPeriod) => {
  *   pct       relative change in %; for prev < 10 the plain difference is given instead (kind abs)
  *   pp        difference of two SHARES (0..1 inputs), returned in percentage points (×100)
  *   eur       absolute € difference (money that can be negative, e.g. the result)
+ *   money     a sum of money: % change, or the € difference while the earlier sum is under €10 (kind eur)
+ *   pctAlways relative change in % whatever the size of prev (unit prices such as €0.0076 a form)
  * |value| under 0.5 reads as "no change" (flat).
  * @param {number|null} cur
  * @param {number|null} prev
- * @param {{ kind?: 'pct'|'pp'|'abs'|'eur', comparable?: boolean }} [options]
+ * @param {{ kind?: 'pct'|'pp'|'abs'|'eur'|'money'|'pctAlways', comparable?: boolean }} [options]
  * @returns {{ kind: 'pct'|'pp'|'abs'|'eur', value: number, dir: 'up'|'down'|'flat', prev: number } | null}
  */
 export const makeDelta = (cur, prev, { kind = 'pct', comparable: canCompare = true } = {}) => {
@@ -88,7 +93,12 @@ export const makeDelta = (cur, prev, { kind = 'pct', comparable: canCompare = tr
   let outKind = kind;
   let value;
   let flatBelow = 0.5;
-  if (kind === 'pp') {
+  if (kind === 'money') return makeDelta(cur, prev, { kind: Math.abs(prev) < SMALL_MONEY_EUR ? 'eur' : 'pct' });
+  if (kind === 'pctAlways') {
+    if (!(prev > 0)) return null;
+    outKind = 'pct';
+    value = round1(((cur - prev) / prev) * 100);
+  } else if (kind === 'pp') {
     value = round1((cur - prev) * 100);
   } else if (kind === 'eur') {
     value = round2(cur - prev);

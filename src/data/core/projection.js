@@ -405,9 +405,10 @@ const nowColumns = (summary, factor) => {
 };
 
 const packChip = (pack, plan) => {
-  if (pack !== 'plan') return { key: 'common.plan.packSingle', values: { pack: PACK_SIZES[pack] } };
+  // Pack sizes are names ('pack 1500'), not amounts: a string keeps the thousands separator out.
+  if (pack !== 'plan') return { key: 'common.plan.packSingle', values: { pack: String(PACK_SIZES[pack]) } };
   const used = PACK_IDS.filter((id) => plan.packMix[id] > 0);
-  return used.length === 1 ? { key: 'common.plan.packSingle', values: { pack: PACK_SIZES[used[0]] } } : { key: 'common.plan.packMix' };
+  return used.length === 1 ? { key: 'common.plan.packSingle', values: { pack: String(PACK_SIZES[used[0]]) } } : { key: 'common.plan.packMix' };
 };
 
 /**

@@ -60,9 +60,12 @@ const STYLES = {
 //   delta           makeDelta result; null = "Nothing to compare with"; undefined = the tile has no comparison
 //   compareLabel    'the previous 30 days' (accessible name of the delta)
 //   goodWhen        'up' | 'down' | 'none' (grey delta, volume totals)
-//   badge           basis of the value: 'estimate' | 'inferred' | 'missing' | 'model' (nothing for 'exact')
+//   badge           basis of the value: 'estimate' | 'inferred' | 'missing' | 'model' (nothing for 'exact');
+//                   next to the label from 640 px, in the change row on phones (a half-width tile keeps its label)
 //   spark           number[] for the sparkline (pass [] while loading to keep its space)
 //   meter           0–1 thin meter instead of the sparkline
+//   foot            any node for the foot slot instead of spark / meter (e.g. a ShareBar); it sits above the
+//                   tile's link, so its own tooltips stay reachable
 //   hintKey         copy key of the (i) (DEFS: short, long); hintValues fills its template
 //   to              route; makes the whole tile a link
 //   variant         'default' | 'hero' (the one gradient tile of Overview)
@@ -81,6 +84,7 @@ export default function KpiTile({
   badge,
   spark,
   meter,
+  foot,
   hintKey,
   hintValues,
   to,
@@ -111,8 +115,9 @@ export default function KpiTile({
   }
 
   const spansTwo = wide ?? (hasText || ['eur', 'eurSigned', 'eurUnit', 'text'].includes(format));
-  const hasMeter = meter !== undefined;
-  const hasSpark = !hasMeter && spark !== undefined;
+  const hasFoot = foot !== undefined && foot !== null;
+  const hasMeter = !hasFoot && meter !== undefined;
+  const hasSpark = !hasFoot && !hasMeter && spark !== undefined;
   const sparkHeight = hero ? 88 : 36;
   const labelText = typeof label === 'string' ? label : undefined;
 
@@ -132,7 +137,7 @@ export default function KpiTile({
           <p className={styles.label}>{label}</p>
         )}
         <span className="relative z-[1] shrink-0 flex items-center gap-2 print:hidden">
-          {!hero && badge && <SourceBadge basis={badge} />}
+          {!hero && badge && <SourceBadge basis={badge} className="max-sm:hidden" />}
           {hintKey && <InfoHint hintKey={hintKey} values={hintValues} label={labelText} tone={hero ? 'onAccent' : 'default'} />}
         </span>
       </div>
@@ -164,12 +169,14 @@ export default function KpiTile({
         )}
         {caption && <span className={styles.caption}>{caption}</span>}
         {hero && badge && <SourceBadge basis={badge} onAccent />}
+        {!hero && badge && <SourceBadge basis={badge} className="sm:hidden" />}
       </div>
 
       <p className={styles.sub} title={typeof sub === 'string' ? sub : undefined}>
         {firstLoad ? null : sub}
       </p>
 
+      {hasFoot && <div className={`${styles.foot} relative z-[1]`}>{firstLoad ? null : foot}</div>}
       {hasMeter && (
         <div className={styles.foot}>
           {firstLoad || missing ? <div className="h-1.5" /> : <Meter value={meter} size="sm" ariaLabel={labelText} />}

@@ -31,7 +31,8 @@ function MoneyTooltip({ active, payload, partLabels = {} }) {
 }
 
 // The latest result gets a direct label (desktop only, §3.12): the sign in colour (good "+" / bad "−"),
-// the amount in ink, on a white halo so it stays readable over the columns.
+// the amount in ink, on a white halo so it stays readable over the columns. A loss is labelled below its
+// dot, where no column stands (columns never go below zero).
 function resultLabel(lastIndex) {
   return function ResultLabel({ x, y, value, index }) {
     if (index !== lastIndex || !Number.isFinite(value) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
@@ -39,7 +40,7 @@ function resultLabel(lastIndex) {
     const sign = text.charAt(0);
     const signed = sign === '+' || sign === '−';
     return (
-      <text x={x} y={y - 10} textAnchor="middle" fontSize={12} fontWeight={700} fill={COLORS.ink} stroke={COLORS.surface} strokeWidth={3} paintOrder="stroke">
+      <text x={x} y={value < 0 ? y + 18 : y - 10} textAnchor="middle" fontSize={12} fontWeight={700} fill={COLORS.ink} stroke={COLORS.surface} strokeWidth={3} paintOrder="stroke">
         {signed && <tspan fill={sign === '+' ? COLORS.good : COLORS.bad}>{sign}</tspan>}
         <tspan>{signed ? text.slice(1) : text}</tspan>
       </text>
@@ -90,7 +91,7 @@ export default function MoneyColumns({ rows = [], showIncome = true, partLabels,
           <HatchDefs colors={[SERIES.income, SERIES.cost]} />
           <CartesianGrid {...chart.grid} />
           <XAxis {...chart.xAxis} {...axis} />
-          <YAxis {...chart.yAxis} allowDecimals width={isPhone ? chart.yAxisPhoneWidth + 16 : chart.yAxis.width + 16} tick={chart.tick} tickFormatter={tickFormat} domain={scale.domain} ticks={scale.ticks} />
+          <YAxis {...chart.yAxis} allowDecimals width={chart.yAxisWidth(scale.ticks, tickFormat, isPhone)} tick={chart.tick} tickFormatter={tickFormat} domain={scale.domain} ticks={scale.ticks} />
           <ReferenceLine y={0} stroke={COLORS['ink-mute']} />
           <Tooltip {...chart.tooltip} {...tap.tooltipProps} content={<MoneyTooltip partLabels={partLabels} />} />
           {showIncome && (

@@ -6,7 +6,7 @@ const ITEM_SIZE = {
 };
 
 const ITEM_BASE =
-  'sf-hit inline-flex items-center gap-1.5 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed';
+  'sf-hit-y inline-flex items-center gap-1.5 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed';
 const ITEM_ACTIVE = 'bg-brand text-white';
 const ITEM_IDLE = 'text-ink-soft hover:bg-line/20 disabled:hover:bg-transparent';
 const ITEM_DISABLED_ACTIVE = 'bg-line/60 text-ink-soft';

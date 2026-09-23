@@ -39,10 +39,15 @@ test('makeDemoApi output validates against api/contract.js for both scenarios', 
   });
 });
 
-test('makeDemoApi is deterministic: the same nowMs gives the same output', () => {
+test('makeDemoApi is deterministic: the same nowMs gives the same output, also from a fresh module (no cache)', async () => {
   SCENARIOS.forEach((scenario) => {
     assert.deepEqual(makeDemoApi(NOW, { scenario }), makeDemoApi(NOW, { scenario }));
   });
+  const fresh = await import(`../../dev/demoData.js?fresh=${Date.now()}`);
+  assert.equal(JSON.stringify(fresh.makeDemoApi(NOW, { scenario: 'today' })), JSON.stringify(makeDemoApi(NOW, { scenario: 'today' })));
+  const later = makeDemoApi(NOW + 3 * 3600000, { scenario: 'today' });
+  const earlierIds = new Set(makeDemoApi(NOW, { scenario: 'today' }).usage.rows.map((row) => row.id));
+  assert.ok(later.usage.rows.filter((row) => row.t <= NOW).every((row) => earlierIds.has(row.id)), 'moving "now" never changes the past');
 });
 
 test('demo settings follow the owner decisions (English, no VAT, list email mode)', () => {
@@ -85,4 +90,55 @@ test('the pipeline runs end to end for both scenarios and every metric returns a
   }
 });
 
-test.todo('demo bands (F0-DATA): fallback 0.5–2 %, top user 80–92 %, Sept prompt mean ±15 % of 11.6k, class mix 25/7/5/4');
+const datasetOf = async (scenario, nowMs = NOW) => {
+  const api = makeDemoApi(nowMs, { scenario });
+  return { api, ds: buildDataset(await loadAll({ demo: api, nowMs }), { nowMs, staticPrices, benchmark }) };
+};
+
+test('demo bands (Appendix C.4): fallback 0.5–2 %, top user 80–92 %, September prompt ±15 % of 11.6k, classes 25/7/5/4', async () => {
+  const { api, ds } = await datasetOf('today');
+  const health = summarizeHealth(ds, resolvePeriod('allTime', NOW));
+  assert.ok(health.fallbackShare >= 0.005 && health.fallbackShare <= 0.02, `fallback ${health.fallbackShare}`);
+  const perDoctor = new Map();
+  ds.forms.forEach((row) => perDoctor.set(row.pid, (perDoctor.get(row.pid) ?? 0) + 1));
+  const topShare = Math.max(...perDoctor.values()) / ds.forms.length;
+  assert.ok(topShare >= 0.8 && topShare <= 0.92, `top user ${topShare}`);
+  const september = ds.forms.filter((row) => row.monthKey === '2026-09');
+  const promptMean = september.reduce((acc, row) => acc + row.inTok, 0) / september.length;
+  assert.ok(Math.abs(promptMean - 11600) <= 0.15 * 11600, `September prompt ${promptMean}`);
+  const classes = {};
+  api.doctors.doctors.filter((d) => d.exists.credits).forEach((d) => { classes[d.class] = (classes[d.class] ?? 0) + 1; });
+  assert.deepEqual(classes, { legacy: 4, gifted: 7, bought_inferred: 5, free: 25 });
+  assert.deepEqual(api.doctors.counts, { auth: 44, creditDocs: 41, profiles: 37 });
+  assert.equal(api.revenue.payments.length, 5);
+  assert.equal(api.revenue.webhook.notCredited, 1);
+  const last30 = summarize(ds, resolvePeriod('last30', NOW), makeScope({ settings: ds.settings }));
+  assert.equal(last30.activeDoctors, 6);
+  assert.ok(last30.cost.totalEur > 9 && last30.cost.totalEur < 15, `last 30 days cost ${last30.cost.totalEur}`);
+  assert.equal(last30.balances.free, 31798, 'free balances of Appendix C.3');
+  assert.ok(api.doctors.doctors.every((d) => /^doctor\d+@example\.test$/.test(d.email)), 'list mode: every doctor has an email (O2)');
+  assert.ok(api.doctors.doctors.every((d) => !d.internal), 'no account is marked internal');
+});
+
+test('the planned scenario: 100 paying doctors, conversation text measured, B2 fields, open conversations', async () => {
+  const { api, ds } = await datasetOf('planned');
+  assert.equal(api.doctors.doctors.length, 100);
+  const last30 = summarize(ds, resolvePeriod('last30', NOW), makeScope({ settings: ds.settings }));
+  assert.equal(last30.payingActiveDoctors, 100);
+  assert.ok(last30.counts.liveConversations / last30.counts.forms > 0.9);
+  const uc = unitCosts(ds, ds.settings.planning);
+  assert.equal(uc.formBasis, 'exact');
+  assert.equal(uc.convBasis, 'exact');
+  assert.ok(Math.abs(uc.convTokensPerMin - 250) < 25, `measured ${uc.convTokensPerMin} tokens a minute`);
+  assert.ok(ds.v2LoggingSince.forms !== null && ds.v2LoggingSince.events !== null);
+  assert.ok(api.liveNow.openCount > 0);
+});
+
+test('demo later in the day: the first meter rows and failures after 23.09 11:23', async () => {
+  const afternoon = Date.parse('2026-09-23T12:30:00Z');
+  const { ds } = await datasetOf('today', afternoon);
+  assert.ok(ds.meter.length >= 1 && ds.failures.length === 2);
+  assert.deepEqual(ds.failures.map((row) => row.failure.group).sort(), ['refusal', 'service']);
+  const day = resolvePeriod('custom', afternoon, { custom: { from: '2026-09-23', to: '2026-09-23' } });
+  assert.equal(summarizeHealth(ds, day).serviceFailures, 1);
+});

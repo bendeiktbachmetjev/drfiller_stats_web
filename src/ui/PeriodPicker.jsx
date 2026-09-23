@@ -10,7 +10,7 @@ import Segmented from './Segmented.jsx';
 
 const RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
-const TRIGGER_CLASS = `xl:hidden inline-flex items-center gap-2 h-9 pl-3 pr-2.5 rounded-full border border-line bg-surface text-[13px] font-semibold text-ink hover:bg-line/20 transition-colors ${RING}`;
+const TRIGGER_CLASS = `inline-flex items-center gap-2 h-9 pl-3 pr-2.5 rounded-full border border-line bg-surface text-[13px] font-semibold text-ink whitespace-nowrap hover:bg-line/20 transition-colors ${RING}`;
 const ROW_CLASS = `w-full flex items-center justify-between px-3 py-2 rounded-[10px] text-left text-[13px] font-semibold text-ink hover:bg-line/25 transition-colors ${RING}`;
 const GROUP_LABEL_CLASS = 'text-xs font-bold text-ink-soft';
 const DATE_INPUT_CLASS =
@@ -98,19 +98,25 @@ function CustomRangeForm({ period, selected, standalone, onApply, onClose }) {
 }
 
 /**
- * Period choice for the filter row (§3.3). From xl up all presets sit in one Segmented and "Custom dates"
- * opens the date form; below xl a single pill opens the same presets as a list (phones: the period pill
- * of the one-row FilterBar). Both triggers are in the DOM and CSS shows one.
+ * Period choice for the filter row (§3.3).
+ *   variant      'pill' (default): one pill that opens the presets as a list plus the custom-date form. It keeps
+ *                the filter row to one line next to the ‹ › stepper, the scope switch and the chips (§3.2).
+ *                'segmented': all presets side by side (SimuFlow), "Custom dates" opens the date form.
+ *   namesPeriod  the pill names the month, year or custom dates ('Sep 2026') instead of the preset — for phones,
+ *                where the stepper lives in the Filters sheet. (`pillOnly` is the old name of this switch.)
  */
-export default function PeriodPicker({ pillOnly = false }) {
-  const { period, presets = [], setPreset, setCustom } = usePeriod();
+export default function PeriodPicker({ variant = 'pill', namesPeriod = false, pillOnly = false }) {
+  const { period, presets = [], setPreset, setCustom, stepper, shortLabel } = usePeriod();
   const [panel, setPanel] = useState(null); // null | 'list' | 'custom'
   const anchorRef = useRef(null);
   const pillRef = useRef(null);
   const segmentedRef = useRef(null);
+  const segmented = variant === 'segmented' && !pillOnly;
+  const named = namesPeriod || pillOnly;
 
   const currentPreset = period?.preset;
-  const currentLabel = presets.find((preset) => preset.id === currentPreset)?.label ?? t('common.period');
+  const presetLabel = presets.find((preset) => preset.id === currentPreset)?.label ?? t('common.period');
+  const currentLabel = named && (stepper || currentPreset === 'custom') && shortLabel ? shortLabel : presetLabel;
   const listPresets = presets.filter((preset) => preset.id !== 'custom');
   const options = presets.map((preset) => ({
     value: preset.id,
@@ -137,25 +143,27 @@ export default function PeriodPicker({ pillOnly = false }) {
 
   return (
     <>
-      {!pillOnly && (
-        <div ref={segmentedRef} className="hidden xl:inline-flex">
+      {segmented && (
+        <div ref={segmentedRef} className="inline-flex">
           <Segmented size="md" ariaLabel={t('common.period')} options={options} value={currentPreset} onChange={handleSegmentedChange} />
         </div>
       )}
 
-      <button
-        ref={pillRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={panel === 'list'}
-        onClick={() => toggle('list', pillRef.current)}
-        className={pillOnly ? TRIGGER_CLASS.replace('xl:hidden ', '') : TRIGGER_CLASS}
-      >
-        <CalendarRange className="w-4 h-4 text-brand" aria-hidden="true" />
-        <span className="sr-only">{t('common.period')}: </span>
-        {currentLabel}
-        <ChevronDown className="w-4 h-4 text-ink-mute" aria-hidden="true" />
-      </button>
+      {!segmented && (
+        <button
+          ref={pillRef}
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={panel === 'list'}
+          onClick={() => toggle('list', pillRef.current)}
+          className={TRIGGER_CLASS}
+        >
+          <CalendarRange className="w-4 h-4 text-brand" aria-hidden="true" />
+          <span className="sr-only">{t('common.period')}: </span>
+          {currentLabel}
+          <ChevronDown className="w-4 h-4 text-ink-mute" aria-hidden="true" />
+        </button>
+      )}
 
       <MenuPanel
         open={panel !== null}

@@ -25,6 +25,18 @@ export function paymentFeeEur(prices, amountEur, method = 'card_eea_standard') {
   return roundCents((Number(amountEur) || 0) * f.pct + f.fixed);
 }
 
+/**
+ * PayPal's own fee on a PayPal payment made through Stripe. Stripe's balance transaction holds only
+ * Stripe's part, so the dashboard adds this part from the price table (basis estimate).
+ * @param {object} prices snapshot
+ * @param {number} amountEur
+ * @returns {number} € (12.50 → 0.78)
+ */
+export function paypalOwnFeeEur(prices, amountEur) {
+  const part = prices?.PAYMENT_FEES?.paypal?.paypalPart ?? { pct: 0.034, fixed: 0.35 };
+  return roundCents((Number(amountEur) || 0) * part.pct + part.fixed);
+}
+
 /** VAT rate (0.21). */
 export const vatRate = (prices) => prices?.TAX?.lt_vat?.rate ?? 0.21;
 

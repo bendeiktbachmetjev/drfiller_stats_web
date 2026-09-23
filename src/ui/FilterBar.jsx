@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { useAnalytics, usePeriod, useScope } from '../context/AnalyticsContext.jsx';
@@ -68,10 +68,14 @@ export function CaveatChips() {
   const chips = [];
   if (compareCaveat.modelEraChanged) chips.push('common.caveat.model');
   if (compareCaveat.billingEraChanged) chips.push('common.caveat.billing');
+  // The chip keeps the filter row to one line: long text is cut, and its (i) repeats it in full.
   return chips.map((key) => (
-    <span key={key} className={CHIP_CLASS}>
-      {t(key)}
-      <InfoHint label={t(key)}>{t('common.caveat.hint', { era: era || t('common.caveat.billing').replace(/^⚠\s*/, '') })}</InfoHint>
+    <span key={key} className={`${CHIP_CLASS} max-w-[280px]`} title={t(key)}>
+      <span className="min-w-0 truncate">{t(key)}</span>
+      <InfoHint label={t(key)}>
+        <span className="block font-semibold text-ink">{t(key)}</span>
+        <span className="mt-1 block">{t('common.caveat.hint', { era: era || t('common.caveat.billing').replace(/^⚠\s*/, '') })}</span>
+      </InfoHint>
     </span>
   ));
 }
@@ -94,7 +98,8 @@ function Stepper() {
   );
 }
 
-function RefreshButton() {
+/** Round ⟳ button: reloads every source in the background (the numbers stay on screen meanwhile). */
+export function RefreshButton() {
   const { status, isRefetching, refresh } = useAnalytics();
   const busy = isRefetching || status === 'loading';
   return (
@@ -105,9 +110,52 @@ function RefreshButton() {
 }
 
 /**
+ * Keeps the filter row on one line (§3.2). Phones always use the compact row. Wider screens try the full
+ * row first; when it would wrap (a long caveat chip, the ‹ › stepper, a narrow tablet), it remembers the
+ * width at which it did not fit and uses the compact row up to that width. A change of content (another
+ * preset, a chip appearing) clears the memory, so the full row is tried again. The check runs in a layout
+ * effect, before paint, so nothing jumps on screen.
+ * @returns {{ compact: boolean, boxRef: object, rowRef: object }}
+ */
+function useOneRow(isPhone, signature) {
+  const boxRef = useRef(null);
+  const rowRef = useRef(null);
+  const [width, setWidth] = useState(0);
+  const [tooWideAt, setTooWideAt] = useState(null);
+
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    if (!box || typeof ResizeObserver === 'undefined') return undefined;
+    setWidth(box.clientWidth);
+    const observer = new ResizeObserver(() => setWidth(box.clientWidth));
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
+
+  useLayoutEffect(() => {
+    setTooWideAt(null);
+  }, [signature]);
+
+  const compact = isPhone || (tooWideAt !== null && width <= tooWideAt);
+
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (compact || !row || !width) return;
+    const items = [...row.children].filter((child) => child.dataset.rowItem !== undefined && child.offsetWidth > 0);
+    // Items of different heights sit at different tops on one centred line; an item wrapped only when it
+    // starts below the bottom of another one.
+    const firstBottom = Math.min(...items.map((child) => child.offsetTop + child.offsetHeight));
+    if (items.some((child) => child.offsetTop >= firstBottom)) setTooWideAt(width);
+  });
+
+  return { compact, boxRef, rowRef };
+}
+
+/**
  * The ONE filter row of a page (§3.2): period ‹ › · scope control · chips · ⟳ · Export.
- * Phones: the period pill + a "Filters" button opening a bottom sheet with the scope control, the
- * chips, Export and Refresh. "Updated HH:mm" lives in the scope line, not here.
+ * Compact row (phones, and wherever the full row would wrap): the period pill (+ ‹ › when there is room)
+ * and a "Filters" button; phones open a bottom sheet, wider screens a panel under the button, with the
+ * scope control, the chips, Export and Refresh. "Updated HH:mm" lives in the scope line, not here.
  *   usesPeriod    false on Prices and Settings (no period picker)
  *   serviceScope  service page (Models, Prices): static "All traffic — all accounts" chip instead of the switch
  *   vatChip       Overview and Money
@@ -115,11 +163,17 @@ function RefreshButton() {
  *   children      extra page controls (after the scope control)
  */
 export default function FilterBar({ usesPeriod = true, serviceScope = false, vatChip = false, exportTables, children }) {
-  const { stepper } = usePeriod();
+  const { stepper, period, compareCaveat } = usePeriod();
   const { tzWarning } = useAnalytics();
+  const { internalCount } = useScope();
   const isPhone = useIsPhone();
   const [sheetOpen, setSheetOpen] = useState(false);
   const filtersRef = useRef(null);
+  const signature = [
+    usesPeriod, serviceScope, vatChip, period?.preset, stepper, internalCount,
+    compareCaveat?.modelEraChanged, compareCaveat?.billingEraChanged, React.Children.count(children),
+  ].join('|');
+  const { compact, boxRef, rowRef } = useOneRow(isPhone, signature);
 
   const scopeControl = serviceScope ? <ServiceChip /> : <ScopeControl />;
   const chips = (
@@ -128,44 +182,73 @@ export default function FilterBar({ usesPeriod = true, serviceScope = false, vat
       {usesPeriod && <CaveatChips />}
     </>
   );
+  const tzLine = tzWarning && <p className="basis-full text-xs font-medium text-ink-soft">{t('common.tzWarning')}</p>;
 
-  if (isPhone) {
-    return (
-      <div data-print="hide" className="mb-5 flex items-center gap-2 min-w-0">
-        {usesPeriod && <PeriodPicker pillOnly />}
-        <button ref={filtersRef} type="button" aria-label={t('common.filters')} aria-haspopup="dialog" aria-expanded={sheetOpen} onClick={() => setSheetOpen((open) => !open)} className={`ml-auto ${FILTERS_BUTTON_CLASS}`}>
-          <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
-          {t('common.filters')}
-        </button>
-        <MenuPanel open={sheetOpen} anchorRef={filtersRef} onClose={() => setSheetOpen(false)} variant="sheet" ariaLabel={t('common.filters')}>
-          <div className="flex flex-col items-start gap-4 pb-2">
-            {usesPeriod && stepper && <Stepper />}
-            {scopeControl}
-            {children}
-            <div className="flex flex-wrap gap-2">{chips}</div>
-            <div className="flex items-center gap-3">
-              <RefreshButton />
-              <ExportMenu tables={exportTables || []} />
-            </div>
-            {tzWarning && <p className="text-xs font-medium text-ink-soft">{t('common.tzWarning')}</p>}
+  const compactRow = (
+    <div className="flex flex-wrap items-center gap-2">
+      {usesPeriod && <PeriodPicker namesPeriod={isPhone} />}
+      {usesPeriod && stepper && !isPhone && <Stepper />}
+      <button ref={filtersRef} type="button" aria-label={t('common.filters')} aria-haspopup="dialog" aria-expanded={sheetOpen} onClick={() => setSheetOpen((open) => !open)} className={`ml-auto ${FILTERS_BUTTON_CLASS}`}>
+        <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
+        {t('common.filters')}
+      </button>
+      <MenuPanel
+        open={sheetOpen}
+        anchorRef={filtersRef}
+        onClose={() => setSheetOpen(false)}
+        variant={isPhone ? 'sheet' : 'popover'}
+        width="w-[360px]"
+        ariaLabel={t('common.filters')}
+      >
+        <div className={`flex flex-col items-start gap-4 pb-2${isPhone ? '' : ' p-2.5'}`}>
+          {usesPeriod && stepper && isPhone && <Stepper />}
+          {scopeControl}
+          {children}
+          <div className="flex flex-wrap gap-2 empty:hidden">{chips}</div>
+          <div className="flex items-center gap-3">
+            <RefreshButton />
+            <ExportMenu tables={exportTables || []} />
           </div>
-        </MenuPanel>
-      </div>
-    );
-  }
+        </div>
+      </MenuPanel>
+      {tzLine}
+    </div>
+  );
 
-  return (
-    <div data-print="hide" className="mb-5 flex flex-wrap items-center gap-3">
-      {usesPeriod && <PeriodPicker />}
-      {usesPeriod && <Stepper />}
-      {scopeControl}
-      {children}
-      {chips}
-      <div className="ml-auto flex items-center gap-3">
+  const fullRow = (
+    <div ref={rowRef} className="flex flex-wrap items-center gap-3">
+      {usesPeriod && (
+        <span data-row-item="" className="inline-flex">
+          <PeriodPicker />
+        </span>
+      )}
+      {usesPeriod && stepper && (
+        <span data-row-item="" className="inline-flex">
+          <Stepper />
+        </span>
+      )}
+      <span data-row-item="" className="inline-flex">
+        {scopeControl}
+      </span>
+      {children && (
+        <span data-row-item="" className="inline-flex items-center gap-3">
+          {children}
+        </span>
+      )}
+      <span data-row-item="" className="inline-flex items-center gap-3 empty:hidden">
+        {chips}
+      </span>
+      <div data-row-item="" className="ml-auto flex items-center gap-3">
         <RefreshButton />
         <ExportMenu tables={exportTables || []} />
       </div>
-      {tzWarning && <p className="basis-full text-xs font-medium text-ink-soft">{t('common.tzWarning')}</p>}
+      {tzLine}
+    </div>
+  );
+
+  return (
+    <div ref={boxRef} data-print="hide" className="mb-5 min-w-0">
+      {compact ? compactRow : fullRow}
     </div>
   );
 }

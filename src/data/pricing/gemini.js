@@ -35,7 +35,8 @@ export function geminiPrice(prices, model, opts = {}) {
   const table = prices?.GEMINI ?? {};
   const { key, entry } = lookup(table, model);
   const e = entry || table[prices?.GEMINI_UNKNOWN ?? DEFAULT_UNKNOWN];
-  const day = isoDay(opts.at);
+  // Without a date the price table's own check date is "today" (the backend uses the clock).
+  const day = opts.at == null || opts.at === '' ? prices?.CHECKED_AT ?? isoDay(0) : isoDay(opts.at);
   const p = periodAt(e.periods, day);
   const factors = prices?.GEMINI_TIERS?.factors ?? prices?.GEMINI_TIERS ?? {};
   const tier = (opts.tier && factors[opts.tier]) || 1;

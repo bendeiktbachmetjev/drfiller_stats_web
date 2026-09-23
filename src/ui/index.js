@@ -7,7 +7,7 @@ export { default as CardHeader } from './CardHeader.jsx';
 export { default as SectionTitle } from './SectionTitle.jsx';
 export { default as SectionNav } from './SectionNav.jsx';
 export { default as PageHeader } from './PageHeader.jsx';
-export { default as FilterBar, ScopeControl, ServiceChip, VatChip, CaveatChips } from './FilterBar.jsx';
+export { default as FilterBar, ScopeControl, ServiceChip, VatChip, CaveatChips, RefreshButton } from './FilterBar.jsx';
 export { default as PeriodPicker } from './PeriodPicker.jsx';
 export { default as Segmented } from './Segmented.jsx';
 export { default as MenuPanel, useAnchoredPosition, useDismiss } from './MenuPanel.jsx';
@@ -15,6 +15,7 @@ export { default as ExportMenu } from './ExportMenu.jsx';
 export { default as InfoHint } from './InfoHint.jsx';
 export { default as Disclosure } from './Disclosure.jsx';
 export { default as AppMark } from './AppMark.jsx';
+export { ModelName, DoctorName } from './NameWithId.jsx';
 
 // Answer, notes and sources
 export { default as AnswerBlock } from './AnswerBlock.jsx';
@@ -35,7 +36,8 @@ export { default as Heatmap } from './Heatmap.jsx';
 export { default as DataTable } from './DataTable.jsx';
 export { default as Legend } from './Legend.jsx';
 export { default as ChartCard, ChartFrameContext, chartShape } from './ChartCard.jsx';
-export { default as ScaleProjection } from './ScaleProjection.jsx';
+export { default as ScaleProjection, SignedMoney } from './ScaleProjection.jsx';
+export { scenarioLabel, packLabel, planChipsText } from './planText.js';
 
 // States
 export { default as EmptyState } from './EmptyState.jsx';
@@ -48,6 +50,7 @@ export { default as LiveDot } from './LiveDot.jsx';
 export { default as RightNowStrip } from './RightNowStrip.jsx';
 export { default as InsightRow } from './InsightRow.jsx';
 export { default as DataNotes } from './DataNotes.jsx';
+export { default as NotRecorded, notRecordedText } from './NotRecorded.jsx';
 
 // Print
 export { default as PrintHeader } from './PrintHeader.jsx';

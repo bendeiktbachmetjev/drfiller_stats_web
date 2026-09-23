@@ -133,6 +133,34 @@ export const chart = {
     const top = niceMax(max, floor, integer);
     return { domain: [0, top], ticks: niceTicks(top, integer) };
   },
+  /** Like yScale for values that can go below zero (money results): one step size on both sides of 0. */
+  signedScale: (min, max, floor = 1) => {
+    const lo = Math.min(0, Number.isFinite(min) ? min : 0);
+    const hi = Math.max(0, Number.isFinite(max) ? max : 0, lo === 0 ? floor : 0);
+    const step = niceStep((hi - lo) / 4 || floor, false);
+    const bottom = step * Math.floor(lo / step + 1e-9);
+    const top = step * Math.ceil(hi / step - 1e-9);
+    const ticks = [];
+    for (let value = bottom; value <= top + step * 1e-9; value += step) ticks.push(Math.round(value * 1e9) / 1e9);
+    return { domain: [bottom, top], ticks, step };
+  },
+};
+
+/**
+ * Y-axis tick text for a value format: counts compact ('1.2k'), money in whole euros when the tick is
+ * whole ('€60', '−€15'; cents only for small steps), anything else through fmt.value.
+ * @param {string|Function} format a fmt key or a function
+ * @returns {(v: number) => string}
+ */
+export const axisFormat = (format) => {
+  if (typeof format === 'function') return format;
+  if (!format || format === 'int') return fmt.compact;
+  if (format === 'eur' || format === 'eurSigned' || format === 'eurUnit') {
+    return (v) => (Number.isInteger(v) ? fmt.eur(v).replace(/\.00$/, '') : fmt.eur(v));
+  }
+  // Whole seconds read better without a decimal ('15 s', not '15.0 s').
+  if (format === 'sec') return (v) => fmt.sec(v).replace(/\.0(?=\D|$)/, '');
+  return (v) => fmt.value(v, format);
 };
 
 /** Classes for the element that wraps a <ResponsiveContainer> (focus ring on screen, fluid svg on paper). */

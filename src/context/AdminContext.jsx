@@ -1,7 +1,9 @@
 import { createContext, useContext } from 'react';
 
 // Core value, provided by KeyGate once a key (or demo mode) is in place:
-//   { isDemo, demoScenario: 'today'|'planned'|null, signOut(), onAuthError(), client }
+//   { isDemo, demoScenario: 'today'|'planned'|null, signOut(), changeKey(), keyRemembered, onAuthError(), client }
+// changeKey = signOut (forget the key, back to the form; Settings → Access). keyRemembered: the key sits in
+// localStorage ("Remember on this device").
 // `client` is the data/api/client.js instance (the email routes of the Doctors page use it).
 const AdminContext = createContext(null);
 // The server's /config, provided by AnalyticsProvider once the dataset exists (null before / on failure).
@@ -18,7 +20,8 @@ export function useAdminCore() {
 }
 
 /**
- * @returns {{ isDemo: boolean, demoScenario: 'today'|'planned'|null, signOut: () => void, onAuthError: () => void,
+ * @returns {{ isDemo: boolean, demoScenario: 'today'|'planned'|null, signOut: () => void, changeKey: () => void,
+ *   keyRemembered: boolean, onAuthError: () => void,
  *   client: import('../data/api/client.js').ApiClient, config: import('../data/api/contract.js').ConfigApi|null }}
  */
 export function useAdmin() {

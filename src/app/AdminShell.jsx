@@ -1,7 +1,7 @@
-import React, { Suspense, useEffect, useRef } from 'react';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import './admin.css';
-import { AnalyticsProvider } from '../context/AnalyticsContext.jsx';
+import { AnalyticsProvider, useAnalytics } from '../context/AnalyticsContext.jsx';
 import { usePrintMode } from '../context/usePrintMode.js';
 import { STORAGE } from '../data/constants.js';
 import { t } from '../copy/index.js';
@@ -10,6 +10,10 @@ import AdminHeader from './AdminHeader.jsx';
 import AdminIndexRedirect from './AdminIndexRedirect.jsx';
 import PageErrorBoundary from './PageErrorBoundary.jsx';
 import { DEFAULT_SECTION, SECTIONS, sectionFromPath } from './nav.js';
+
+// Dev server only: `/_kit` shows every kit component with sample data (visual QA before the pages have
+// data). `import.meta.env.DEV` is false in production builds, so the gallery never ships.
+const KitGallery = import.meta.env.DEV ? lazy(() => import('./KitGallery.jsx')) : null;
 
 const SKIP_LINK_CLASS =
   'sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-40 focus:px-4 focus:py-2 focus:rounded-full focus:bg-surface focus:text-sm focus:font-bold focus:text-brand focus:shadow-card focus:outline-none focus:ring-2 focus:ring-accent';
@@ -22,6 +26,20 @@ function PageFallback() {
       <span className="sr-only">{t('common.loading')}</span>
     </div>
   );
+}
+
+// A page switch after a long pause refreshes the data in the background (STALE_MS, like a tab coming back).
+function StaleOnNavigate({ section }) {
+  const { refreshIfStale } = useAnalytics();
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    refreshIfStale();
+  }, [section, refreshIfStale]);
+  return null;
 }
 
 /**
@@ -61,6 +79,7 @@ export default function AdminShell() {
         <a href="#sf-main" className={SKIP_LINK_CLASS}>
           {t('common.skipToContent')}
         </a>
+        <StaleOnNavigate section={section} />
         <AdminHeader />
         <main id="sf-main" tabIndex={-1} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 focus:outline-none">
           <div style={pagesStyle}>
@@ -68,6 +87,7 @@ export default function AdminShell() {
               <Suspense fallback={<PageFallback />}>
                 <Routes>
                   <Route index element={<AdminIndexRedirect />} />
+                  {KitGallery && <Route path="/_kit" element={<KitGallery />} />}
                   {SECTIONS.map(({ id, path }) => {
                     const Page = PAGES[id];
                     return <Route key={id} path={path} element={<Page />} />;

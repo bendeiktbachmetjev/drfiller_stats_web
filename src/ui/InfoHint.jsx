@@ -2,7 +2,7 @@ import React, { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 import { def, fillHint, t } from '../copy/index.js';
-import { useAnchoredPosition, useDismiss } from './MenuPanel.jsx';
+import { PANEL_ATTR, useAnchoredPosition, useDismiss } from './MenuPanel.jsx';
 import { usePrintHint } from './PrintAppendix.jsx';
 
 const TRIGGER_BASE =
@@ -96,6 +96,7 @@ export default function InfoHint({ hintKey, values, children, title, tone = 'def
         createPortal(
           <div
             ref={panelRef}
+            {...{ [PANEL_ATTR]: '' }}
             id={panelId}
             role="note"
             tabIndex={-1}

@@ -5,22 +5,42 @@ import { currentModelEra } from '../eras.js';
 const DAY_MS = 86400000;
 
 /**
- * Forms of the current model setup: kind 'form', t in the last `days`, standard era, role main or
- * fallback, model ∈ {config main, config fallback}, endpoint = config endpoint, no conversation text.
- * Without /config the static last era is used.
- * @param {import('../buildDataset.js').Dataset} ds
- * @param {number} [nowMs] defaults to ds.nowMs
- * @param {{ days?: number }} [options]
- * @returns {import('../buildDataset.js').UsageRow[]}
+ * The current setup: `/config` when it arrived, else the static last era.
+ * @param {{ config?: object|null }} ds
+ * @returns {{ main: string, fallback: string|null, endpoint: 'direct'|'vertex', location: string|null }}
  */
-export function currentSetupForms(ds, nowMs = ds?.nowMs, { days = 30 } = {}) {
+export function currentSetup(ds) {
   const era = currentModelEra();
   const gemini = ds?.config?.gemini ?? null;
-  const main = gemini?.main ?? era.main;
-  const fallback = gemini ? gemini.fallback : era.fallback;
-  const endpoint = gemini?.endpoint ?? era.endpoint;
-  const models = new Set([main, fallback].filter(Boolean));
+  if (!gemini) return { main: era.main, fallback: era.fallback, endpoint: era.endpoint, location: era.location };
+  return {
+    main: gemini.main ?? era.main,
+    fallback: gemini.fallback ?? null,
+    endpoint: gemini.endpoint ?? era.endpoint,
+    location: gemini.endpoint === 'vertex' ? gemini.vertexLocation ?? null : null,
+  };
+}
+
+/**
+ * Forms of the current model setup: kind 'form', t in the last `days`, standard era, role main or
+ * fallback, model ∈ {config main, config fallback}, endpoint = config endpoint and, by default, no
+ * conversation text. Without /config the static last era is used.
+ * @param {import('../buildDataset.js').Dataset} ds
+ * @param {number} [nowMs] defaults to ds.nowMs
+ * @param {{ days?: number, conversation?: 'without'|'with'|'any' }} [options]
+ *   `conversation: 'with'` gives the forms that carry conversation text (the per-minute surcharge, D17)
+ * @returns {import('../buildDataset.js').UsageRow[]}
+ */
+export function currentSetupForms(ds, nowMs = ds?.nowMs, { days = 30, conversation = 'without' } = {}) {
+  const setup = currentSetup(ds);
+  const models = new Set([setup.main, setup.fallback].filter(Boolean));
   const since = nowMs - days * DAY_MS;
+  const keepConversation = (row) => {
+    const has = row.convChars > 0;
+    if (conversation === 'with') return has;
+    if (conversation === 'without') return !has;
+    return true;
+  };
   return (ds?.forms ?? []).filter(
     (row) =>
       row.t >= since &&
@@ -28,7 +48,7 @@ export function currentSetupForms(ds, nowMs = ds?.nowMs, { days = 30 } = {}) {
       row.eraStandard &&
       (row.role === 'main' || row.role === 'fallback') &&
       models.has(row.model) &&
-      row.endpoint === endpoint &&
-      !(row.convChars > 0),
+      row.endpoint === setup.endpoint &&
+      keepConversation(row),
   );
 }

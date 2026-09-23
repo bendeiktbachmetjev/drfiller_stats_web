@@ -1,12 +1,13 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { chart, bucketLabels, CHART_FRAME_CLASS, COLORS } from './theme.js';
+import { axisFormat, chart, bucketLabels, CHART_FRAME_CLASS, COLORS } from './theme.js';
 import ChartTooltip from './ChartTooltip.jsx';
-import { fmt } from '../format/format.js';
+import { bucketAxisProps } from './patterns.jsx';
 import { usePrintMode } from '../context/usePrintMode.js';
 import useIsPhone from '../context/useIsPhone.js';
 import useReducedMotion from '../ui/useReducedMotion.js';
 import { ChartFrameContext } from '../ui/ChartCard.jsx';
+import useTapTooltip from './useTapTooltip.js';
 
 const FRAME_CLASS = `w-full min-w-0 print:h-auto! ${CHART_FRAME_CLASS}`;
 const TONE = { attention: COLORS.warn, bad: COLORS.bad, neutral: COLORS['ink-mute'] };
@@ -20,6 +21,7 @@ const TONE = { attention: COLORS.warn, bad: COLORS.bad, neutral: COLORS['ink-mut
 //   yFloor          the axis top is at least this value
 export default function TimeLines({ rows = [], series = [], format = 'int', referenceLines = [], bands = [], yFloor = 0, height, ariaLabel, footer }) {
   const frame = useContext(ChartFrameContext);
+  const tap = useTapTooltip();
   const { printing } = usePrintMode();
   const reduced = useReducedMotion();
   const isPhone = useIsPhone();
@@ -37,18 +39,19 @@ export default function TimeLines({ rows = [], series = [], format = 'int', refe
     });
   }, [rows, series]);
 
+  const { margin, ...axis } = useMemo(() => bucketAxisProps(data, chart.margin), [data]);
   const max = Math.max(yFloor, ...referenceLines.map((line) => line.y), ...data.flatMap((d) => series.map((s) => d[s.key] ?? 0)));
   const integer = format === 'int';
   const scale = chart.yScale(max, yFloor || 4, integer);
-  const tickFormat = (v) => fmt.value(v, format);
+  const tickFormat = axisFormat(format);
   const labelOf = (key) => data.find((d) => d.bucket === key)?.label;
 
   return (
-    <div className={FRAME_CLASS} style={{ height: boxHeight }}>
+    <div ref={tap.frameRef} className={FRAME_CLASS} style={{ height: boxHeight }}>
       <ResponsiveContainer {...chart.container(boxHeight)}>
-        <LineChart data={data} margin={chart.margin} aria-label={ariaLabel ?? frame?.title}>
+        <LineChart {...tap.chartProps} data={data} margin={margin} aria-label={ariaLabel ?? frame?.title}>
           <CartesianGrid {...chart.grid} />
-          <XAxis {...chart.xAxis} tick={chart.tick} />
+          <XAxis {...chart.xAxis} {...axis} />
           <YAxis {...chart.yAxis} allowDecimals={!integer} width={isPhone ? chart.yAxisPhoneWidth : chart.yAxis.width} tick={chart.tick} tickFormatter={tickFormat} domain={scale.domain} ticks={scale.ticks} />
           {bands.map((band) => (
             <ReferenceArea key={`${band.fromKey}-${band.toKey}`} x1={labelOf(band.fromKey)} x2={labelOf(band.toKey)} fill={COLORS.line} fillOpacity={0.3} ifOverflow="hidden" />
@@ -56,7 +59,7 @@ export default function TimeLines({ rows = [], series = [], format = 'int', refe
           {referenceLines.map((line) => (
             <ReferenceLine key={line.y} y={line.y} stroke={TONE[line.tone] ?? TONE.neutral} strokeDasharray="4 4" label={isPhone ? undefined : { value: line.label, position: 'insideTopRight', fill: COLORS['ink-soft'], fontSize: 12, fontWeight: 600 }} />
           ))}
-          <Tooltip {...chart.tooltip} cursor={{ stroke: COLORS.line }} content={<ChartTooltip multi={series.length > 1} valueFormat={format} footer={footer} unit={series.length === 1 ? series[0].label : undefined} />} />
+          <Tooltip {...chart.tooltip} {...tap.tooltipProps} cursor={{ stroke: COLORS.line }} content={<ChartTooltip multi={series.length > 1} valueFormat={format} footer={footer} unit={series.length === 1 ? series[0].label : undefined} />} />
           {series.map((s, index) => (
             <Line
               key={s.key}

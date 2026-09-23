@@ -61,14 +61,15 @@ export function buildDataset(raw, { nowMs, staticPrices, benchmark }) {
   const { rows, quality } = normalizeUsageRows(apiRows, { config, prices, fx });
 
   const revenue = normalizeRevenue(raw?.revenue ?? null);
+  const sources = { ...emptySources(), ...(raw?.sources ?? {}) };
   const { doctors, doctorList } = normalizeDoctors(raw?.doctors ?? null, {
     payments: revenue.revenueMode === 'live' ? revenue.payments : [],
     stripeLive: revenue.status === 'ok' && revenue.revenueMode === 'live',
     rows,
+    internalPids: raw?.settings && sources.settings?.status !== 'error' ? settings.internalPids : null,
   });
 
   const byKind = (kind) => freezeList(rows.filter((row) => row.kind === kind));
-  const sources = { ...emptySources(), ...(raw?.sources ?? {}) };
   if (revenue.status === 'test') sources.revenue = { ...sources.revenue, status: 'test' };
 
   sequence += 1;

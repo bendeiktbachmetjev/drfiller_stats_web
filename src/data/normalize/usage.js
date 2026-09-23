@@ -4,7 +4,7 @@ import { ERROR_KIND_GROUP } from '../constants.js';
 import { billingEraAt, effectiveModelEraAt, roleOf, STATS_ORIGIN_MS, transcriptionEraAt } from '../eras.js';
 import { dayKeyOf, hourOf, isoWeekdayOf, monthKeyOf, weekKeyOf } from '../period.js';
 import { rowCost } from '../pricing/rowCost.js';
-import { transcriptionModelKind } from '../pricing/transcription.js';
+import { canonicalTranscriptionModel, transcriptionModelKind } from '../pricing/transcription.js';
 
 /**
  * @typedef {{
@@ -28,6 +28,22 @@ import { transcriptionModelKind } from '../pricing/transcription.js';
  */
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+// Vilnius offsets are whole hours and DST switches on the hour, so every calendar key is constant within
+// one UTC hour: the keys are computed once per hour (≈ 5k hours of history instead of ≈ 100k rows).
+const HOUR_MS = 3600000;
+const timeKeyCache = new Map();
+const timeKeysOf = (t) => {
+  const hour = Math.floor(t / HOUR_MS);
+  let keys = timeKeyCache.get(hour);
+  if (!keys) {
+    const ms = hour * HOUR_MS;
+    keys = { dayKey: dayKeyOf(ms), weekKey: weekKeyOf(ms), monthKey: monthKeyOf(ms), hour: hourOf(ms), isoWeekday: isoWeekdayOf(ms) };
+    if (timeKeyCache.size > 50000) timeKeyCache.clear();
+    timeKeyCache.set(hour, keys);
+  }
+  return keys;
+};
 
 /** @param {string} action @param {string|undefined} mode */
 export function kindOf(action, mode) {
@@ -97,6 +113,7 @@ export function normalizeUsageRows(apiRows, { config = null, prices, fx }) {
     let model = typeof api.model === 'string' && api.model ? api.model : null;
     if (!model && kind === 'dictation') model = transcriptionEraAt(api.t)?.main ?? null;
     if (!model && kind === 'live') model = config?.live?.rtModel ?? 'soniox-rt:stt-rt-v5';
+    if (kind === 'dictation' || kind === 'live') model = canonicalTranscriptionModel(model);
     const provider = providerOf(kind, model, api.provider);
 
     let endpoint = null;
@@ -119,11 +136,7 @@ export function normalizeUsageRows(apiRows, { config = null, prices, fx }) {
     const row = {
       key: api.id,
       t: api.t,
-      dayKey: dayKeyOf(api.t),
-      weekKey: weekKeyOf(api.t),
-      monthKey: monthKeyOf(api.t),
-      hour: hourOf(api.t),
-      isoWeekday: isoWeekdayOf(api.t),
+      ...timeKeysOf(api.t),
       action: api.action,
       kind,
       pid: api.pid,

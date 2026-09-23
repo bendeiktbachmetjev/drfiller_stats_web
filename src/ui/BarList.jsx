@@ -67,8 +67,9 @@ const shareOf = (v, total) => {
 //             ghost = reference number (planned, booked) drawn in gray; valueLabel replaces the value text
 //   format    fmt key or function for the numbers
 //   maxRows   rows shown before "Show all N" (the rest stays in the DOM for print)
-//   variant   'single' — one cherry bar, `ghost` drawn behind it at its own width, value "9 of 11"
-//             'compare' — two thin bars per row, reference (gray) over main (cherry), value "3 h / 12 h",
+//   variant   'single' — one bar (brand, or the item's identity colour), `ghost` drawn behind it at its own width,
+//             value "9 of 11"
+//             'compare' — two thin bars per row, reference (grey) over main (brand), value "3 h / 12 h",
 //                         with its legend above the list
 //   series    [{ key, label }, { key, label }] = [reference, main]: legend and tooltip names. A number is read
 //             from item[key] when the item has that field, else from item.ghost / item.value.
@@ -120,7 +121,7 @@ export default function BarList({
     return {
       title: item.label,
       rows: [
-        { key: 'main', value: text(main), name: mainSeries.label || unit, color: item.muted ? COLORS.reference : COLORS.main },
+        { key: 'main', value: text(main), name: mainSeries.label || unit, color: item.muted ? COLORS.reference : item.color ?? COLORS.main },
         { key: 'reference', value: text(reference), name: referenceSeries.label, color: compare ? COLORS.reference : COLORS.ghost },
       ],
       footer,

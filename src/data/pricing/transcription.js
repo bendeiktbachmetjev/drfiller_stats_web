@@ -16,6 +16,20 @@ export function transcriptionModelKind(model) {
 }
 
 /**
+ * The price-table id of a transcription model. `/config` names Soniox models bare ('stt-rt-v5',
+ * 'stt-async-v5'); usage rows and the price table prefix them ('soniox-rt:stt-rt-v5').
+ * @param {string|null|undefined} model
+ * @returns {string|null}
+ */
+export function canonicalTranscriptionModel(model) {
+  if (!model) return null;
+  const m = String(model).trim();
+  if (/^stt-rt/i.test(m)) return `soniox-rt:${m}`;
+  if (/^stt-async/i.test(m)) return `soniox:${m}`;
+  return m;
+}
+
+/**
  * USD for an amount of audio.
  * @param {object} prices snapshot
  * @param {string} model
@@ -24,7 +38,7 @@ export function transcriptionModelKind(model) {
  */
 export function transcriptionCostUsd(prices, model, audioSeconds) {
   const table = prices?.TRANSCRIPTION ?? {};
-  const { entry } = lookup(table, model);
+  const { entry } = lookup(table, canonicalTranscriptionModel(model));
   const e = entry || table[prices?.TRANSCRIPTION_UNKNOWN ?? DEFAULT_UNKNOWN] || { perMinute: 0.003 };
   const usd = (Math.max(0, Number(audioSeconds) || 0) / 60) * e.perMinute;
   return { usd: Math.round(usd * 1e8) / 1e8, known: Boolean(entry), perMinute: e.perMinute };

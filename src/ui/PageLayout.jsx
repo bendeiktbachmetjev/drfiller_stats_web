@@ -1,6 +1,8 @@
-import React from 'react';
-import { useAnalytics } from '../context/AnalyticsContext.jsx';
+import React, { useMemo } from 'react';
+import { useAnalytics, usePeriod, useScope } from '../context/AnalyticsContext.jsx';
 import { sectionById } from '../app/nav.js';
+import { summarize } from '../data/core/summary.js';
+import { hidesInternal } from '../data/core/scope.js';
 import { fmt } from '../format/format.js';
 import { has, t } from '../copy/index.js';
 import AnswerBlock from './AnswerBlock.jsx';
@@ -25,6 +27,27 @@ export function scopeLineOf({ id, period, compareLabel, scope, internalCount, se
 }
 
 /**
+ * The HiddenNote values (§3.4) for a business page while "Without my and test accounts" hides something:
+ * the period's cost and result WITH those accounts, from the one `summarize()`. null when nothing changes.
+ * @returns {{ n: number, costEur: number, resultEur: number|null } | null}
+ */
+export function hiddenNoteOf(dataset, period, scope, internalCount) {
+  if (!dataset || !period || !scope || !hidesInternal(dataset, scope)) return null;
+  try {
+    const shown = summarize(dataset, period, scope);
+    const all = summarize(dataset, period, { ...scope, excludeInternal: false });
+    const incomeOk = all.income?.status === 'ok';
+    const resultEur = incomeOk ? all.resultEur : null;
+    if (all.cost.totalEur === shown.cost.totalEur && resultEur === (incomeOk ? shown.resultEur : null)) return null;
+    return { n: internalCount, costEur: all.cost.totalEur, resultEur };
+  } catch (err) {
+    // The note is a side line: a fault in it must not take the page down.
+    console.error('Dr.Filler stats: hidden-accounts note could not be computed', err);
+    return null;
+  }
+}
+
+/**
  * The fixed top of every page except Settings, in this order (§3.2; a page never reorders it):
  * PageHeader (h1 · question · scope line) → FilterBar (one row) → AnswerBlock → HiddenNote → SourceBanners,
  * then the page's children (alerts, strip, section nav, tiles, plan, charts, tables, notes, footnote).
@@ -33,7 +56,8 @@ export function scopeLineOf({ id, period, compareLabel, scope, internalCount, se
  *   serviceScope  service page: static "All traffic — all accounts" chip (Models, Prices); defaults from nav.js
  *   vatChip       VAT chip in the filter row (Overview, Money)
  *   answerItems   [{ text, tone }] ready sentences; default: metric.data.answer translated; a placeholder while empty
- *   hiddenNote    { n, costEur, resultEur } or null
+ *   hiddenNote    { n, costEur, resultEur }; null hides it; left out (undefined) = worked out here from summarize()
+ *                 on business pages whenever the scope hides accounts and that changes the cost or result
  *   sources       source names whose trouble this page must mention, e.g. ['usage', 'revenue', 'config']
  *   exportTables  ExportMenu tables
  *   filters       extra controls placed in the filter row
@@ -44,26 +68,36 @@ export default function PageLayout({
   serviceScope,
   vatChip = false,
   answerItems,
-  hiddenNote = null,
+  hiddenNote,
   sources = ['usage', 'config'],
   exportTables,
   filters,
   children,
 }) {
   const { status, error, isStale, lastUpdated, refresh, dataset } = useAnalytics();
+  const periodContext = usePeriod();
+  const { scope: currentScope, internalCount } = useScope();
   const section = sectionById(id);
   const service = serviceScope ?? Boolean(section?.service);
   const title = has(`${id}.title`) ? t(`${id}.title`) : section?.label ?? id;
   const question = has(`${id}.question`) ? t(`${id}.question`) : null;
+  const period = metric?.period ?? periodContext.period;
+  const scope = metric?.scope ?? currentScope;
   const scopeLine = scopeLineOf({
     id,
-    period: metric?.period,
-    compareLabel: section?.usesPeriod === false ? null : metric?.compareLabel,
-    scope: metric?.scope,
-    internalCount: (dataset?.doctorList ?? []).filter((doctor) => doctor.internal).length,
+    period,
+    compareLabel: section?.usesPeriod === false ? null : metric?.compareLabel ?? periodContext.compareLabel,
+    scope,
+    internalCount,
     service,
     lastUpdated,
   });
+
+  const autoNote = useMemo(
+    () => (hiddenNote === undefined && !service ? hiddenNoteOf(dataset, period, scope, internalCount) : null),
+    [hiddenNote, service, dataset, period, scope, internalCount],
+  );
+  const note = hiddenNote === undefined ? autoNote : hiddenNote;
 
   const answers =
     answerItems ??
@@ -85,7 +119,7 @@ export default function PageLayout({
       ) : (
         <>
           <AnswerBlock items={answers} />
-          {!service && hiddenNote && <HiddenNote {...hiddenNote} />}
+          {!service && note && <HiddenNote {...note} />}
           {isStale && error && <ErrorBanner staleAt={lastUpdated} error={error} onRetry={refresh} className="mb-4" />}
           {dataset &&
             sources.map((name) => (

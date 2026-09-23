@@ -341,8 +341,10 @@ const dominant = (eras, fromMs, toMs) => {
   return best;
 };
 
+const setupOf = (era) => `${era.main}|${era.endpoint}|${era.location ?? ''}`;
+
 /**
- * Did the model setup or the billing rule differ between a period and its comparison window?
+ * Did the main model (or where it runs) or the billing rule differ between a period and its comparison window?
  * Decided by the era that covers most of each window's elapsed time.
  * @param {Period} period
  * @param {Period|null} prev
@@ -354,7 +356,8 @@ export const compareCaveat = (period, prev) => {
   const prevModel = dominant(MODEL_ERAS, prev.fromMs, prev.effToMs);
   const nowBilling = dominant(BILLING_ERAS, period.fromMs, period.effToMs);
   const prevBilling = dominant(BILLING_ERAS, prev.fromMs, prev.effToMs);
-  const modelEraChanged = Boolean(nowModel && prevModel && nowModel.id !== prevModel.id);
+  // The chip says "a different model": eras that only add a fallback (e1 → e5) keep the same main model and endpoint.
+  const modelEraChanged = Boolean(nowModel && prevModel && setupOf(nowModel) !== setupOf(prevModel));
   const billingEraChanged = Boolean(nowBilling && prevBilling && nowBilling.rule !== prevBilling.rule);
   const era = modelEraChanged
     ? { id: prevModel.id, main: prevModel.main, endpoint: prevModel.endpoint, location: prevModel.location }

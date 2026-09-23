@@ -1,14 +1,15 @@
 import React, { useContext, useMemo, useState } from 'react';
-import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { chart, bucketLabels, CHART_FRAME_CLASS, COLORS, SERIES } from './theme.js';
+import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { axisFormat, chart, bucketLabels, CHART_FRAME_CLASS, COLORS, SERIES } from './theme.js';
 import { TooltipBox } from './ChartTooltip.jsx';
-import { HatchDefs, hatchFill } from './patterns.jsx';
+import { HatchDefs, bucketAxisProps, hatchFill } from './patterns.jsx';
 import { fmt } from '../format/format.js';
 import { t } from '../copy/index.js';
 import { usePrintMode } from '../context/usePrintMode.js';
 import useIsPhone from '../context/useIsPhone.js';
 import useReducedMotion from '../ui/useReducedMotion.js';
 import { ChartFrameContext } from '../ui/ChartCard.jsx';
+import useTapTooltip from './useTapTooltip.js';
 
 const FRAME_CLASS = `w-full min-w-0 print:h-auto! ${CHART_FRAME_CLASS}`;
 const PART_KEYS = ['form', 'recording', 'anamnesis', 'fixed'];
@@ -29,6 +30,23 @@ function MoneyTooltip({ active, payload, partLabels = {} }) {
   return <TooltipBox title={datum.tipTitle} rows={rows} footer={footer} dots />;
 }
 
+// The latest result gets a direct label (desktop only, §3.12): the sign in colour (good "+" / bad "−"),
+// the amount in ink, on a white halo so it stays readable over the columns.
+function resultLabel(lastIndex) {
+  return function ResultLabel({ x, y, value, index }) {
+    if (index !== lastIndex || !Number.isFinite(value) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const text = fmt.eurSigned(value);
+    const sign = text.charAt(0);
+    const signed = sign === '+' || sign === '−';
+    return (
+      <text x={x} y={y - 10} textAnchor="middle" fontSize={12} fontWeight={700} fill={COLORS.ink} stroke={COLORS.surface} strokeWidth={3} paintOrder="stroke">
+        {signed && <tspan fill={sign === '+' ? COLORS.good : COLORS.bad}>{sign}</tspan>}
+        <tspan>{signed ? text.slice(1) : text}</tspan>
+      </text>
+    );
+  };
+}
+
 // Money over time (§3.12, §5.3.5): income column (brand) │ ONE cost column (neutral `cost`), the result as
 // an ink line with a 3 px white halo and a zero baseline. Cost parts appear only in the tooltip and the table twin.
 //   rows        [{ key, granularity, isPartial, isFuture, income, cost, result, costUsd?, parts: { form, recording, anamnesis, fixed } }]
@@ -37,6 +55,7 @@ function MoneyTooltip({ active, payload, partLabels = {} }) {
 //   partLabels  { form, recording, anamnesis, fixed } tooltip names of the cost parts (page copy)
 export default function MoneyColumns({ rows = [], showIncome = true, partLabels, height, ariaLabel }) {
   const frame = useContext(ChartFrameContext);
+  const tap = useTapTooltip();
   const { printing } = usePrintMode();
   const reduced = useReducedMotion();
   const isPhone = useIsPhone();
@@ -57,22 +76,23 @@ export default function MoneyColumns({ rows = [], showIncome = true, partLabels,
     }));
   }, [rows, showIncome]);
 
+  const { margin, ...axis } = useMemo(() => bucketAxisProps(data, chart.margin), [data]);
+  const lastResultIndex = useMemo(() => data.reduce((last, d, index) => (d.result === null ? last : index), -1), [data]);
+  const ResultLabel = useMemo(() => resultLabel(lastResultIndex), [lastResultIndex]);
   const values = data.flatMap((d) => [d.income ?? 0, d.cost ?? 0, d.result ?? 0]);
-  const top = chart.niceMax(Math.max(0, ...values), 1, false);
-  const low = Math.min(0, ...values);
-  const bottom = low < 0 ? -chart.niceMax(-low, 1, false) : 0;
-  const tickFormat = (v) => fmt.eur(v);
+  const scale = chart.signedScale(Math.min(...values), Math.max(...values));
+  const tickFormat = axisFormat('eur');
 
   return (
-    <div className={FRAME_CLASS} style={{ height: boxHeight }}>
+    <div ref={tap.frameRef} className={FRAME_CLASS} style={{ height: boxHeight }}>
       <ResponsiveContainer {...chart.container(boxHeight)}>
-        <ComposedChart data={data} margin={chart.margin} barCategoryGap="24%" barGap={2} aria-label={ariaLabel ?? frame?.title}>
+        <ComposedChart {...tap.chartProps} data={data} margin={margin} barCategoryGap="24%" barGap={2} aria-label={ariaLabel ?? frame?.title}>
           <HatchDefs colors={[SERIES.income, SERIES.cost]} />
           <CartesianGrid {...chart.grid} />
-          <XAxis {...chart.xAxis} tick={chart.tick} />
-          <YAxis {...chart.yAxis} allowDecimals width={isPhone ? chart.yAxisPhoneWidth + 16 : chart.yAxis.width + 16} tick={chart.tick} tickFormatter={tickFormat} domain={[bottom, top]} />
+          <XAxis {...chart.xAxis} {...axis} />
+          <YAxis {...chart.yAxis} allowDecimals width={isPhone ? chart.yAxisPhoneWidth + 16 : chart.yAxis.width + 16} tick={chart.tick} tickFormatter={tickFormat} domain={scale.domain} ticks={scale.ticks} />
           <ReferenceLine y={0} stroke={COLORS['ink-mute']} />
-          <Tooltip {...chart.tooltip} content={<MoneyTooltip partLabels={partLabels} />} />
+          <Tooltip {...chart.tooltip} {...tap.tooltipProps} content={<MoneyTooltip partLabels={partLabels} />} />
           {showIncome && (
             <Bar dataKey="income" name={t('common.row.income')} fill={SERIES.income} radius={chart.bar.radius} maxBarSize={chart.bar.maxBarSize} {...chart.anim(first, reduced, printing)}>
               {data.map((d) => (
@@ -86,7 +106,11 @@ export default function MoneyColumns({ rows = [], showIncome = true, partLabels,
             ))}
           </Bar>
           {showIncome && <Line dataKey="result" stroke={COLORS.surface} strokeWidth={5} dot={false} activeDot={false} isAnimationActive={false} legendType="none" tooltipType="none" connectNulls={false} />}
-          {showIncome && <Line dataKey="result" name={t('common.row.result')} stroke={SERIES.result} strokeWidth={2} dot={{ r: 2.5, fill: SERIES.result, strokeWidth: 0 }} isAnimationActive={false} connectNulls={false} />}
+          {showIncome && (
+            <Line dataKey="result" name={t('common.row.result')} stroke={SERIES.result} strokeWidth={2} dot={{ r: 2.5, fill: SERIES.result, strokeWidth: 0 }} isAnimationActive={false} connectNulls={false}>
+              {!isPhone && <LabelList dataKey="result" content={ResultLabel} />}
+            </Line>
+          )}
         </ComposedChart>
       </ResponsiveContainer>
     </div>

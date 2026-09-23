@@ -1,13 +1,13 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { chart, bucketLabels, CHART_FRAME_CLASS } from './theme.js';
-import { HatchDefs, hatchFill } from './patterns.jsx';
+import { axisFormat, chart, bucketLabels, CHART_FRAME_CLASS } from './theme.js';
+import { HatchDefs, bucketAxisProps, hatchFill } from './patterns.jsx';
 import useIsPhone from '../context/useIsPhone.js';
 import ChartTooltip from './ChartTooltip.jsx';
-import { fmt } from '../format/format.js';
 import { usePrintMode } from '../context/usePrintMode.js';
 import useReducedMotion from '../ui/useReducedMotion.js';
 import { ChartFrameContext } from '../ui/ChartCard.jsx';
+import useTapTooltip from './useTapTooltip.js';
 import Legend from '../ui/Legend.jsx';
 
 // Screen: the plot takes what the legend leaves of the fixed height (an absolute box has a definite
@@ -35,6 +35,7 @@ export default function StackedColumns({
   legend = true,
 }) {
   const frame = useContext(ChartFrameContext);
+  const tap = useTapTooltip();
   const { printing } = usePrintMode();
   const reduced = useReducedMotion();
   const [first, setFirst] = useState(true);
@@ -66,6 +67,7 @@ export default function StackedColumns({
     });
   }, [rows, series]);
 
+  const { margin, ...axis } = useMemo(() => bucketAxisProps(data, chart.margin), [data]);
   const scale = useMemo(() => chart.yScale(Math.max(0, ...data.map((d) => d.stackTotal))), [data]);
 
   // Which segment ends a column differs from column to column, so the radius is decided per datum.
@@ -96,28 +98,30 @@ export default function StackedColumns({
           <Legend items={legendItems} />
         </div>
       )}
-      <div className={PLOT_CLASS}>
+      <div ref={tap.frameRef} className={PLOT_CLASS}>
         <div className={PLOT_INNER_CLASS}>
           <ResponsiveContainer {...chart.container(boxHeight)}>
             <BarChart
+              {...tap.chartProps}
               data={data}
-              margin={chart.margin}
+              margin={margin}
               barCategoryGap={chart.barCategoryGap}
               aria-label={ariaLabel ?? frame?.title}
             >
               <HatchDefs colors={series.map((s) => s.color)} />
               <CartesianGrid {...chart.grid} />
-              <XAxis {...chart.xAxis} tick={chart.tick} />
+              <XAxis {...chart.xAxis} {...axis} />
               <YAxis
                 {...chart.yAxis}
                 width={isPhone ? chart.yAxisPhoneWidth : chart.yAxis.width}
                 tick={chart.tick}
-                tickFormatter={fmt.compact}
+                tickFormatter={axisFormat(valueFormat)}
                 domain={scale.domain}
                 ticks={scale.ticks}
               />
               <Tooltip
                 {...chart.tooltip}
+                {...tap.tooltipProps}
                 itemSorter={(item) => order.get(item.dataKey) ?? 0}
                 content={<ChartTooltip multi unit={unit} valueFormat={valueFormat} footer={footer} />}
               />

@@ -16,6 +16,9 @@ VITE_API_URL= npm run dev        # site on :5173, /api/admin is proxied to the m
 - `?demo` and `?demo=planned` (dev server only) skip the key and use generated data; `?demo=0` turns it off.
 - Mock switches: `?scenario=planned`, `?fail=<route>`, `?off=revenue|soniox`, `?stripe=test`;
   env `EMAIL_MODE=off|click|list`, `FALLBACK_ON_404=0|1`.
+- `/_kit` (dev server only) shows every kit component with sample data — handy at 1440, 375 and 320 px.
+- A second mock + site side by side: `MOCK_PORT=8333 npm run dev:mock` and
+  `MOCK_PORT=8333 VITE_API_URL= npm run dev -- --port 5183`.
 
 ## Test and build
 

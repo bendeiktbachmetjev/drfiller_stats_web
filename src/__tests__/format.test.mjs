@@ -10,7 +10,9 @@ test('fmt.eur: totals (§3.6)', () => {
   assert.equal(fmt.eur(12.4), '€12.40');
   assert.equal(fmt.eur(0.43), '€0.43');
   assert.equal(fmt.eur(0), '€0');
-  assert.equal(fmt.eur(-5.2), '−€5.20', 'real minus sign');
+  assert.equal(fmt.eur(-5.2), '−\u2060€5.20', 'real minus sign, joined to the amount');
+  assert.equal(fmt.eurSigned(1460), '+\u2060€1,460', 'a line never ends with a bare sign');
+  assert.equal(fmt.eurSigned(0), '€0');
   assert.equal(fmt.eur(null), '—');
   assert.equal(fmt.eur(Number.NaN), '—');
 });
@@ -64,4 +66,14 @@ test('fmt: dates in Vilnius, en-GB', () => {
   assert.equal(fmt.month('2026-09-01'), 'September 2026');
   assert.equal(fmt.time(ms), '14:05', 'Vilnius summer time is UTC+3');
   assert.equal(fmt.range('2026-09-01', '2026-09-24'), '1–23 Sep 2026', 'the end is exclusive');
+});
+
+test('fmt: model ids read as friendly names, also inside a values map', () => {
+  assert.equal(fmt.value('gemini-3-flash-preview', 'model'), 'Gemini 3 Flash (trial version)');
+  assert.equal(fmt.value('brand-new-model', 'model'), 'brand-new-model');
+  assert.deepEqual(fmt.values({ model: ['model', 'gpt-4o-mini-transcribe-2025-03-20'], d: 46, date: ['date', '2026-09-23'] }), {
+    model: 'OpenAI mini-transcribe',
+    d: '46',
+    date: '23 Sep 2026',
+  });
 });

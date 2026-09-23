@@ -45,17 +45,19 @@ const withTimeout = (signal, timeoutMs) => {
 
 /**
  * Admin API v2 client.
- * @param {{ baseUrl: string, getKey: () => string|null, fetchImpl?: typeof fetch, timeoutMs?: number }} options
- *   baseUrl '' = same origin (the Vite dev proxy); routes are relative to '/api/admin/v2'
+ * @param {{ baseUrl: string, getKey: () => string|null, fetchImpl?: typeof fetch, timeoutMs?: number,
+ *   extraQuery?: () => Record<string, string>|null }} options
+ *   baseUrl '' = same origin (the Vite dev proxy); routes are relative to '/api/admin/v2'.
+ *   extraQuery (dev only): parameters added to every request, e.g. the mock toggles `off`, `stripe`, `fail`.
  * @returns {ApiClient} `get`/`put` return `envelope.data`; `getEnvelope` the whole envelope (cache age, notes).
  *   Throws DataError: 401 → AUTH, 503 → API_OFF, 409 → CONFLICT, 413 → TOO_MANY_ROWS, 400 BAD_RANGE → BAD_RANGE,
  *   bad envelope → SCHEMA, network → NETWORK, timeout → TIMEOUT, abort → ABORTED.
  */
-export function createClient({ baseUrl = '', getKey, fetchImpl = globalThis.fetch, timeoutMs = REQUEST_TIMEOUT_MS }) {
+export function createClient({ baseUrl = '', getKey, fetchImpl = globalThis.fetch, timeoutMs = REQUEST_TIMEOUT_MS, extraQuery = null }) {
   const base = String(baseUrl ?? '').replace(/\/+$/, '');
 
   async function request(method, route, { query, body, signal } = {}) {
-    const url = `${base}${API_PREFIX}${route}${queryString(query)}`;
+    const url = `${base}${API_PREFIX}${route}${queryString({ ...(extraQuery?.() ?? {}), ...(query ?? {}) })}`;
     const timer = withTimeout(signal, timeoutMs);
     let response;
     try {

@@ -5,6 +5,7 @@ import { apiBaseUrl } from '../app/apiBase.js';
 import { sectionFromPath } from '../app/nav.js';
 import { AdminProvider } from '../context/AdminContext.jsx';
 import { resetAnalyticsCache } from '../context/AnalyticsContext.jsx';
+import { resetLiveCache } from '../context/useLive.js';
 import { STORAGE } from '../data/constants.js';
 import { createClient } from '../data/api/client.js';
 import { ROUTES } from '../data/api/endpoints.js';
@@ -14,6 +15,22 @@ import { clearKey, readKey, saveKey } from './keyStore.js';
 import KeyForm from './KeyForm.jsx';
 
 const AUTH_ERROR_KEY = 'common.error.auth';
+
+// Dev only: mock switches in the page URL (`/overview?off=revenue`, `?stripe=test`, `?fail=settings`) are
+// passed on to every request, so the mock server (dev/mock-server.js) can act them out.
+const MOCK_SWITCHES = ['off', 'stripe', 'fail', 'scenario', 'email'];
+const mockSwitches = () => {
+  const params = new URLSearchParams(window.location.search);
+  const picked = Object.fromEntries(MOCK_SWITCHES.filter((name) => params.get(name)).map((name) => [name, params.get(name)]));
+  return Object.keys(picked).length ? picked : null;
+};
+const extraQuery = import.meta.env.DEV ? mockSwitches : null;
+
+// Everything loaded with the old key goes (sign out, a refused key, a new key).
+const forgetData = () => {
+  resetAnalyticsCache();
+  resetLiveCache();
+};
 
 // A deep link opened before signing in is remembered so the index redirect can return to it.
 const rememberReturnTo = (pathname) => {
@@ -31,35 +48,39 @@ const rememberReturnTo = (pathname) => {
  * A new key is checked once with /config before the shell opens; any later 401 clears the key and
  * returns to the form with "That key didn't work.". Dev-only `?demo` skips the key entirely.
  *
- * Provides AdminContext core: { isDemo, demoScenario, signOut, onAuthError, client }.
+ * Provides AdminContext core: { isDemo, demoScenario, signOut, onAuthError, client } plus (additive, for
+ * Settings → Access, §4.9) `changeKey` (= signOut: forget the key, show the form) and `keyRemembered`.
  */
 export default function KeyGate() {
   const { pathname } = useLocation();
   const [demoScenario] = useState(() => (import.meta.env.DEV ? isDemoMode() || null : null));
   const [stored] = useState(() => (demoScenario ? null : readKey()));
   const [key, setKey] = useState(stored?.key ?? null);
+  const [remembered, setRemembered] = useState(Boolean(stored?.remembered));
   const [checking, setChecking] = useState(false);
   const [errorKey, setErrorKey] = useState(null);
 
   // The client reads the key through a ref, so one client instance serves the whole session.
   const keyRef = useRef(key);
   keyRef.current = key;
-  const client = useMemo(() => createClient({ baseUrl: apiBaseUrl(), getKey: () => keyRef.current }), []);
+  const client = useMemo(() => createClient({ baseUrl: apiBaseUrl(), getKey: () => keyRef.current, extraQuery }), []);
 
   const signOut = useCallback(() => {
-    resetAnalyticsCache();
+    forgetData();
     if (import.meta.env.DEV && demoScenario) {
       exitDemoMode();
       return;
     }
     clearKey();
     setErrorKey(null);
+    setRemembered(false);
     setKey(null);
   }, [demoScenario]);
 
   const onAuthError = useCallback(() => {
-    resetAnalyticsCache();
+    forgetData();
     clearKey();
+    setRemembered(false);
     setErrorKey(AUTH_ERROR_KEY);
     setKey(null);
   }, []);
@@ -68,7 +89,7 @@ export default function KeyGate() {
     async (value, remember) => {
       setChecking(true);
       setErrorKey(null);
-      const probe = createClient({ baseUrl: apiBaseUrl(), getKey: () => value });
+      const probe = createClient({ baseUrl: apiBaseUrl(), getKey: () => value, extraQuery });
       try {
         await probe.get(ROUTES.config);
       } catch (err) {
@@ -79,9 +100,10 @@ export default function KeyGate() {
           return;
         }
       }
-      saveKey(value, { remember });
-      resetAnalyticsCache();
+      const savedLocally = saveKey(value, { remember });
+      forgetData();
       setChecking(false);
+      setRemembered(Boolean(remember && savedLocally));
       setKey(value);
     },
     [],
@@ -92,8 +114,8 @@ export default function KeyGate() {
   }, [key, demoScenario, pathname]);
 
   const value = useMemo(
-    () => ({ isDemo: Boolean(demoScenario), demoScenario, signOut, onAuthError, client }),
-    [demoScenario, signOut, onAuthError, client],
+    () => ({ isDemo: Boolean(demoScenario), demoScenario, signOut, changeKey: signOut, keyRemembered: remembered, onAuthError, client }),
+    [demoScenario, signOut, remembered, onAuthError, client],
   );
 
   if (!demoScenario && !key) {

@@ -166,13 +166,19 @@ export function compareText(prevPeriod) {
   }
 }
 
-/** Short label of the selected period: the preset name, 'September 2026', '2026' or the custom dates. */
+/** Label of the selected period: the preset name, 'September 2026', '2026' or the custom dates. */
 export function periodLabel(period) {
   if (!period) return '';
   if (period.preset === 'month') return fmt.month(period.from);
   if (period.preset === 'year') return period.from.slice(0, 4);
   if (period.preset === 'custom') return fmt.range(period.from, period.to);
   return t(`common.preset.${period.preset}`);
+}
+
+/** The same, short enough for the phone period pill: 'Sep 2026', '2026', '30 days', custom dates. */
+export function periodShortLabel(period) {
+  if (period?.preset === 'month') return fmt.monthShortYear(period.from);
+  return periodLabel(period);
 }
 
 // ---------------------------------------------------------------------------
@@ -253,6 +259,15 @@ export function AnalyticsProvider({ children }) {
     return follow(startLoad(cacheKey, loadParams));
   }, [cacheKey, loadParams, follow]);
 
+  /** Refreshes in the background when the data on screen is older than STALE_MS (page switch, tab back). */
+  const refreshIfStale = useCallback(() => {
+    const current = dataRef.current;
+    if (!current.dataset || current.isRefetching || !current.lastUpdated) return false;
+    if (Date.now() - current.lastUpdated <= STALE_MS) return false;
+    refresh();
+    return true;
+  }, [refresh]);
+
   /** Rebuilds the dataset from the cached raw data (after a settings change); no network. */
   const rebuild = useCallback((mutateRaw) => {
     if (!cache) return;
@@ -294,14 +309,11 @@ export function AnalyticsProvider({ children }) {
   // Coming back to the tab after a while: refresh quietly in the background.
   useEffect(() => {
     const onVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') return;
-      const current = dataRef.current;
-      if (!current.dataset || current.isRefetching) return;
-      if (Date.now() - current.lastUpdated > STALE_MS) refresh();
+      if (document.visibilityState === 'visible') refreshIfStale();
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-  }, [refresh]);
+  }, [refreshIfStale]);
 
   useEffect(() => {
     writeStorage(STORAGE.period, JSON.stringify(periodState));
@@ -377,11 +389,12 @@ export function AnalyticsProvider({ children }) {
       isStale: data.isStale,
       lastUpdated: data.lastUpdated,
       refresh,
+      refreshIfStale,
       rebuild,
       refreshSource,
       tzWarning,
     }),
-    [data, refresh, rebuild, refreshSource, tzWarning],
+    [data, refresh, refreshIfStale, rebuild, refreshSource, tzWarning],
   );
 
   const periodValue = useMemo(
@@ -391,6 +404,7 @@ export function AnalyticsProvider({ children }) {
       presets: PRESET_IDS.map((id) => ({ id, label: t(`common.preset.${id}`) })),
       stepper: SHIFTABLE_PRESETS.includes(period.preset),
       label: periodLabel(period),
+      shortLabel: periodShortLabel(period),
       setPreset,
       setCustom,
       shift,
@@ -419,7 +433,7 @@ export function AnalyticsProvider({ children }) {
 // ---------------------------------------------------------------------------
 
 /** @returns {{ status: 'loading'|'ready'|'error', dataset: object|null, error: DataError|null, isRefetching: boolean, isStale: boolean,
- *   lastUpdated: number|null, refresh: () => Promise<void>, rebuild: (mutateRaw?: Function) => void,
+ *   lastUpdated: number|null, refresh: () => Promise<void>, refreshIfStale: () => boolean, rebuild: (mutateRaw?: Function) => void,
  *   refreshSource: (source: 'settings'|'costs', demoValue?: object) => Promise<void>, tzWarning: boolean }} */
 export function useAnalytics() {
   const value = useContext(DataContext);
@@ -427,7 +441,8 @@ export function useAnalytics() {
   return value;
 }
 
-/** SimuFlow period API + presets: { period, prevPeriod, presets, stepper, label, setPreset, setCustom, shift, canShift, compareLabel, compareCaveat }. */
+/** SimuFlow period API + presets: { period, prevPeriod, presets, stepper, label, shortLabel, setPreset, setCustom, shift, canShift,
+ *  compareLabel, compareCaveat }. */
 export function usePeriod() {
   const value = useContext(PeriodContext);
   if (!value) throw new Error('usePeriod must be used inside AnalyticsProvider');

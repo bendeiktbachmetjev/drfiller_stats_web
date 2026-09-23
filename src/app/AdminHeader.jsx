@@ -10,16 +10,16 @@ import { LEGACY_PATH, PILL_SECTIONS, sectionById } from './nav.js';
 
 const RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
-const PILL_BASE = `shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${RING}`;
+const PILL_BASE = `shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${RING}`;
 const PILL_ACTIVE = 'bg-brand text-white';
 const PILL_IDLE = 'text-ink-soft hover:bg-line/40';
 const ROUND_BUTTON = `sf-hit w-9 h-9 shrink-0 flex items-center justify-center rounded-full border border-line text-ink-soft hover:bg-line/30 transition-colors ${RING}`;
-const TEXT_BUTTON = `flex items-center gap-2 px-3 sm:px-4 h-9 rounded-full border border-line text-[13px] text-ink font-semibold hover:bg-line/30 transition-colors ${RING}`;
+const TEXT_BUTTON = `sf-hit flex items-center justify-center gap-2 h-9 min-w-9 px-2.5 xl:px-4 rounded-full border border-line text-[13px] text-ink font-semibold hover:bg-line/30 transition-colors ${RING}`;
 const MENU_ITEM = `w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-sm font-semibold text-ink hover:bg-line/30 transition-colors ${RING}`;
 
 const SETTINGS_PATH = sectionById('settings').path;
 
-/** Section pills; groups 0–3 stand apart (`ml-4`). Scrolls sideways on phones. */
+/** Section pills; groups 0–3 stand apart (`ml-4`). Scrolls sideways while they do not fit. */
 function SectionPills({ navRef, className = '' }) {
   return (
     <nav ref={navRef} aria-label={t('common.sections')} className={`sf-nav-scroll relative min-w-0 flex overflow-x-auto ${className}`}>
@@ -87,8 +87,9 @@ function PhoneMenu({ signOut }) {
 
 /**
  * Sticky glass header (§3.1).
- * ≥ 640 px: logo + "Dr.Filler · stats" · pills in groups · demo badge (dev) · gear → Settings ·
- * "Old version" → /legacy/index.html · "Sign out".
+ * ≥ 640 px: logo (+ "Dr.Filler · stats" from 1280 px) · pills in groups · demo badge (dev) · gear → Settings ·
+ * "Old version" → /legacy/index.html · "Sign out" (icon buttons with their names as tooltips below 1280 px,
+ * where the eight pills need the room; the pills scroll sideways while they do not fit).
  * < 640 px: row 1 = logo + "⋯" menu; row 2 = the pills, scrolling sideways with the active pill in view.
  */
 export default function AdminHeader() {
@@ -115,16 +116,16 @@ export default function AdminHeader() {
   return (
     <header className="bg-surface/80 backdrop-blur border-b border-line/60 shadow-sm sticky top-0 z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
-        <Link to="/" className={`flex items-center gap-2.5 shrink-0 rounded-[12px] ${RING}`}>
+        <Link to="/" aria-label={t('common.appName')} className={`flex items-center gap-2.5 shrink-0 rounded-[12px] ${RING}`}>
           <AppMark size={32} className="rounded-[10px] shadow-card" />
-          <span className="text-[17px] sm:text-lg font-extrabold text-ink leading-6 whitespace-nowrap">{t('common.appName')}</span>
+          <span className="sm:hidden xl:inline text-[17px] xl:text-lg font-extrabold text-ink leading-6 whitespace-nowrap">{t('common.appName')}</span>
         </Link>
 
         <SectionPills navRef={navRef} className="hidden sm:flex flex-1" />
 
         <div className="flex items-center gap-2 shrink-0">
           {import.meta.env.DEV && isDemo && (
-            <span className="hidden xl:inline-flex px-3 py-1.5 rounded-full text-xs font-semibold bg-line/40 text-ink-soft">{t('common.demo')}</span>
+            <span className="hidden 2xl:inline-flex px-3 py-1.5 rounded-full text-xs font-semibold bg-line/40 text-ink-soft">{t('common.demo')}</span>
           )}
           <div className="hidden sm:flex items-center gap-2">
             <Link
@@ -135,12 +136,15 @@ export default function AdminHeader() {
             >
               <Settings className="w-4 h-4" aria-hidden="true" />
             </Link>
-            <a href={LEGACY_PATH} className={`hidden md:inline-flex px-2 text-[13px] font-semibold text-ink-soft hover:text-ink underline-offset-4 hover:underline rounded ${RING}`}>
+            <a href={LEGACY_PATH} aria-label={t('common.legacy')} title={t('common.legacy')} className={`${ROUND_BUTTON} xl:hidden`}>
+              <History className="w-4 h-4" aria-hidden="true" />
+            </a>
+            <a href={LEGACY_PATH} className={`hidden xl:inline-flex px-2 text-[13px] font-semibold text-ink-soft hover:text-ink underline-offset-4 hover:underline rounded ${RING}`}>
               {t('common.legacy')}
             </a>
-            <button type="button" onClick={signOut} aria-label={t('common.signOut')} className={TEXT_BUTTON}>
+            <button type="button" onClick={signOut} aria-label={t('common.signOut')} title={t('common.signOut')} className={TEXT_BUTTON}>
               <LogOut className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden lg:inline">{t('common.signOut')}</span>
+              <span className="hidden xl:inline">{t('common.signOut')}</span>
             </button>
           </div>
           <div className="sm:hidden">

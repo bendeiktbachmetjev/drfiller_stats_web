@@ -20,6 +20,17 @@ const FOCUSABLE =
 
 const INITIAL_STYLE = { top: 0, left: 0 };
 
+// Every floating panel (menus, the filter sheet, (i) notes) carries this attribute. A panel opened from
+// inside another one (Export inside the Filters sheet, an (i) next to the scope switch) lives in its own
+// portal, appended to <body> after its parent; presses, focus and scrolling inside such a later panel must
+// not close the panel it came from.
+export const PANEL_ATTR = 'data-sf-panel';
+const inLaterPanel = (target, panel) => {
+  if (!(target instanceof Element) || !panel) return false;
+  const other = target.closest(`[${PANEL_ATTR}]`);
+  return Boolean(other && other !== panel && panel.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
+};
+
 /**
  * Places a position: fixed panel next to its anchor: below by default, above when there is
  * more room there, always clamped to the window. Runs before paint, so the panel is never
@@ -92,10 +103,10 @@ export function useDismiss({ open, onClose, panelRef, anchorRef }) {
     const inAnchor = (target) => target instanceof Node && Boolean(anchorRef.current?.contains(target));
 
     const onPointerDown = (event) => {
-      if (!inPanel(event.target) && !inAnchor(event.target)) close();
+      if (!inPanel(event.target) && !inAnchor(event.target) && !inLaterPanel(event.target, panelRef.current)) close();
     };
     const onScroll = (event) => {
-      if (!inPanel(event.target)) close();
+      if (!inPanel(event.target) && !inLaterPanel(event.target, panelRef.current)) close();
     };
     const onKeyDown = (event) => {
       if (event.key === 'Escape') close();
@@ -204,7 +215,7 @@ export default function MenuPanel({
   const handleBlur = (event) => {
     const next = event.relatedTarget;
     if (!(next instanceof Node)) return;
-    if (panelRef.current?.contains(next) || anchorRef.current?.contains(next)) return;
+    if (panelRef.current?.contains(next) || anchorRef.current?.contains(next) || inLaterPanel(next, panelRef.current)) return;
     onClose?.();
   };
 
@@ -217,19 +228,20 @@ export default function MenuPanel({
   return createPortal(
     <>
       {sheet && <div aria-hidden="true" className={BACKDROP_CLASS} />}
-    <div
-      ref={panelRef}
-      id={id}
-      role={role}
-      aria-label={ariaLabel}
-      tabIndex={-1}
-      style={style}
-      className={[sheet ? SHEET_CLASS : PANEL_CLASS, widthClass, className].filter(Boolean).join(' ')}
-      onKeyDown={handleKeyDown}
-      onBlur={handleBlur}
-    >
-      {children}
-    </div>
+      <div
+        ref={panelRef}
+        {...{ [PANEL_ATTR]: '' }}
+        id={id}
+        role={role}
+        aria-label={ariaLabel}
+        tabIndex={-1}
+        style={style}
+        className={[sheet ? SHEET_CLASS : PANEL_CLASS, widthClass, className].filter(Boolean).join(' ')}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+      >
+        {children}
+      </div>
     </>,
     document.body,
   );

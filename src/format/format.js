@@ -2,10 +2,12 @@
 // Pure: no React, no window, no clock. Dates are shown in Europe/Vilnius time.
 // Metrics return raw base units (€, ms, tokens, counts, shares 0..1); rounding happens only here.
 import { CHARS_PER_PAGE, CHARS_PER_TOKEN, TIMEZONE } from '../data/constants.js';
-import { getLocale, plural, t } from '../copy/index.js';
+import { getLocale, modelLabel, plural, t } from '../copy/index.js';
 
 const NBSP = ' ';
 const MINUS = '−';
+// A word joiner after the sign of money keeps '−€440' on one line ('−' and '€' may otherwise split).
+const WJ = '\u2060';
 const EN_DASH = '–';
 const EMPTY = '—';
 
@@ -15,6 +17,7 @@ const MONTH_KEY = /^\d{4}-\d{2}$/;
 const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
 const round1 = (n) => Math.round(n * 10) / 10;
 const signOf = (n) => (n < 0 ? MINUS : '');
+const moneySign = (n) => (n < 0 ? MINUS + WJ : '');
 
 // --- Number formats, cached per locale --------------------------------------------------------------
 
@@ -64,7 +67,7 @@ const moneyText = (v, symbol) => {
   if (abs >= 100) body = nf().int.format(Math.round(abs));
   else body = nf().d2.format(abs);
   if (body === nf().d2.format(0) || body === '0') return `${symbol}0`;
-  return `${signOf(v)}${symbol}${body}`;
+  return `${moneySign(v)}${symbol}${body}`;
 };
 
 /** Totals in €: ≥ 100 → '€1,234'; ≥ 1 → '€12.40'; < 1 → '€0.43'; 0 → '€0'. */
@@ -74,7 +77,7 @@ const eur = (v) => (isNum(v) ? moneyText(v, '€') : EMPTY);
 const eurSigned = (v) => {
   if (!isNum(v)) return EMPTY;
   const text = moneyText(v, '€');
-  return v > 0 && text !== '€0' ? `+${text}` : text;
+  return v > 0 && text !== '€0' ? `+${WJ}${text}` : text;
 };
 
 /** USD for cost tooltips and vendor tables: '$1.96', '$0.0087' (2 significant digits under $0.01). */
@@ -82,7 +85,7 @@ const usd = (v) => {
   if (!isNum(v)) return EMPTY;
   const abs = Math.abs(v);
   if (abs === 0) return '$0';
-  if (abs < 0.01) return `${signOf(v)}$${smallText(abs)}`;
+  if (abs < 0.01) return `${moneySign(v)}$${smallText(abs)}`;
   return moneyText(v, '$');
 };
 
@@ -91,7 +94,7 @@ const eurPrecise = (v) => {
   if (!isNum(v)) return EMPTY;
   const abs = Math.abs(v);
   if (abs === 0) return '€0';
-  if (abs < 0.01) return `${signOf(v)}€${smallText(abs)}`;
+  if (abs < 0.01) return `${moneySign(v)}€${smallText(abs)}`;
   return moneyText(v, '€');
 };
 
@@ -326,13 +329,19 @@ const delta = (d) => {
 /** Format keys usable in tiles, tables, charts and `values` maps (§5.3.6). */
 export const FORMAT_KEYS = Object.freeze([
   'int', 'dec', 'pct', 'pp', 'eur', 'eurSigned', 'eurUnit', 'usd', 'credits', 'tokens', 'pages', 'sec', 'ms',
-  'minutes', 'duration', 'date', 'dayShort', 'month', 'time', 'dateTime', 'compact', 'text',
+  'minutes', 'duration', 'date', 'dayShort', 'month', 'time', 'dateTime', 'compact', 'text', 'model',
 ]);
+
+/** A model id → its friendly name ('gemini-3-flash-preview' → 'Gemini 3 Flash (trial version)'). */
+const model = (id) => modelLabel(id);
 
 const FORMATTERS = {
   int, dec, pct, pp, eur, eurSigned, eurUnit, usd, credits, tokens, pages, sec, ms, minutes, duration,
-  date, dayShort, month, time, dateTime, compact,
+  date, dayShort, month, time, dateTime, compact, model,
 };
+
+/** Formats that take a string input (day keys, model ids) instead of passing strings through. */
+const STRING_INPUT = new Set(['date', 'dayShort', 'month', 'time', 'dateTime', 'model']);
 
 /**
  * Formats one value. `format` is a key of FORMAT_KEYS or a function. Strings pass through (a cell can
@@ -344,7 +353,7 @@ const FORMATTERS = {
 const value = (v, format = 'int') => {
   if (v == null || v === '') return EMPTY;
   if (typeof format === 'function') return format(v);
-  if (typeof v === 'string' && !['date', 'dayShort', 'month', 'time', 'dateTime'].includes(format)) return v;
+  if (typeof v === 'string' && !STRING_INPUT.has(format)) return v;
   if (typeof v === 'number' && !Number.isFinite(v)) return EMPTY;
   const formatter = FORMATTERS[format];
   return formatter ? formatter(v) : String(v);
@@ -406,7 +415,7 @@ export const fmt = {
   int, dec, compact, pct, pp, eur, eurSigned, eurUnit, eurPrecise, usd, eurUsd, credits, tokens, pages,
   shareText, countOf, sec, ms, minutes, duration, date, dayShort, dayLong, month, monthShortYear,
   monthName, time, dateTime, range, ago, bucketLabel, bucketTitle, delta, value, parts, values, textOf,
-  plural, empty: EMPTY,
+  plural, model, empty: EMPTY,
 };
 
 export default fmt;

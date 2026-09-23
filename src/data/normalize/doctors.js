@@ -39,12 +39,31 @@ export function classOf(api, { stripeLive, payments }) {
 const pad = (n, width) => String(n).padStart(width, '0');
 
 /**
+ * Marks of "my and test" accounts. Env and profile marks are set on the server and stay (locked). Marks
+ * made in the UI live in `settings.internalPids`, which is reloaded right after a save while /doctors
+ * is not — so the fresh settings decide those, and a save shows at once.
+ * @param {{ pid: string, internal: boolean, internalSource: string|null }} api
+ * @param {Set<string>|null} settingsPids null when the settings did not load (then the /doctors marks stay)
+ * @returns {{ internal: boolean, internalSource: 'settings'|'env'|'profile'|null }}
+ */
+export function internalMark(api, settingsPids) {
+  if (api.internal && (api.internalSource === 'env' || api.internalSource === 'profile')) {
+    return { internal: true, internalSource: api.internalSource };
+  }
+  if (!settingsPids) return { internal: Boolean(api.internal), internalSource: api.internal ? api.internalSource ?? 'settings' : null };
+  const marked = settingsPids.has(api.pid);
+  return { internal: marked, internalSource: marked ? 'settings' : null };
+}
+
+/**
  * @param {{ doctors?: import('../api/contract.js').DoctorApi[] } | null} api the /doctors data
  * @param {{ payments?: Array<{ pid: string|null, grossCents: number }>, stripeLive?: boolean,
- *   rows?: Array<{ pid: string, t: number }> }} context
+ *   rows?: Array<{ pid: string, t: number }>, internalPids?: string[]|null }} context
+ *   internalPids: `settings.internalPids` when /settings loaded, else null
  * @returns {{ doctors: Map<string, Doctor>, doctorList: Doctor[] }}
  */
-export function normalizeDoctors(api, { payments = [], stripeLive = false, rows = [] } = {}) {
+export function normalizeDoctors(api, { payments = [], stripeLive = false, rows = [], internalPids = null } = {}) {
+  const settingsPids = Array.isArray(internalPids) ? new Set(internalPids) : null;
   const paidBy = new Map();
   payments.forEach((payment) => {
     if (!payment.pid) return;
@@ -65,7 +84,8 @@ export function normalizeDoctors(api, { payments = [], stripeLive = false, rows 
   });
 
   const apiDoctors = Array.isArray(api?.doctors) ? api.doctors : [];
-  const list = apiDoctors.map((doctor) => {
+  const list = apiDoctors.map((apiDoctor) => {
+    const doctor = { ...apiDoctor, ...internalMark(apiDoctor, settingsPids) };
     const paid = paidBy.get(doctor.pid) ?? { payments: 0, grossCents: 0 };
     const cls = classOf(doctor, { stripeLive, payments: paid.payments });
     const seen = activity.get(doctor.pid);

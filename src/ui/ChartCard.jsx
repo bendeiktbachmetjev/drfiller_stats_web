@@ -2,7 +2,7 @@ import React, { createContext, useMemo, useState } from 'react';
 import { AlertTriangle, BarChart3, Table2 } from 'lucide-react';
 import { def, t } from '../copy/index.js';
 import { fmt } from '../format/format.js';
-import { MIN_NONZERO_BUCKETS } from '../data/constants.js';
+import { MIN_EVENTS_FOR_CHART, MIN_NONZERO_BUCKETS } from '../data/constants.js';
 import { usePrintMode } from '../context/usePrintMode.js';
 import Card from './Card.jsx';
 import CardHeader from './CardHeader.jsx';
@@ -40,7 +40,11 @@ export function chartShape(rows = [], series = []) {
 //   takeaway          { key, values } — the one-line "so what" under the title (only when its rule fired)
 //   rows, series      when given, the card applies the §3.12 rules itself:
 //     dropZeroSeries    (default true) a series that is 0/null in every bucket is removed and named in a caption
-//     minNonZeroBuckets (default 3) fewer non-zero buckets → a sentence at chart height instead of the chart
+//     minNonZeroBuckets (default 3) fewer non-zero buckets → a sentence instead of the chart
+//   events            trend charts: events in the period; fewer than `minEvents` (default 20) → a sentence instead
+//                     of the chart ("Only 7 events so far — a chart needs 20. Every event is listed below.")
+//   A chart replaced by a sentence shows its table twin right under it (the list the sentence points to);
+//   without a table the sentence keeps the chart's height, so the card does not jump.
 //   legend            Legend items or a node; defaults to the kept series (none for a single series)
 //   height            px of the plot box: 320 main chart, 240 secondary
 //   state             'ready' | 'first' | 'empty' | 'error'
@@ -58,6 +62,8 @@ export default function ChartCard({
   series,
   dropZeroSeries = true,
   minNonZeroBuckets = MIN_NONZERO_BUCKETS,
+  events,
+  minEvents = MIN_EVENTS_FOR_CHART,
   legend,
   height = 320,
   state = 'ready',
@@ -79,11 +85,16 @@ export default function ChartCard({
     [rows, series],
   );
   const shownSeries = shape ? (dropZeroSeries ? shape.kept : series) : series;
-  const thin = Boolean(shape) && shape.nonZeroBuckets < minNonZeroBuckets;
+  const fewEvents = Number.isFinite(events) && events < minEvents;
+  const fewBuckets = Boolean(shape) && shape.nonZeroBuckets < minNonZeroBuckets;
+  const thin = fewEvents || fewBuckets;
+  let thinText = null;
+  if (fewEvents) thinText = t('common.thin', { n: fmt.int(events), min: fmt.int(minEvents) });
+  else if (fewBuckets) thinText = t('common.thinChart', { n: fmt.int(shape.nonZeroBuckets) });
 
   const ready = state === 'ready';
   const hasTable = ready && Boolean(table?.columns?.length);
-  const tableView = hasTable && view === 'table';
+  const tableView = hasTable && (view === 'table' || thin);
   const showChart = !tableView || printing;
   const ToggleIcon = tableView ? BarChart3 : Table2;
 
@@ -94,7 +105,7 @@ export default function ChartCard({
     <>
       {controls}
       {definition?.long && <InfoHint hintKey={hintKey} label={label} />}
-      {hasTable && (
+      {hasTable && !thin && (
         <button
           type="button"
           aria-pressed={tableView}
@@ -128,10 +139,13 @@ export default function ChartCard({
 
       {state === 'error' && <EmptyState icon={AlertTriangle} title={t('common.chart.error')} hint={t('common.chart.errorHint')} minHeight={height} />}
 
-      {ready && showChart && thin && (
-        <div className="flex items-center justify-center px-6 text-center text-sm font-medium text-ink-soft" style={{ minHeight: Math.min(height, 160) }}>
-          {t('common.thinChart', { n: fmt.int(shape.nonZeroBuckets) })}
-        </div>
+      {ready && thin && (
+        <p
+          className={hasTable ? 'mb-3 text-sm font-medium text-ink-soft' : 'flex items-center justify-center px-6 text-center text-sm font-medium text-ink-soft'}
+          style={hasTable ? undefined : { minHeight: height }}
+        >
+          {thinText}
+        </p>
       )}
 
       {ready && showChart && !thin && (
@@ -149,7 +163,7 @@ export default function ChartCard({
       )}
 
       {hasTable && (
-        <div className={tableView ? 'print:mt-4' : 'hidden print:block print:mt-4'} style={{ minHeight: tableView ? height : undefined }}>
+        <div className={tableView ? 'print:mt-4' : 'hidden print:block print:mt-4'} style={{ minHeight: tableView && !thin ? height : undefined }}>
           <DataTable columns={table.columns} rows={table.rows} defaultSort={table.defaultSort} footerRow={table.footerRow} maxHeight={printing ? null : height} caption={label} />
         </div>
       )}

@@ -26,10 +26,13 @@
 .sf-admin [id] { scroll-margin-top: 136px; }
 @media (min-width: 640px) { .sf-admin [id] { scroll-margin-top: 88px; } }
 
-/* Touch: small round buttons, (i) hints and Segmented items get a hit area of at least 40 × 40 px. */
+/* Touch: small round buttons, (i) hints and Segmented items get a hit area of at least 40 × 40 px.
+   Segmented items sit side by side and are wide already, so they only grow up and down (sf-hit-y):
+   a sideways overlap would let a tap on one item select its neighbour. */
 @media (pointer: coarse) {
-  .sf-hit { position: relative; }
+  .sf-hit, .sf-hit-y { position: relative; }
   .sf-hit::after { content: ''; position: absolute; inset: -8px; }
+  .sf-hit-y::after { content: ''; position: absolute; inset: -8px 0; }
 }
 
 /* Long ids break anywhere instead of widening the page. */

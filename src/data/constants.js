@@ -78,6 +78,27 @@ export const PAYMENT_METHODS = Object.freeze([
   'paypal',
 ]);
 
+/** The "Is everything working?" word (§4.1): bad → slow → ok thresholds, all traffic. */
+export const HEALTH = Object.freeze({
+  badServiceFailures: 3,
+  badOver15Share: 0.05,
+  okOver15Share: 0.02,
+  okFallbackShare: 0.01,
+  slowMs: 15000,
+  fallbackWaitMs: 25000,
+});
+
+/** Anamnesis calls of one doctor with gaps under this belong to one run (§4.4). */
+export const ANAMNESIS_RUN_GAP_MS = 10 * 60 * 1000;
+
+/** Plan constants of §5.3.7 (projection and capacity formulas). */
+export const PLAN = Object.freeze({
+  firestoreWritesPerVisit: 5,
+  dictationMbPerMinute: 1.92,
+  soniox95: 0.95,
+  maxBinomialDoctors: 10000,
+});
+
 /** Alert thresholds (§3.10). */
 export const ALERTS = Object.freeze({
   maxShown: 3,

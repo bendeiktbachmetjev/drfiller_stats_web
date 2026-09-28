@@ -1,10 +1,11 @@
-import React, { useDeferredValue, useMemo, useState } from 'react';
+import React, { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { useAnalytics, useDoctors } from '../context/AnalyticsContext.jsx';
 import { Card, DataNotes, EmptyState, NotRecorded, PageLayout } from '../ui/index.js';
 import { STATS_START } from '../data/constants.js';
 import { matchesSearch } from '../data/metrics/doctors.js';
 import { t } from '../copy/index.js';
 import { fmt } from '../format/format.js';
+import AddCreditsCard from './doctors/AddCreditsCard.jsx';
 import { ClassCard, FunnelCard } from './doctors/ClassCard.jsx';
 import DoctorTiles from './doctors/DoctorTiles.jsx';
 import DoctorsTable from './doctors/DoctorsTable.jsx';
@@ -26,6 +27,12 @@ export default function DoctorsPage() {
   const metric = useDoctors({ view });
   const { dataset: ds } = useAnalytics();
   const toggle = useInternalToggle();
+  const [creditPid, setCreditPid] = useState(null);
+  const creditsCard = useRef(null);
+  const addCreditsFor = useCallback((pid) => {
+    setCreditPid(pid);
+    creditsCard.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  }, []);
   const { data, period } = metric;
   const tableRows = useMemo(
     () => (data?.tables.doctors ?? []).filter((row) => matchesSearch(row, deferredSearch, ds)),
@@ -59,7 +66,8 @@ export default function DoctorsPage() {
                 <FunnelCard data={data} />
               </div>
             </div>
-            <DoctorsTable data={data} rows={tableRows} ds={ds} view={view} onView={setView} search={search} onSearch={setSearch} toggle={toggle} />
+            <AddCreditsCard ref={creditsCard} pid={creditPid} onPick={setCreditPid} />
+            <DoctorsTable data={data} rows={tableRows} ds={ds} view={view} onView={setView} search={search} onSearch={setSearch} toggle={toggle} onAddCredits={addCreditsFor} />
           </>
         )}
       </div>

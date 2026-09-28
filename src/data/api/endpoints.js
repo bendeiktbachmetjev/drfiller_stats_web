@@ -17,3 +17,6 @@ export const doctorEmailRoute = (pid) => `/doctors/${encodeURIComponent(pid)}/em
 /** @param {string} month 'YYYY-MM' @returns {string} '/costs-monthly/:month' */
 export const costsMonthRoute = (month) => `/costs-monthly/${encodeURIComponent(month)}`;
 
+
+/** @param {string} pid @returns {string} '/doctors/:pid/credits' (POST { credits, note }) */
+export const doctorCreditsRoute = (pid) => `/doctors/${encodeURIComponent(pid)}/credits`;

@@ -42,6 +42,7 @@ const state = {
   sticky: envDefaults(),
   settings: null,
   months: new Map(),
+  grants: new Map(),
   emailReveals: [],
   emailLists: [],
   fresh: new Map(), // route → last fresh=1 time
@@ -176,6 +177,12 @@ async function handle(req, res) {
     else state.fresh.set(route, nowMs);
   }
 
+  const withGrant = (d) => {
+    const extra = state.grants.get(d.pid) ?? 0;
+    if (!extra) return d;
+    const c = d.credits ?? { available: 0, used: 0, total: 0, consistent: true };
+    return { ...d, credits: { ...c, available: c.available + extra, total: c.total + extra } };
+  };
   const settingsNow = () => state.settings ?? api.settings.settings;
   const knownPids = new Set(api.doctors.doctors.map((d) => d.pid));
 
@@ -203,6 +210,18 @@ async function handle(req, res) {
     state.months.set(month, next);
     return ok(res, { month: next });
   }
+  const creditsMatch = /^\/doctors\/([^/]+)\/credits$/.exec(route);
+  if (req.method === 'POST' && creditsMatch) {
+    const pid = decodeURIComponent(creditsMatch[1]);
+    const body = await readBody(req);
+    const credits = body?.credits;
+    if (!Number.isInteger(credits) || credits < 1 || credits > 5000) return fail(res, 400, 'INVALID_BODY', 'credits must be a whole number from 1 to 5000');
+    const doctor = api.doctors.doctors.find((d) => d.pid === pid);
+    if (!PID_RE.test(pid) || !doctor || !doctor.exists?.auth) return fail(res, 404, 'NOT_FOUND', 'Unknown doctor.');
+    state.grants.set(pid, (state.grants.get(pid) ?? 0) + credits);
+    const c = withGrant(doctor).credits;
+    return ok(res, { pid, added: credits, credits: { available: c.available, used: c.used, total: c.total } });
+  }
   if (req.method !== 'GET') return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
 
   const emailOf = (pid) => {
@@ -221,7 +240,7 @@ async function handle(req, res) {
     }
     case route === '/doctors': {
       const marked = new Set(settingsNow().internalPids);
-      const doctors = api.doctors.doctors.map((d) => (marked.has(d.pid) && !d.internal ? { ...d, internal: true, internalSource: 'settings' } : d));
+      const doctors = api.doctors.doctors.map(withGrant).map((d) => (marked.has(d.pid) && !d.internal ? { ...d, internal: true, internalSource: 'settings' } : d));
       return ok(res, { ...api.doctors, doctors }, notes);
     }
     case route === '/doctors/emails':

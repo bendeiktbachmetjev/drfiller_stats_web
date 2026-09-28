@@ -39,6 +39,7 @@ const withTimeout = (signal, timeoutMs) => {
  * @typedef {{
  *   get: (route: string, query?: object, options?: { signal?: AbortSignal }) => Promise<any>,
  *   put: (route: string, body: object, options?: { signal?: AbortSignal }) => Promise<any>,
+ *   post: (route: string, body: object, options?: { signal?: AbortSignal }) => Promise<any>,
  *   getEnvelope: (route: string, query?: object, options?: { signal?: AbortSignal }) => Promise<import('./contract.js').Ok<any>>
  * }} ApiClient
  */
@@ -49,7 +50,7 @@ const withTimeout = (signal, timeoutMs) => {
  *   extraQuery?: () => Record<string, string>|null }} options
  *   baseUrl '' = same origin (the Vite dev proxy); routes are relative to '/api/admin/v2'.
  *   extraQuery (dev only): parameters added to every request, e.g. the mock toggles `off`, `stripe`, `fail`.
- * @returns {ApiClient} `get`/`put` return `envelope.data`; `getEnvelope` the whole envelope (cache age, notes).
+ * @returns {ApiClient} `get`/`put`/`post` return `envelope.data`; `getEnvelope` the whole envelope (cache age, notes).
  *   Throws DataError: 401 → AUTH, 503 → API_OFF, 409 → CONFLICT, 413 → TOO_MANY_ROWS, 400 BAD_RANGE → BAD_RANGE,
  *   bad envelope → SCHEMA, network → NETWORK, timeout → TIMEOUT, abort → ABORTED.
  */
@@ -104,5 +105,6 @@ export function createClient({ baseUrl = '', getKey, fetchImpl = globalThis.fetc
     getEnvelope: (route, query, options = {}) => request('GET', route, { query, signal: options.signal }),
     get: async (route, query, options = {}) => (await request('GET', route, { query, signal: options.signal })).data,
     put: async (route, body, options = {}) => (await request('PUT', route, { body, signal: options.signal })).data,
+    post: async (route, body, options = {}) => (await request('POST', route, { body, signal: options.signal })).data,
   };
 }

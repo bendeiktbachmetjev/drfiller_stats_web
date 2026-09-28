@@ -56,9 +56,10 @@ function PlanLine({ data }) {
  * The Doctors table card (§4.8): plan line, "Active | All (n)", search, the table (phone: cards) and the
  * mine/test toggles. Sorted by costs, highest first. `rows` = the view's rows after the page's search.
  * @param {{ data: object, rows: object[], ds: object|null, view: 'active'|'all', onView: (v: string) => void, search: string,
- *   onSearch: (q: string) => void, toggle: { busy: boolean, message: object|null, toggle: Function } }} props
+ *   onSearch: (q: string) => void, toggle: { busy: boolean, message: object|null, toggle: Function },
+ *   onAddCredits?: (pid: string) => void }} props
  */
-export default function DoctorsTable({ data, rows, ds, view, onView, search, onSearch, toggle }) {
+export default function DoctorsTable({ data, rows, ds, view, onView, search, onSearch, toggle, onAddCredits }) {
   const isPhone = useIsPhone();
   const [allColumns, setAllColumns] = useState(readAllColumns);
   const { emails, reveal } = useEmailReveal();
@@ -70,8 +71,9 @@ export default function DoctorsTable({ data, rows, ds, view, onView, search, onS
         ds, rows, emailMode, emails, onReveal: reveal, busy: toggle.busy, onToggle: toggle.toggle,
         showMonth: data.tables.doctors.some((row) => row.costPerMonthEur !== null) || rows.length === 0,
         allColumns: isPhone || allColumns,
+        onAddCredits,
       }),
-    [ds, rows, emailMode, emails, reveal, toggle.busy, toggle.toggle, data, isPhone, allColumns],
+    [ds, rows, emailMode, emails, reveal, toggle.busy, toggle.toggle, data, isPhone, allColumns, onAddCredits],
   );
 
   const flipColumns = () => {

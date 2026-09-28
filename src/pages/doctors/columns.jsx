@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, Mail } from 'lucide-react';
+import { Lock, Mail, Plus } from 'lucide-react';
 import { DoctorName, SignedMoney } from '../../ui/index.js';
 import { classLabel, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
@@ -89,9 +89,9 @@ const shortText = (text, max) => (text && text.length > max ? `${text.slice(0, m
  * p3 columns show only with "More columns" (the density rule of §4.0).
  * @param {{ ds: object, rows: object[], emailMode: 'off'|'click'|'list', emails: Map<string, object>,
  *   onReveal: (pid: string) => void, busy: boolean, onToggle: (pid: string, on: boolean) => void,
- *   showMonth: boolean, allColumns: boolean }} context
+ *   showMonth: boolean, allColumns: boolean, onAddCredits?: (pid: string) => void }} context
  */
-export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onToggle, showMonth, allColumns }) {
+export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onToggle, showMonth, allColumns, onAddCredits }) {
   const revealed = new Map([...emails].filter(([, state]) => state.email).map(([pid, state]) => [pid, state.email]));
   const nameOf = (row) => doctorName(ds, row.pid, revealed);
   const doctorOf = (row) => {
@@ -157,5 +157,29 @@ export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onT
       ),
     },
   ];
+  if (onAddCredits) {
+    columns.push({
+      key: 'addCredits',
+      header: t('doctors.col.add'),
+      type: 'node',
+      priority: 2,
+      sortable: false,
+      printHide: true,
+      render: (row) =>
+        ds?.doctors?.get?.(row.pid)?.exists?.auth ? (
+          <button
+            type="button"
+            onClick={() => onAddCredits(row.pid)}
+            aria-label={t('doctors.credits.rowAria', { name: nameOf(row) })}
+            className={`${PILL} border-line bg-surface text-brand hover:bg-line/20`}
+          >
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+            {t('doctors.credits.rowButton')}
+          </button>
+        ) : (
+          <span className="text-ink-mute">{fmt.empty}</span>
+        ),
+    });
+  }
   return allColumns ? columns : columns.filter((column) => column.priority < 3);
 }

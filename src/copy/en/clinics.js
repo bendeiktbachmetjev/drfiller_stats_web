@@ -3,16 +3,16 @@
 
 export const COPY = {
   'clinics.title': 'Clinics',
-  'clinics.question': 'Which clinics pay for their doctors, how much did each doctor use, and what do we invoice?',
+  'clinics.question': 'Which clinics pay for their staff, how much did each person use, and what do we invoice?',
   'clinics.scopeLine': '{range} · {clinic}',
 
   // --- Answer ------------------------------------------------------------------------------------------
   'clinics.answer.invoice': '{name}: {credits} credits from {from} to {to}. To invoice: {amount}.',
   'clinics.answer.invoiceNoPrice': '{name}: {credits} credits from {from} to {to}. Set the price of one credit to see the amount.',
   'clinics.answer.prepaid': '{name}: {credits} credits used from {from} to {to}. Credits left: {left}.',
-  'clinics.answer.none': 'No clinic yet. Create one, then add its doctors.',
-  'clinics.answer.pick': 'Pick a clinic to see its doctors and usage.',
-  'clinics.answer.paused': '{name} is paused: its doctors use their own credits.',
+  'clinics.answer.none': 'No clinic yet. Create one, then add its staff.',
+  'clinics.answer.pick': 'Pick a clinic to see its staff and usage.',
+  'clinics.answer.paused': '{name} is paused: its staff use their own credits.',
 
   // --- Picker ------------------------------------------------------------------------------------------
   'clinics.pick.label': 'Clinic',
@@ -20,9 +20,9 @@ export const COPY = {
   'clinics.billing.invoice': 'Invoice',
   'clinics.billing.prepaid': 'Prepaid credits',
   'clinics.paused': 'Paused',
-  'clinics.members': '{n} doctors',
+  'clinics.members': '{n} staff',
   'clinics.empty.title': 'No clinics yet',
-  'clinics.empty.hint': 'A clinic pays for the doctors you add to it: by invoice at the end of the month, or from credits it bought.',
+  'clinics.empty.hint': 'A clinic pays for the people you add to it — doctors, nurses, anyone with an account: by invoice at the end of the month, or from credits it bought.',
   'clinics.demo': 'Clinics are not in the demo data. Use the mock server (npm run dev:mock) or the live site.',
   'clinics.loadError': 'The clinic list did not load. Reload the page.',
 
@@ -34,16 +34,16 @@ export const COPY = {
   'clinics.form.billing': 'How it pays',
   'clinics.form.billing.invoice': 'Invoice at month end',
   'clinics.form.billing.prepaid': 'Prepaid credits',
-  'clinics.form.billingHint.invoice': 'Nothing is taken from anyone: the clinic pays our real cost of what its doctors used, plus your markup, once a month.',
-  'clinics.form.billingHint.prepaid': 'The clinic buys credits; all its doctors use them. You add them below.',
+  'clinics.form.billingHint.invoice': 'Nothing is taken from anyone: the clinic pays our real cost of what its staff used, plus your markup, once a month.',
+  'clinics.form.billingHint.prepaid': 'The clinic buys credits; all its staff use them. You add them below.',
   'clinics.form.markup': 'Markup over our cost, %',
   'clinics.form.markupHint': 'The clinic pays our cost of its forms, summaries and recordings plus this much. It never sees the markup. A change counts from now on.',
-  'clinics.form.cap': 'Limit per doctor per month, credits',
-  'clinics.form.capHint': 'A safety brake: a doctor who reaches it is stopped until the next month. A busy month is about 600–1,000.',
+  'clinics.form.cap': 'Limit per person per month, credits',
+  'clinics.form.capHint': 'A safety brake: a person who reaches it is stopped until the next month. A busy month is about 600–1,000.',
   'clinics.form.note': 'Note (optional)',
   'clinics.form.notePlaceholder': 'e.g. contract no., contact person',
-  'clinics.form.active': 'The clinic pays for its doctors',
-  'clinics.form.activeHint': 'Off = paused: its doctors use their own credits until you switch it on again.',
+  'clinics.form.active': 'The clinic pays for its staff',
+  'clinics.form.activeHint': 'Off = paused: its staff use their own credits until you switch it on again.',
   'clinics.form.save': 'Save',
   'clinics.form.create': 'Create clinic',
   'clinics.form.cancel': 'Cancel',
@@ -55,13 +55,13 @@ export const COPY = {
 
   // --- Header of the chosen clinic ---------------------------------------------------------------------------
   'clinics.head.markup': 'our cost + {pct} %',
-  'clinics.head.cap': 'limit {n} credits a doctor a month',
+  'clinics.head.cap': 'limit {n} credits a person a month',
   'clinics.head.edit': 'Edit',
   'clinics.head.pause': 'Pause',
   'clinics.head.resume': 'Switch on',
-  'clinics.head.pauseConfirm': 'Pause {name}? Its doctors will use their own credits until you switch it on again.',
+  'clinics.head.pauseConfirm': 'Pause {name}? Its staff will use their own credits until you switch it on again.',
   'clinics.head.delete': 'Delete',
-  'clinics.head.deleteHasDoctors': 'Take the clinic’s {n} doctors out first (the button next to each doctor below).',
+  'clinics.head.deleteHasDoctors': 'Take the clinic’s {n} staff out first (the button next to each person below).',
   'clinics.head.deleteConfirm': 'Delete {name}? It leaves the list; its usage and payments stay for your records.',
   'clinics.head.deleteCreditsLeft': 'It still has {n} credits left.',
 
@@ -72,14 +72,14 @@ export const COPY = {
   'clinics.tile.amount.sub': 'our cost + {pct} % · {paid} paid for its months',
   'clinics.tile.left': 'Credits left',
   'clinics.tile.left.sub': '{used} of {total} used since the start',
-  'clinics.tile.doctors': 'Doctors',
+  'clinics.tile.doctors': 'Staff',
   'clinics.tile.doctors.sub': '{n} used it in this period',
   'clinics.tile.cost': 'Costs',
   'clinics.tile.cost.sub': 'Result: {result}',
 
-  // --- Doctors table --------------------------------------------------------------------------------------
-  'clinics.doctors.title': 'Doctors of the clinic',
-  'clinics.col.doctor': 'Doctor',
+  // --- Staff table ----------------------------------------------------------------------------------------
+  'clinics.doctors.title': 'Staff of the clinic',
+  'clinics.col.doctor': 'Person',
   'clinics.col.forms': 'Forms',
   'clinics.col.recording': 'Recording',
   'clinics.col.recordingCredits': 'Recording credits',
@@ -90,17 +90,17 @@ export const COPY = {
   'clinics.col.days': 'Days used',
   'clinics.col.remove': 'In clinic',
   'clinics.doctors.formerly': 'left the clinic',
-  'clinics.doctors.empty': 'No doctors yet. Add them below or on the Doctors page.',
+  'clinics.doctors.empty': 'No staff yet. Add them below or on the Doctors page.',
   'clinics.doctors.total': 'Total',
   'clinics.remove': 'Take out',
   'clinics.removeAria': 'Take {name} out of the clinic',
   'clinics.removeConfirm': 'Take {name} out of {clinic}? From now on they use their own credits.',
 
-  // --- Add doctors -------------------------------------------------------------------------------------------
-  'clinics.add.title': 'Add doctors',
-  'clinics.add.lead': 'The clinic pays for a doctor from the moment you add them. Their own credits stay for later.',
+  // --- Add staff ---------------------------------------------------------------------------------------------
+  'clinics.add.title': 'Add staff',
+  'clinics.add.lead': 'The clinic pays for a person from the moment you add them. Their own credits stay for later.',
   'clinics.add.search': 'Search by email or code',
-  'clinics.add.none': 'No doctor matches “{q}”.',
+  'clinics.add.none': 'No one matches “{q}”.',
   'clinics.add.button': 'Add',
   'clinics.add.move': 'Move here',
   'clinics.add.inOther': 'now in {clinic}',
@@ -111,7 +111,7 @@ export const COPY = {
   // --- By day ------------------------------------------------------------------------------------------------
   'clinics.days.title': 'By day',
   'clinics.col.day': 'Day',
-  'clinics.col.dayDoctors': 'Doctors',
+  'clinics.col.dayDoctors': 'People',
 
   // --- Money by hand (top-ups and month payments) -------------------------------------------------
   'clinics.money.credits': 'How many credits',
@@ -134,7 +134,7 @@ export const COPY = {
 
   // --- Top-ups of a prepaid clinic ---------------------------------------------------------------------
   'clinics.topups.title': 'Credits bought',
-  'clinics.topups.summary': 'In this period: {credits} credits bought for {paid} (on average {avg} a credit). Its doctors used {used} credits. Left now: {left}.',
+  'clinics.topups.summary': 'In this period: {credits} credits bought for {paid} (on average {avg} a credit). Its staff used {used} credits. Left now: {left}.',
   'clinics.topups.date': 'Date',
   'clinics.topups.paid': 'Paid',
   'clinics.topups.perCredit': 'A credit',
@@ -163,8 +163,8 @@ export const COPY = {
 
   // --- The clinic's own view (read-only link + password) --------------------------------------------------
   'clinics.share.title': 'The clinic’s own page',
-  'clinics.share.intro.invoice': 'It sees its doctors’ e-mails, the credits they used, the months and what it paid. Never our costs or your note. The page is in Lithuanian.',
-  'clinics.share.intro.prepaid': 'It sees its doctors’ e-mails, the credits they used, what it bought and the credits left. Never our costs or your note. The page is in Lithuanian.',
+  'clinics.share.intro.invoice': 'It sees its staff’s e-mails, what they used, the months and what it paid. Never our costs or your note. The page is in Lithuanian.',
+  'clinics.share.intro.prepaid': 'It sees its staff’s e-mails, the credits they used, what it bought and the credits left. Never our costs or your note. The page is in Lithuanian.',
   'clinics.share.create': 'Make a link and password',
   'clinics.share.renew': 'New link and password',
   'clinics.share.renewConfirm': 'Make a new link and password? The old link stops working at once.',
@@ -182,19 +182,19 @@ export const COPY = {
   'clinics.share.error': 'Did not work: {reason}',
 
   // --- Export --------------------------------------------------------------------------------------------
-  'clinics.export.doctors': 'Doctors of the clinic',
+  'clinics.export.doctors': 'Staff of the clinic',
   'clinics.export.days': 'By day',
 
   // --- Usage loading ---------------------------------------------------------------------------------------
   'clinics.usage.loading': 'Loading the usage…',
   'clinics.usage.error': 'The usage did not load: {reason}',
   'clinics.usage.retry': 'Try again',
-  'clinics.footnote': 'Credits are counted the moment a doctor of the clinic uses them, so a doctor who changed clinics shows in each one only for their own time there. Costs are for the doctors in the clinic now.',
+  'clinics.footnote': 'Everything is counted the moment a person of the clinic uses it, so someone who changed clinics shows in each one only for their own time there. Costs are our real cost of the work the clinic paid for.',
 };
 
 export const DEFS = {
   'clinics.tile.credits': {
-    short: 'Every credit the clinic’s doctors used in this period, after the ones given back for failed requests.',
+    short: 'Every credit the clinic’s staff used in this period, after the ones given back for failed requests.',
     long: 'A form is 1 credit; every full 10 minutes of recording is 1 credit (the minutes add up across recordings); a history summary is 1–40 credits by its size.',
   },
   'clinics.tile.amount': {
@@ -202,17 +202,17 @@ export const DEFS = {
     long: 'The cost and the markup are fixed when each request is done, so a month never changes later. The clinic sees only this amount — never our cost or the markup.',
   },
   'clinics.tile.left': {
-    short: 'The clinic’s own credits. Every doctor of the clinic uses them; when they run out, the doctors are stopped until you add more.',
+    short: 'The clinic’s own credits. Everyone in the clinic uses them; when they run out, its staff are stopped until you add more.',
   },
   'clinics.tile.cost': {
     short: 'What Google and Soniox charged us for the work the clinic pays for in this period: tokens (the cached part at its lower price) and recorded minutes.',
-    long: 'Counted for each request when it is done, only while the clinic pays for the doctor. Failed requests are not counted.',
+    long: 'Counted for each request when it is done, only while the clinic pays for the person. Failed requests are not counted.',
   },
   'clinics.doctors': {
-    short: 'Each doctor’s credits in this period, and what the clinic pays for them.',
+    short: 'Each person’s credits in this period, and what the clinic pays for them.',
   },
   'clinics.months': {
-    short: 'Whole months — every month the period touches, in full. What the clinic’s doctors used, what it pays (our cost + markup), and what it paid. Mark a month paid when the money arrives.',
+    short: 'Whole months — every month the period touches, in full. What the clinic’s staff used, what it pays (our cost + markup), and what it paid. Mark a month paid when the money arrives.',
   },
   'clinics.topups': {
     short: 'The credits the clinic bought, with what it paid for each lot.',

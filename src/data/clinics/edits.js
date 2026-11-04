@@ -86,6 +86,17 @@ export function withClinicPayment(raw, id, month, payment) {
   return { ...raw, clinics: { ...(raw?.clinics ?? {}), clinics } };
 }
 
+/**
+ * The clinic's read-only link: made (its dates) or stopped (null).
+ * @param {object} raw RawBundle
+ * @param {string} id
+ * @param {{ createdAt: number|null, lastOpenedAt: number|null, opens: number }|null} share
+ */
+export function withClinicShare(raw, id, share) {
+  const clinics = clinicsOf(raw).map((c) => (c.id === id ? { ...c, share } : c));
+  return { ...raw, clinics: { ...(raw?.clinics ?? {}), clinics } };
+}
+
 /** A deleted clinic leaves the list. */
 export function withoutClinic(raw, id) {
   return { ...raw, clinics: { ...(raw?.clinics ?? {}), clinics: clinicsOf(raw).filter((c) => c.id !== id) } };

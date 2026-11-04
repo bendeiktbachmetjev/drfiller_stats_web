@@ -439,6 +439,7 @@ SCHEMAS.clinic = obj({
   createdAt: nullable(num), updatedAt: nullable(num),
   members: arr(match(PID_RE)),
   payments: opt(arr(obj({ month: match(MONTH_RE), amountEur: num, note: str, at: nullable(num) }))),
+  share: opt(nullable(obj({ createdAt: nullable(num), lastOpenedAt: nullable(num), opens: num }))),
 });
 SCHEMAS.clinics = obj({ clinics: arr(SCHEMAS.clinic) });
 

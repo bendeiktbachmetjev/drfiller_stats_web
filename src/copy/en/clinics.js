@@ -164,6 +164,26 @@ export const COPY = {
   'clinics.months.remove': 'Remove',
   'clinics.months.removeConfirm': 'Remove the payment for {month}?',
 
+  // --- The clinic's own view (read-only link + password) --------------------------------------------------
+  'clinics.share.title': 'The clinic’s own page',
+  'clinics.share.intro.invoice': 'It sees its doctors’ e-mails, the credits they used, the months and what it paid. Never our costs or your note. The page is in Lithuanian.',
+  'clinics.share.intro.prepaid': 'It sees its doctors’ e-mails, the credits they used, what it bought and the credits left. Never our costs or your note. The page is in Lithuanian.',
+  'clinics.share.create': 'Make a link and password',
+  'clinics.share.renew': 'New link and password',
+  'clinics.share.renewConfirm': 'Make a new link and password? The old link stops working at once.',
+  'clinics.share.stop': 'Stop sharing',
+  'clinics.share.stopConfirm': 'Stop sharing with {name}? The link stops working at once.',
+  'clinics.share.link': 'Link',
+  'clinics.share.password': 'Password',
+  'clinics.share.copy': 'Copy',
+  'clinics.share.copied': 'Copied',
+  'clinics.share.once': 'Copy them now: they are shown only this once. Send them separately — for example the link by e-mail and the password by phone.',
+  'clinics.share.since': 'Shared since {date}.',
+  'clinics.share.opened': 'Opened {n} times, last on {when}.',
+  'clinics.share.notOpened': 'Not opened yet.',
+  'clinics.share.lost': 'Lost the link or the password? Make a new pair — the old one stops working.',
+  'clinics.share.error': 'Did not work: {reason}',
+
   // --- Export --------------------------------------------------------------------------------------------
   'clinics.export.doctors': 'Doctors of the clinic',
   'clinics.export.days': 'By day',
@@ -198,5 +218,9 @@ export const DEFS = {
   },
   'clinics.topups': {
     short: 'The credits the clinic bought, with what it paid for each lot.',
+  },
+  'clinics.share': {
+    short: 'A link and a password for the clinic: it can look at its own numbers, not change them.',
+    long: 'Ten wrong passwords lock the link for 15 minutes. One link per clinic: a new one stops the old one. Deleting the clinic stops it too.',
   },
 };

@@ -10,6 +10,7 @@ import { clinicReport } from '../data/clinics/report.js';
 import AddDoctors from './clinics/AddDoctors.jsx';
 import ClinicDoctors from './clinics/ClinicDoctors.jsx';
 import ClinicForm, { PRIMARY, SECONDARY } from './clinics/ClinicForm.jsx';
+import ClinicShare from './clinics/ClinicShare.jsx';
 import { ClinicMonths, ClinicTopups } from './clinics/ClinicMoney.jsx';
 import { invoiceMonths, wholeMonths } from '../data/clinics/money.js';
 import { answerItemsOf, exportTablesOf } from './clinics/text.js';
@@ -293,6 +294,7 @@ export default function ClinicsPage() {
                 onRemove={(month) => actions.removePayment(clinic.id, month)}
               />
             )}
+            <ClinicShare key={clinic.id} clinic={clinic} onCreate={actions.shareClinic} onStop={actions.stopSharing} />
             {report && <ClinicDays report={report} priced={clinic.pricePerCreditEur != null} />}
             <p className="text-xs font-medium text-ink-mute">{t('clinics.footnote')}</p>
           </>

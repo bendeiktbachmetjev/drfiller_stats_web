@@ -76,6 +76,10 @@ doctors). How the server decides who pays and counts each credit: `../backend/se
 - Money: hand top-ups with a price and month payments are income too ("By hand", no payment fee); they come
   from `GET /grants` and the clinics' `payments` (`data/clinics/money.js`).
 - Export on the Clinics page gives the period's doctors (the invoice's annex) and its days as CSV.
+- "The clinic's own page" (`src/pages/clinics/ClinicShare.jsx`): a link + password for the clinic to look at its
+  own numbers, read-only, in Lithuanian (`POST /clinics/:id/share`; the page is the backend's `/klinika/:token`,
+  `../backend/routes/clinicView.js`). The pair is shown once (the server keeps only hashes); a new pair stops the
+  old link, "Stop sharing" (`DELETE`) and deleting the clinic stop it too. The list shows when it was opened.
 - Mock: `npm run dev:mock` serves two demo clinics (`src/dev/demoClinics.js`); changes last until the mock
   stops. `?demo` has no clinics.
 

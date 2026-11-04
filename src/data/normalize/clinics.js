@@ -6,9 +6,11 @@ import { CLINIC_ID_RE, MONTH_RE, PID_RE } from '../api/contract.js';
  *   id: string, name: string, billing: 'invoice'|'prepaid', active: boolean, monthlyCapPerDoctor: number,
  *   pricePerCreditEur: number|null, note: string, credits: { available: number, used: number, total: number },
  *   createdAt: number|null, updatedAt: number|null, members: string[],
- *   payments: Array<{ month: string, amountEur: number, note: string, at: number|null }>
+ *   payments: Array<{ month: string, amountEur: number, note: string, at: number|null }>,
+ *   share: { createdAt: number|null, lastOpenedAt: number|null, opens: number }|null
  * }} Clinic
  *   payments: what an invoiced clinic paid, one record per month (the owner enters them)
+ *   share: the clinic's working read-only link (its page in Lithuanian), null when there is none
  */
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -38,6 +40,9 @@ export function normalizeClinics(api) {
         .filter((p) => p && MONTH_RE.test(p.month) && Number.isFinite(p.amountEur))
         .map((p) => ({ month: p.month, amountEur: p.amountEur, note: typeof p.note === 'string' ? p.note : '', at: numOrNull(p.at) }))
         .sort((a, b) => (a.month < b.month ? -1 : 1)),
+      share: c.share && typeof c.share === 'object'
+        ? { createdAt: numOrNull(c.share.createdAt), lastOpenedAt: numOrNull(c.share.lastOpenedAt), opens: num(c.share.opens) }
+        : null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name) || (a.id < b.id ? -1 : 1));
 }

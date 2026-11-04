@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../../context/AdminContext.jsx';
 import { useAnalytics } from '../../context/AnalyticsContext.jsx';
-import { ROUTES, clinicCreditsRoute, clinicMemberRoute, clinicPaymentRoute, clinicRoute, clinicUsageRoute, doctorCreditsRoute } from '../../data/api/endpoints.js';
-import { withClinic, withClinicCredits, withClinicPayment, withDoctorCredits, withGrant, withMembership, withoutClinic } from '../../data/clinics/edits.js';
+import { ROUTES, clinicCreditsRoute, clinicMemberRoute, clinicPaymentRoute, clinicRoute, clinicShareRoute, clinicUsageRoute, doctorCreditsRoute } from '../../data/api/endpoints.js';
+import { withClinic, withClinicCredits, withClinicPayment, withClinicShare, withDoctorCredits, withGrant, withMembership, withoutClinic } from '../../data/clinics/edits.js';
 
 // A clinic's usage of one period, kept while the site is open: past days never change (credits are counted
 // when they are used), so only today's numbers move — a minute-old answer is reloaded.
@@ -144,6 +144,25 @@ export function useClinicActions() {
     [client, rebuild],
   );
 
+  /** A new read-only link + password for the clinic (the old link stops). Returns { url, password } — shown once. */
+  const shareClinic = useCallback(
+    async (id) => {
+      const data = await client.post(clinicShareRoute(id), {});
+      rebuild((raw) => withClinicShare(raw, id, { createdAt: data.createdAt ?? Date.now(), lastOpenedAt: null, opens: 0 }));
+      return { url: data.url, password: data.password };
+    },
+    [client, rebuild],
+  );
+
+  /** Stops the clinic's read-only link. */
+  const stopSharing = useCallback(
+    async (id) => {
+      await client.del(clinicShareRoute(id));
+      rebuild((raw) => withClinicShare(raw, id, null));
+    },
+    [client, rebuild],
+  );
+
   /** Deletes a clinic without doctors (the server refuses otherwise); its records stay on the server. */
   const deleteClinic = useCallback(
     async (id) => {
@@ -153,5 +172,5 @@ export function useClinicActions() {
     [client, rebuild],
   );
 
-  return { createClinic, updateClinic, addMember, removeMember, addCredits, addDoctorCredits, savePayment, removePayment, deleteClinic };
+  return { createClinic, updateClinic, addMember, removeMember, addCredits, addDoctorCredits, savePayment, removePayment, shareClinic, stopSharing, deleteClinic };
 }

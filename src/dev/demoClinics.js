@@ -43,6 +43,7 @@ export function demoClinics(api, nowMs) {
       credits: { available: 1240, used: 260, total: 1500 },
       createdAt: created,
       updatedAt: created,
+      share: { createdAt: created + 86400000, lastOpenedAt: nowMs - 5 * 3600000, opens: 4 },
       pids: doctors.slice(3, 5).map((d) => d.pid),
     },
   ].filter((c) => CLINIC_ID_RE.test(c.id));

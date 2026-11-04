@@ -218,7 +218,7 @@ function clinicsState(api, nowMs) {
 }
 
 const membersOf = (id) => [...state.memberOf.entries()].filter(([, clinicId]) => clinicId === id).map(([pid]) => pid).sort();
-const clinicOut = ({ deletedAt, ...clinic }) => ({ ...clinic, members: membersOf(clinic.id), payments: clinic.payments ?? [] });
+const clinicOut = ({ deletedAt, ...clinic }) => ({ ...clinic, members: membersOf(clinic.id), payments: clinic.payments ?? [], share: clinic.share ?? null });
 /** Euros typed by the owner (like the backend's eurOf): 0..1e6, at most 2 decimals; null otherwise. */
 const eurOf = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1e6 && Math.abs(v * 100 - Math.round(v * 100)) < 1e-6 ? Math.round(v * 100) / 100 : null);
 const vilniusMonthOf = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit' }).format(new Date(ms));
@@ -237,7 +237,7 @@ async function handleClinics(req, res, route, query, api, nowMs) {
     clinics.set(id, clinic);
     return ok(res, { clinic: clinicOut(clinic) });
   }
-  const match = /^\/clinics\/([^/]+)(?:\/(members|credits|usage|payments)(?:\/([^/]+))?)?$/.exec(route);
+  const match = /^\/clinics\/([^/]+)(?:\/(members|credits|usage|payments|share)(?:\/([^/]+))?)?$/.exec(route);
   if (!match) return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
   const id = decodeURIComponent(match[1]);
   const part = match[2] ?? null;
@@ -249,7 +249,20 @@ async function handleClinics(req, res, route, query, api, nowMs) {
     const left = membersOf(id).length;
     if (left) return fail(res, 409, 'HAS_DOCTORS', `Take the clinic's ${left} doctor(s) out first`);
     clinic.deletedAt = nowMs;
+    clinic.share = null;
     return ok(res, { clinicId: id, deleted: true });
+  }
+  // The clinic's read-only link: the real page lives on the backend (/klinika/:token); here only its record
+  if (part === 'share' && !pid && req.method === 'POST') {
+    clinic.share = { createdAt: nowMs, lastOpenedAt: null, opens: 0 };
+    const token = randomBytes(32).toString('base64url');
+    const password = ['K7RM', '2XQP', '9ZTW'].join('-');
+    return ok(res, { clinicId: id, url: `http://localhost:${PORT}/klinika/${token}`, password, createdAt: nowMs });
+  }
+  if (part === 'share' && !pid && req.method === 'DELETE') {
+    const stopped = clinic.share ? 1 : 0;
+    clinic.share = null;
+    return ok(res, { clinicId: id, stopped });
   }
   if (part === 'payments' && pid && req.method === 'PUT') {
     const month = pid;

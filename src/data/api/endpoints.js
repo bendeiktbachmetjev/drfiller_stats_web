@@ -37,3 +37,6 @@ export const clinicUsageRoute = (id) => `/clinics/${encodeURIComponent(id)}/usag
 
 /** @param {string} id @param {string} month 'YYYY-MM' @returns {string} '/clinics/:id/payments/:month' (PUT { amountEur, note }, DELETE) */
 export const clinicPaymentRoute = (id, month) => `/clinics/${encodeURIComponent(id)}/payments/${encodeURIComponent(month)}`;
+
+/** @param {string} id @returns {string} '/clinics/:id/share' (POST → a new read-only link + password, the old one stops; DELETE stops it) */
+export const clinicShareRoute = (id) => `/clinics/${encodeURIComponent(id)}/share`;

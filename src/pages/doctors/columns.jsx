@@ -83,15 +83,42 @@ export function EmailButton({ pid, state, onReveal }) {
 
 const shortText = (text, max) => (text && text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
 
+const SELECT = `h-8 max-w-[200px] rounded-full border border-line bg-surface px-2.5 text-xs font-semibold text-ink disabled:opacity-50 ${RING}`;
+
+/**
+ * Which clinic pays for the doctor: "Own credits" or a clinic. A change asks first, then saves (the page's
+ * onChange); a cancelled question leaves the list as it was.
+ */
+export function ClinicSelect({ pid, name, clinicId, clinics, busy, onChange }) {
+  return (
+    <select
+      value={clinicId ?? ''}
+      disabled={busy}
+      onChange={(event) => onChange(pid, event.target.value || null)}
+      aria-label={t('doctors.clinic.aria', { name })}
+      className={SELECT}
+    >
+      <option value="">{t('doctors.clinic.none')}</option>
+      {clinics.map((clinic) => (
+        <option key={clinic.id} value={clinic.id}>
+          {clinic.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /**
  * Columns of the Doctors table (§4.8) with their phone priorities: p1 = Doctor · Costs · Income · Result ·
  * Last active (the phone card lines); p2 and p3 sit behind "More details" on phones. On wider screens the
  * p3 columns show only with "More columns" (the density rule of §4.0).
  * @param {{ ds: object, rows: object[], emailMode: 'off'|'click'|'list', emails: Map<string, object>,
  *   onReveal: (pid: string) => void, busy: boolean, onToggle: (pid: string, on: boolean) => void,
- *   showMonth: boolean, allColumns: boolean, onAddCredits?: (pid: string) => void }} context
+ *   showMonth: boolean, allColumns: boolean, onAddCredits?: (pid: string) => void,
+ *   clinic?: { list: object[], busy: boolean, onChange: (pid: string, clinicId: string|null) => void } | null }} context
+ *   clinic: the "Clinic" column (left out while the clinic list is not loaded)
  */
-export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onToggle, showMonth, allColumns, onAddCredits }) {
+export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onToggle, showMonth, allColumns, onAddCredits, clinic = null }) {
   const revealed = new Map([...emails].filter(([, state]) => state.email).map(([pid, state]) => [pid, state.email]));
   const nameOf = (row) => doctorName(ds, row.pid, revealed);
   const doctorOf = (row) => {
@@ -157,6 +184,21 @@ export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onT
       ),
     },
   ];
+  if (clinic) {
+    columns.push({
+      key: 'clinic',
+      header: t('doctors.col.clinic'),
+      type: 'node',
+      priority: 2,
+      printHide: true,
+      sortValue: (row) => ds?.clinicById?.get?.(ds?.doctors?.get?.(row.pid)?.clinicId)?.name ?? '',
+      render: (row) => {
+        const doctor = ds?.doctors?.get?.(row.pid);
+        if (!doctor?.exists?.auth) return <span className="text-ink-mute">{fmt.empty}</span>;
+        return <ClinicSelect pid={row.pid} name={nameOf(row)} clinicId={doctor.clinicId ?? null} clinics={clinic.list} busy={clinic.busy} onChange={clinic.onChange} />;
+      },
+    });
+  }
   if (onAddCredits) {
     columns.push({
       key: 'addCredits',

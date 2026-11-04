@@ -515,4 +515,5 @@ export const useRecording = (opts) => useMetric('recording', opts);
 export const useModels = (opts) => useMetric('models', opts);
 export const usePrices = (opts) => useMetric('prices', opts);
 export const useDoctors = (opts) => useMetric('doctors', opts);
+export const useClinicsMetric = (opts) => useMetric('clinics', opts);
 export const useSettingsMetric = (opts) => useMetric('settings', opts);

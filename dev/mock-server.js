@@ -15,11 +15,14 @@
 //   environment: EMAIL_MODE=off|click|list (default list, O2), FALLBACK_ON_404=0|1 (default 0),
 //     MOCK_SCENARIO, MOCK_OFF, MOCK_STRIPE, MOCK_FAIL (the sticky defaults), MOCK_PORT
 // PUT /settings and PUT /costs-monthly/:month validate like §5.2.3.7 and keep state for the process
-// lifetime. No 409 anywhere (O3): unknown pids are dropped with the note UNKNOWN_PIDS_IGNORED, and the
+// lifetime. Clinics (/clinics…) start from src/dev/demoClinics.js and keep their changes for the process
+// lifetime too; a clinic's usage = its current doctors' demo requests. No 409 anywhere (O3): unknown pids are dropped with the note UNKNOWN_PIDS_IGNORED, and the
 // marked pids come back as `internal: true, internalSource: 'settings'` on /doctors.
 import http from 'node:http';
+import { randomBytes } from 'node:crypto';
 import { makeDemoApi } from '../src/dev/demoData.js';
-import { DEFAULT_PLANNING, DEFAULT_SETTINGS, envelope, errorBody, MONTH_COST_LIMITS, MONTH_RE, PID_RE, PLANNING_LIMITS, validate } from '../src/data/api/contract.js';
+import { demoClinics, demoClinicUsage } from '../src/dev/demoClinics.js';
+import { CLINIC_ID_RE, DAY_RE, DEFAULT_PLANNING, DEFAULT_SETTINGS, envelope, errorBody, MONTH_COST_LIMITS, MONTH_RE, PID_RE, PLANNING_LIMITS, validate } from '../src/data/api/contract.js';
 
 const PORT = Number(process.env.MOCK_PORT) || 8323;
 const PREFIX = '/api/admin/v2';
@@ -46,6 +49,8 @@ const state = {
   emailReveals: [],
   emailLists: [],
   fresh: new Map(), // route → last fresh=1 time
+  clinics: null, // Map id → clinic (without members), seeded from demoClinics on first use
+  memberOf: null, // Map pid → clinic id
 };
 
 const send = (res, status, body) => {
@@ -148,8 +153,126 @@ function handleControl(res, query) {
   if (query.get('reset') === '1') {
     state.settings = null;
     state.months.clear();
+    state.clinics = null;
+    state.memberOf = null;
   }
   return send(res, 200, { success: true, mock: state.sticky });
+}
+
+// --- clinics (like the backend's routes/adminClinics.js, without its rate limits and logs) ----------------
+
+const CLINIC_FIELDS = ['name', 'billing', 'active', 'monthlyCapPerDoctor', 'pricePerCreditEur', 'note'];
+
+/** The backend's validateClinic in short: field names of the errors, or the clean value. */
+function checkClinic(body, partial) {
+  const b = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+  const value = {};
+  const errors = [];
+  const has = (key) => Object.hasOwn(b, key);
+  const text = (v) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim() : null);
+  if (has('name') || !partial) {
+    const name = text(b.name);
+    if (!name || name.length > 120) errors.push('name');
+    else value.name = name;
+  }
+  if (has('billing') || !partial) {
+    if (!['invoice', 'prepaid'].includes(b.billing)) errors.push('billing');
+    else value.billing = b.billing;
+  }
+  if (has('active')) (typeof b.active === 'boolean' ? (value.active = b.active) : errors.push('active'));
+  if (has('monthlyCapPerDoctor')) {
+    const n = b.monthlyCapPerDoctor;
+    if (Number.isInteger(n) && n >= 1 && n <= 100000) value.monthlyCapPerDoctor = n;
+    else errors.push('monthlyCapPerDoctor');
+  }
+  if (has('pricePerCreditEur')) {
+    const p = b.pricePerCreditEur;
+    if (p === null) value.pricePerCreditEur = null;
+    else if (typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 10 && Math.abs(p * 10000 - Math.round(p * 10000)) < 1e-6) value.pricePerCreditEur = Math.round(p * 10000) / 10000;
+    else errors.push('pricePerCreditEur');
+  }
+  if (has('note')) {
+    const note = text(b.note);
+    if (note === null || note.length > 500) errors.push('note');
+    else value.note = note;
+  }
+  Object.keys(b).forEach((key) => {
+    if (!CLINIC_FIELDS.includes(key)) errors.push(key);
+  });
+  if (partial && !errors.length && !Object.keys(value).length) errors.push('nothing to change');
+  return { errors, value };
+}
+
+function clinicsState(api, nowMs) {
+  if (!state.clinics) {
+    state.clinics = new Map();
+    state.memberOf = new Map();
+    demoClinics(api, nowMs).forEach(({ pids, ...clinic }) => {
+      state.clinics.set(clinic.id, clinic);
+      pids.forEach((pid) => state.memberOf.set(pid, clinic.id));
+    });
+  }
+  return state.clinics;
+}
+
+const membersOf = (id) => [...state.memberOf.entries()].filter(([, clinicId]) => clinicId === id).map(([pid]) => pid).sort();
+const clinicOut = (clinic) => ({ ...clinic, members: membersOf(clinic.id) });
+
+async function handleClinics(req, res, route, query, api, nowMs) {
+  const clinics = clinicsState(api, nowMs);
+  const doctorOk = (pid) => PID_RE.test(pid) && api.doctors.doctors.some((d) => d.pid === pid && d.exists?.auth);
+  if (route === '/clinics' && req.method === 'GET') {
+    return ok(res, { clinics: [...clinics.values()].map(clinicOut).sort((a, b) => a.name.localeCompare(b.name)) });
+  }
+  if (route === '/clinics' && req.method === 'POST') {
+    const { errors, value } = checkClinic(await readBody(req), false);
+    if (errors.length) return fail(res, 400, 'INVALID_BODY', `Invalid fields: ${errors.join(', ')}`);
+    const id = `c${randomBytes(8).toString('hex')}`;
+    const clinic = { id, active: true, monthlyCapPerDoctor: 3000, pricePerCreditEur: null, note: '', ...value, credits: { available: 0, used: 0, total: 0 }, createdAt: nowMs, updatedAt: nowMs };
+    clinics.set(id, clinic);
+    return ok(res, { clinic: clinicOut(clinic) });
+  }
+  const match = /^\/clinics\/([^/]+)(?:\/(members|credits|usage)(?:\/([^/]+))?)?$/.exec(route);
+  if (!match) return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
+  const id = decodeURIComponent(match[1]);
+  const part = match[2] ?? null;
+  const pid = match[3] ? decodeURIComponent(match[3]) : null;
+  const clinic = CLINIC_ID_RE.test(id) ? clinics.get(id) : null;
+  if (!clinic) return fail(res, 404, 'NOT_FOUND', 'Unknown clinic');
+
+  if (!part && req.method === 'PUT') {
+    const { errors, value } = checkClinic(await readBody(req), true);
+    if (errors.length) return fail(res, 400, 'INVALID_BODY', `Invalid fields: ${errors.join(', ')}`);
+    Object.assign(clinic, value, { updatedAt: nowMs });
+    return ok(res, { clinic: clinicOut(clinic) });
+  }
+  if (part === 'members' && pid && (req.method === 'PUT' || req.method === 'DELETE')) {
+    if (!doctorOk(pid)) return fail(res, 404, 'NOT_FOUND', 'Unknown doctor');
+    const previous = state.memberOf.get(pid) ?? null;
+    if (req.method === 'PUT') {
+      if (previous !== id) state.memberOf.set(pid, id);
+      return ok(res, { pid, clinicId: id, previousClinicId: previous, changed: previous !== id });
+    }
+    const changed = previous === id;
+    if (changed) state.memberOf.delete(pid);
+    return ok(res, { pid, clinicId: null, previousClinicId: previous, changed });
+  }
+  if (part === 'credits' && req.method === 'POST') {
+    const body = await readBody(req);
+    const credits = body?.credits;
+    if (!Number.isInteger(credits) || credits < 1 || credits > 100000) return fail(res, 400, 'INVALID_BODY', 'credits must be a whole number from 1 to 100000');
+    if (clinic.billing !== 'prepaid') return fail(res, 409, 'NOT_PREPAID', 'This clinic pays by invoice; switch it to prepaid credits first');
+    clinic.credits = { available: clinic.credits.available + credits, used: clinic.credits.used, total: clinic.credits.total + credits };
+    clinic.updatedAt = nowMs;
+    return ok(res, { clinicId: id, added: credits, credits: clinic.credits });
+  }
+  if (part === 'usage' && req.method === 'GET') {
+    const from = query.get('from');
+    const to = query.get('to');
+    if (!DAY_RE.test(from ?? '') || !DAY_RE.test(to ?? '') || from >= to) return fail(res, 400, 'BAD_RANGE', 'from and to must be days (YYYY-MM-DD), from before to');
+    return ok(res, { clinicId: id, range: { from, to }, rows: demoClinicUsage(api, membersOf(id), from, to) });
+  }
+  return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
 }
 
 async function handle(req, res) {
@@ -185,6 +308,8 @@ async function handle(req, res) {
   };
   const settingsNow = () => state.settings ?? api.settings.settings;
   const knownPids = new Set(api.doctors.doctors.map((d) => d.pid));
+
+  if (route === '/clinics' || route.startsWith('/clinics/')) return handleClinics(req, res, route, query, api, nowMs);
 
   if (req.method === 'PUT' && route === '/settings') {
     const raw = await readBody(req);
@@ -240,7 +365,11 @@ async function handle(req, res) {
     }
     case route === '/doctors': {
       const marked = new Set(settingsNow().internalPids);
-      const doctors = api.doctors.doctors.map(withGrant).map((d) => (marked.has(d.pid) && !d.internal ? { ...d, internal: true, internalSource: 'settings' } : d));
+      clinicsState(api, nowMs);
+      const doctors = api.doctors.doctors
+        .map(withGrant)
+        .map((d) => (marked.has(d.pid) && !d.internal ? { ...d, internal: true, internalSource: 'settings' } : d))
+        .map((d) => ({ ...d, clinicId: state.memberOf.get(d.pid) ?? null }));
       return ok(res, { ...api.doctors, doctors }, notes);
     }
     case route === '/doctors/emails':

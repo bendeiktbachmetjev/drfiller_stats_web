@@ -12,6 +12,7 @@ export const SECTIONS = Object.freeze([
   { id: 'models', path: '/models', label: 'Models', usesPeriod: true, group: 2, service: true },
   { id: 'prices', path: '/prices', label: 'Prices', usesPeriod: false, group: 2, service: true },
   { id: 'doctors', path: '/doctors', label: 'Doctors', usesPeriod: true, group: 3, service: false },
+  { id: 'clinics', path: '/clinics', label: 'Clinics', usesPeriod: true, group: 3, service: false },
   { id: 'settings', path: '/settings', label: 'Settings', usesPeriod: false, group: 'gear', service: false },
 ]);
 

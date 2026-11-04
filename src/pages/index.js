@@ -11,6 +11,7 @@ export const PAGES = Object.freeze({
   models: lazy(() => import('./ModelsPage.jsx')),
   prices: lazy(() => import('./PricesPage.jsx')),
   doctors: lazy(() => import('./DoctorsPage.jsx')),
+  clinics: lazy(() => import('./ClinicsPage.jsx')),
   settings: lazy(() => import('./SettingsPage.jsx')),
 });
 
@@ -24,5 +25,6 @@ export const PAGE_FILES = Object.freeze({
   models: 'ModelsPage.jsx',
   prices: 'PricesPage.jsx',
   doctors: 'DoctorsPage.jsx',
+  clinics: 'ClinicsPage.jsx',
   settings: 'SettingsPage.jsx',
 });

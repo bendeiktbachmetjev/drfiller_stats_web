@@ -1,6 +1,6 @@
 # Dr.Filler stats
 
-The owner's statistics site. It answers nine questions, one per page:
+The owner's statistics site. It answers ten questions, one per page:
 
 | Page | Question |
 |---|---|
@@ -12,6 +12,7 @@ The owner's statistics site. It answers nine questions, one per page:
 | Models | Which model answers, and is it fast and without failures? |
 | Prices | What would other models and Google Cloud (Vertex) cost, and how fast are they? |
 | Doctors | Who uses Dr.Filler, who pays, and what does each doctor cost us? |
+| Clinics | Which clinics pay for their doctors, how much did each doctor use, and what do we invoice? |
 | Settings (gear) | How we count: VAT, my and test accounts, forecast assumptions, prices, data sources. |
 
 How it works, in short: the browser loads slim rows from the backend's admin API v2 once (behind the admin key),
@@ -55,6 +56,20 @@ repo sits next to this one; without it those checks are skipped.
 `src/data/__tests__/invariants.test.mjs` checks that the pages agree with each other: shared numbers are the
 very same values, splits add up to totals, the account switch and the VAT switch move only what they should,
 and no page result carries a uid, an e-mail or a session id.
+
+## Clinics
+
+A clinic pays for the doctors put into it: by **invoice** (every credit is counted; the page shows the period's
+credits and the amount at the clinic's price per credit) or from **prepaid credits** it bought (shared by its
+doctors). How the server decides who pays and counts each credit: `../backend/services/billing/README.md`.
+
+- The page: `src/pages/ClinicsPage.jsx` + `src/pages/clinics/`. The clinic list comes with the dataset
+  (`GET /clinics`, `data/normalize/clinics.js`); a clinic's usage is loaded for the period on screen
+  (`GET /clinics/:id/usage?from&to`, one row per doctor per Vilnius day) and summed in `data/clinics/report.js`.
+- Doctors page: the "Clinic" column puts a doctor into a clinic, moves or takes them out (after a question).
+- Export on the Clinics page gives the period's doctors (the invoice's annex) and its days as CSV.
+- Mock: `npm run dev:mock` serves two demo clinics (`src/dev/demoClinics.js`); changes last until the mock
+  stops. `?demo` has no clinics.
 
 ## Data files
 

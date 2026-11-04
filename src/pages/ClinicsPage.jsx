@@ -1,0 +1,263 @@
+import React, { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Building2, Pencil, Plus } from 'lucide-react';
+import { useAnalytics, useClinicsMetric } from '../context/AnalyticsContext.jsx';
+import { useAdmin } from '../context/AdminContext.jsx';
+import { Card, CardHeader, DataTable, EmptyState, ErrorBanner, KpiTile, PageLayout } from '../ui/index.js';
+import { t } from '../copy/index.js';
+import { fmt } from '../format/format.js';
+import { clinicReport } from '../data/clinics/report.js';
+import AddDoctors from './clinics/AddDoctors.jsx';
+import ClinicDoctors from './clinics/ClinicDoctors.jsx';
+import ClinicForm, { PRIMARY, SECONDARY } from './clinics/ClinicForm.jsx';
+import TopUpCard from './clinics/TopUpCard.jsx';
+import { answerItemsOf, exportTablesOf } from './clinics/text.js';
+import { useClinicActions, useClinicUsage } from './clinics/useClinics.js';
+import { priceText, reasonOf } from './clinics/reason.js';
+
+const RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent';
+const CHIP = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap';
+const PICK = `inline-flex items-center gap-2 h-10 px-4 rounded-full border text-[14px] font-bold transition-colors ${RING}`;
+
+/** "Invoice" / "Prepaid credits" (+ "Paused") chips of a clinic. */
+function ModeChips({ clinic, inverse = false }) {
+  return (
+    <>
+      <span className={`${CHIP} ${inverse ? 'bg-white/20 text-white' : 'bg-line/40 text-ink-soft'}`}>{t(`clinics.billing.${clinic.billing}`)}</span>
+      {!clinic.active && <span className={`${CHIP} bg-warn/15 text-warn`}>{t('clinics.paused')}</span>}
+    </>
+  );
+}
+
+/** The clinic's name, mode, price, limit and note, with Edit and Pause / Switch on. */
+function ClinicHead({ clinic, onEdit, onToggleActive, busy }) {
+  const details = [
+    clinic.billing === 'invoice' ? (clinic.pricePerCreditEur == null ? t('clinics.head.noPrice') : t('clinics.head.price', { price: priceText(clinic.pricePerCreditEur) })) : null,
+    t('clinics.head.cap', { n: fmt.int(clinic.monthlyCapPerDoctor) }),
+    t('clinics.members', { n: fmt.int(clinic.members.length) }),
+  ].filter(Boolean);
+  return (
+    <Card padding="none" className="min-w-0 p-4 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="flex flex-wrap items-center gap-2 text-xl font-extrabold text-ink">
+            <span className="min-w-0 break-words">{clinic.name}</span>
+            <ModeChips clinic={clinic} />
+          </h2>
+          <p className="mt-1 text-sm font-medium text-ink-soft">{details.join(' · ')}</p>
+          {clinic.note && <p className="mt-1 text-sm font-medium text-ink-mute break-words">{clinic.note}</p>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <button type="button" onClick={onEdit} className={SECONDARY}>
+            <Pencil className="mr-1.5 w-3.5 h-3.5" aria-hidden="true" />
+            {t('clinics.head.edit')}
+          </button>
+          <button type="button" disabled={busy} onClick={onToggleActive} className={SECONDARY}>
+            {t(clinic.active ? 'clinics.head.pause' : 'clinics.head.resume')}
+          </button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/** Tiles: credits used · to invoice (or credits left) · doctors · our costs. */
+function ClinicTiles({ clinic, report, costEur, firstLoad }) {
+  const tt = report.totals;
+  const amount = tt.amountEur;
+  const result = Number.isFinite(amount) ? amount - costEur : null;
+  return (
+    <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
+      <KpiTile
+        label={t('clinics.tile.credits')}
+        value={tt.credits}
+        format="int"
+        hintKey="clinics.tile.credits"
+        sub={t('clinics.tile.credits.sub', { forms: fmt.int(tt.forms), minutes: fmt.minutes(tt.audioMin) })}
+        firstLoad={firstLoad}
+      />
+      {clinic.billing === 'prepaid' ? (
+        <KpiTile
+          label={t('clinics.tile.left')}
+          value={clinic.credits.available}
+          format="int"
+          hintKey="clinics.tile.left"
+          sub={t('clinics.tile.left.sub', { used: fmt.int(clinic.credits.used), total: fmt.int(clinic.credits.total) })}
+          tone={clinic.credits.available <= 0 ? 'bad' : undefined}
+        />
+      ) : (
+        <KpiTile
+          label={t('clinics.tile.amount')}
+          value={amount}
+          format="eur"
+          hintKey="clinics.tile.amount"
+          sub={clinic.pricePerCreditEur == null ? t('clinics.tile.amount.none') : t('clinics.tile.amount.sub', { price: priceText(clinic.pricePerCreditEur) })}
+          firstLoad={firstLoad}
+        />
+      )}
+      <KpiTile
+        label={t('clinics.tile.doctors')}
+        value={clinic.members.length}
+        format="int"
+        sub={t('clinics.tile.doctors.sub', { n: fmt.int(tt.doctorsWithUsage) })}
+      />
+      <KpiTile
+        label={t('clinics.tile.cost')}
+        value={costEur}
+        format="eur"
+        hintKey="clinics.tile.cost"
+        sub={result === null ? undefined : t('clinics.tile.cost.sub', { result: fmt.eurSigned(result) })}
+        badge="estimate"
+      />
+    </div>
+  );
+}
+
+/** The period day by day (the invoice's detail). */
+function ClinicDays({ report, priced }) {
+  const columns = [
+    { key: 'day', header: t('clinics.col.day'), type: 'date', priority: 1 },
+    { key: 'doctors', header: t('clinics.col.dayDoctors'), type: 'int', priority: 2 },
+    { key: 'forms', header: t('clinics.col.forms'), type: 'int', priority: 2 },
+    { key: 'audioMin', header: t('clinics.col.recording'), type: 'minutes', priority: 3 },
+    { key: 'credits', header: t('clinics.col.credits'), type: 'int', priority: 1 },
+    ...(priced ? [{ key: 'amountEur', header: t('clinics.col.amount'), type: 'eur', priority: 1 }] : []),
+  ];
+  return (
+    <Card padding="none" className="min-w-0 p-4 sm:p-6 lg:p-8">
+      <CardHeader title={t('clinics.days.title')} />
+      <DataTable columns={columns} rows={report.days.map((row) => ({ ...row, key: row.day }))} defaultSort={{ key: 'day', dir: 'desc' }} limit={14} emptyText={t('common.list.empty')} caption={t('clinics.days.title')} />
+    </Card>
+  );
+}
+
+/**
+ * Clinics: the clinics that pay for their doctors. Pick a clinic → its doctors' usage in the period on screen
+ * (from the server's per-day rows, the basis of the invoice), add or take out doctors, change the settings,
+ * add credits to a prepaid clinic. Who pays and how credits are counted: backend services/billing/README.md.
+ */
+export default function ClinicsPage() {
+  const { isDemo } = useAdmin();
+  const { dataset: ds, status } = useAnalytics();
+  const metric = useClinicsMetric();
+  const { period } = metric;
+  const actions = useClinicActions();
+  const [params, setParams] = useSearchParams();
+  const [mode, setMode] = useState(null); // null | 'new' | 'edit'
+  const [busy, setBusy] = useState(false);
+  const [headError, setHeadError] = useState(null);
+
+  const clinics = useMemo(() => ds?.clinics ?? [], [ds]);
+  const wanted = params.get('clinic');
+  const clinic = clinics.find((c) => c.id === wanted) ?? (clinics.length === 1 ? clinics[0] : null);
+  const pick = useCallback(
+    (id) => {
+      setMode(null);
+      setHeadError(null);
+      setParams((p) => {
+        const next = new URLSearchParams(p);
+        next.set('clinic', id);
+        return next;
+      }, { replace: true });
+    },
+    [setParams],
+  );
+
+  const usage = useClinicUsage(clinic?.id ?? null, period.from, period.effTo);
+  const report = useMemo(
+    () => (clinic && usage.status !== 'idle' ? clinicReport(usage.rows, { pricePerCreditEur: clinic.pricePerCreditEur, members: clinic.members }) : null),
+    [clinic, usage.rows, usage.status],
+  );
+  const costEur = metric.data?.tables?.clinics?.find((row) => row.id === clinic?.id)?.costEur ?? 0;
+
+  const answerItems = useMemo(() => answerItemsOf({ clinics, clinic, report: usage.status === 'ready' ? report : null, period }), [clinics, clinic, report, usage.status, period]);
+  const exportTables = useMemo(() => exportTablesOf({ clinic, report, period, ds }), [clinic, report, period, ds]);
+  const scopeLine = t('clinics.scopeLine', { range: fmt.range(period.from, period.isFuture ? period.to : period.effTo), clinic: clinic?.name ?? t('clinics.title') });
+
+  const save = async (body) => {
+    if (mode === 'new') {
+      const created = await actions.createClinic(body);
+      pick(created.id);
+    } else {
+      await actions.updateClinic(clinic.id, body);
+      setMode(null);
+    }
+  };
+
+  const toggleActive = async () => {
+    if (clinic.active && !window.confirm(t('clinics.head.pauseConfirm', { name: clinic.name }))) return;
+    setBusy(true);
+    setHeadError(null);
+    try {
+      await actions.updateClinic(clinic.id, { active: !clinic.active });
+    } catch (err) {
+      setHeadError(t('clinics.form.error', { reason: reasonOf(err) }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sourceFailed = ds?.sources?.clinics?.status === 'error';
+  let body;
+  if (isDemo) {
+    body = (
+      <Card>
+        <EmptyState icon={Building2} title={t('clinics.title')} hint={t('clinics.demo')} />
+      </Card>
+    );
+  } else if (sourceFailed) {
+    body = <ErrorBanner message={t('clinics.loadError')} />;
+  } else {
+    body = (
+      <div className="flex flex-col gap-6 md:gap-8">
+        {/* Clinic picker */}
+        <div className="flex flex-wrap items-center gap-2 print:hidden" role="group" aria-label={t('clinics.pick.label')}>
+          {clinics.map((c) => {
+            const on = clinic?.id === c.id;
+            return (
+              <button key={c.id} type="button" aria-pressed={on} onClick={() => pick(c.id)} className={`${PICK} ${on ? 'border-brand bg-brand text-white' : 'border-line bg-surface text-ink hover:bg-line/20'}`}>
+                <span className="max-w-[240px] truncate">{c.name}</span>
+                <ModeChips clinic={c} inverse={on} />
+              </button>
+            );
+          })}
+          <button type="button" onClick={() => setMode('new')} className={`${PRIMARY} ${clinics.length ? 'sm:ml-auto' : ''}`}>
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            {t('clinics.new')}
+          </button>
+        </div>
+
+        {mode === 'new' && <ClinicForm clinic={null} onSave={save} onCancel={() => setMode(null)} />}
+
+        {!clinics.length && mode !== 'new' && status !== 'loading' && (
+          <Card>
+            <EmptyState icon={Building2} title={t('clinics.empty.title')} hint={t('clinics.empty.hint')} action={{ label: t('clinics.new'), onClick: () => setMode('new') }} />
+          </Card>
+        )}
+
+        {clinic && mode !== 'new' && (
+          <>
+            <ClinicHead clinic={clinic} busy={busy} onEdit={() => setMode(mode === 'edit' ? null : 'edit')} onToggleActive={toggleActive} />
+            {headError && <p role="status" className="-mt-3 text-sm font-semibold text-bad">{headError}</p>}
+            {mode === 'edit' && <ClinicForm key={clinic.id} clinic={clinic} onSave={save} onCancel={() => setMode(null)} />}
+            {usage.status === 'error' && (
+              <ErrorBanner error={usage.error} onRetry={usage.reload} />
+            )}
+            {report && <ClinicTiles clinic={clinic} report={report} costEur={costEur} firstLoad={usage.status === 'loading' && !usage.rows.length} />}
+            {report && <ClinicDoctors clinic={clinic} report={report} ds={ds} onRemove={(pid) => actions.removeMember(clinic.id, pid)} />}
+            <AddDoctors clinic={clinic} ds={ds} onAdd={(pid) => actions.addMember(clinic.id, pid)} />
+            {clinic.billing === 'prepaid' && <TopUpCard clinic={clinic} onAdd={(n, note) => actions.addCredits(clinic.id, n, note)} />}
+            {report && <ClinicDays report={report} priced={clinic.pricePerCreditEur != null} />}
+            <p className="text-xs font-medium text-ink-mute">{t('clinics.footnote')}</p>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <PageLayout id="clinics" metric={metric} answerItems={answerItems} hiddenNote={null} sources={['clinics']} exportTables={exportTables} scopeLine={scopeLine} scopeSwitch={false}>
+      {body}
+    </PageLayout>
+  );
+}

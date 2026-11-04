@@ -57,9 +57,10 @@ function PlanLine({ data }) {
  * mine/test toggles. Sorted by costs, highest first. `rows` = the view's rows after the page's search.
  * @param {{ data: object, rows: object[], ds: object|null, view: 'active'|'all', onView: (v: string) => void, search: string,
  *   onSearch: (q: string) => void, toggle: { busy: boolean, message: object|null, toggle: Function },
- *   onAddCredits?: (pid: string) => void }} props
+ *   onAddCredits?: (pid: string) => void,
+ *   clinic?: { list: object[], busy: boolean, onChange: Function, message: { tone: string, text: string }|null } | null }} props
  */
-export default function DoctorsTable({ data, rows, ds, view, onView, search, onSearch, toggle, onAddCredits }) {
+export default function DoctorsTable({ data, rows, ds, view, onView, search, onSearch, toggle, onAddCredits, clinic = null }) {
   const isPhone = useIsPhone();
   const [allColumns, setAllColumns] = useState(readAllColumns);
   const { emails, reveal } = useEmailReveal();
@@ -72,8 +73,9 @@ export default function DoctorsTable({ data, rows, ds, view, onView, search, onS
         showMonth: data.tables.doctors.some((row) => row.costPerMonthEur !== null) || rows.length === 0,
         allColumns: isPhone || allColumns,
         onAddCredits,
+        clinic,
       }),
-    [ds, rows, emailMode, emails, reveal, toggle.busy, toggle.toggle, data, isPhone, allColumns, onAddCredits],
+    [ds, rows, emailMode, emails, reveal, toggle.busy, toggle.toggle, data, isPhone, allColumns, onAddCredits, clinic],
   );
 
   const flipColumns = () => {
@@ -108,6 +110,11 @@ export default function DoctorsTable({ data, rows, ds, view, onView, search, onS
       {toggle.message && (
         <p role="status" className={`mb-3 text-sm font-semibold ${toggle.message.tone === 'bad' ? 'text-bad' : 'text-ink-soft'}`}>
           {t(toggle.message.key, { reason: toggle.message.reason })}
+        </p>
+      )}
+      {clinic?.message && (
+        <p role="status" className={`mb-3 text-sm font-semibold ${clinic.message.tone === 'bad' ? 'text-bad' : 'text-ink-soft'}`}>
+          {clinic.message.text}
         </p>
       )}
       <DataTable

@@ -218,6 +218,8 @@ export const MONTH_COST_LIMITS = Object.freeze({ min: 0, max: 100000, noteMax: 5
 export const PID_RE = /^d[a-z2-7]{9}$/;
 export const MONTH_RE = /^\d{4}-\d{2}$/;
 export const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** A clinic id (backend services/billing/payer.js): 'c' + 16 hex characters. */
+export const CLINIC_ID_RE = /^c[0-9a-f]{16}$/;
 
 // ---------------------------------------------------------------------------
 // A tiny schema checker (no dependency). Unknown fields are allowed (forward compatible).
@@ -333,6 +335,7 @@ SCHEMAS.doctor = obj({
   class: oneOf(['legacy', 'gifted', 'bought_inferred', 'free', 'no_credits_doc']),
   inferredPacks: nullable(obj({ pack250: int, pack600: int, pack1500: int })),
   internal: bool, internalSource: nullable(oneOf(['settings', 'env', 'profile'])),
+  clinicId: opt(nullable(match(CLINIC_ID_RE))),
 });
 
 SCHEMAS.doctors = obj({
@@ -429,6 +432,25 @@ SCHEMAS.settings = obj({ settings: SCHEMAS.settingsObject });
 
 SCHEMAS.doctorEmail = obj({ pid: match(PID_RE), email: nullable(str) });
 
+SCHEMAS.clinic = obj({
+  id: match(CLINIC_ID_RE), name: str, billing: oneOf(['invoice', 'prepaid']), active: bool,
+  monthlyCapPerDoctor: int, pricePerCreditEur: nullable(num), note: str,
+  credits: obj({ available: num, used: num, total: num }),
+  createdAt: nullable(num), updatedAt: nullable(num),
+  members: arr(match(PID_RE)),
+});
+SCHEMAS.clinics = obj({ clinics: arr(SCHEMAS.clinic) });
+
+SCHEMAS.clinicUsageRow = obj({
+  day: match(DAY_RE), pid: pidOrSpecial,
+  formCredits: num, formRefunded: num, anamnesisCredits: num, anamnesisRefunded: num, audioCredits: num, audioMs: num,
+});
+SCHEMAS.clinicUsage = obj({
+  clinicId: match(CLINIC_ID_RE),
+  range: obj({ from: str, to: str }),
+  rows: arr(SCHEMAS.clinicUsageRow),
+});
+
 SCHEMAS.envelope = obj({
   success: oneOf([true]), schemaVersion: oneOf([SCHEMA_VERSION]), generatedAt: str,
   cache: obj({ hit: bool, ageMs: num, ttlMs: num }), notes: arr(str), data: any,
@@ -446,6 +468,8 @@ export const ROUTE_SCHEMAS = Object.freeze({
   costs: 'costsMonthly',
   settings: 'settings',
   doctorEmail: 'doctorEmail',
+  clinics: 'clinics',
+  clinicUsage: 'clinicUsage',
 });
 
 /**

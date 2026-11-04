@@ -11,6 +11,7 @@ import * as enModels from './en/models.js';
 import * as enPrices from './en/prices.js';
 import * as enDoctors from './en/doctors.js';
 import * as enSettings from './en/settings.js';
+import * as enClinics from './en/clinics.js';
 
 const EMPTY = '—';
 
@@ -24,8 +25,8 @@ export const LANGS = Object.freeze({
   en: Object.freeze({
     locale: enCommon.LOCALE,
     RULES: enCommon.RULES,
-    files: { common: enCommon, overview: enOverview, money: enMoney, costs: enCosts, requests: enRequests, recording: enRecording, models: enModels, prices: enPrices, doctors: enDoctors, settings: enSettings },
-    ...merge([enCommon, enOverview, enMoney, enCosts, enRequests, enRecording, enModels, enPrices, enDoctors, enSettings]),
+    files: { common: enCommon, overview: enOverview, money: enMoney, costs: enCosts, requests: enRequests, recording: enRecording, models: enModels, prices: enPrices, doctors: enDoctors, clinics: enClinics, settings: enSettings },
+    ...merge([enCommon, enOverview, enMoney, enCosts, enRequests, enRecording, enModels, enPrices, enDoctors, enClinics, enSettings]),
   }),
 });
 

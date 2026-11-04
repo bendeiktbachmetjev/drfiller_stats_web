@@ -118,6 +118,14 @@ export const COPY = {
   'doctors.credits.rowButton': 'Add',
   'doctors.credits.rowAria': 'Add credits to {name}',
   'doctors.col.add': 'Credits',
+  'doctors.col.clinic': 'Clinic',
+  'doctors.clinic.none': 'Own credits',
+  'doctors.clinic.aria': 'Clinic of {name}',
+  'doctors.clinic.confirmMove': 'Move {name} from {from} to {to}? From now on {to} pays for their requests.',
+  'doctors.clinic.confirmAdd': '{to} will pay for the requests of {name} from now on. Go ahead?',
+  'doctors.clinic.confirmRemove': 'Take {name} out of {from}? From now on they use their own credits.',
+  'doctors.clinic.done': '{name}: {clinic}.',
+  'doctors.clinic.error': 'Clinic not changed: {reason} Please try again.',
 
   // --- Notes -----------------------------------------------------------------------------------------
   'doctors.note.noIncome': 'Stripe is not connected, so “Income” and “Result” are empty. Paying doctors are guessed from their balances.',

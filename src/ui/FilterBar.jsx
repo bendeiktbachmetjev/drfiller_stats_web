@@ -174,8 +174,10 @@ function useOneRow(isPhone, signature) {
  *   vatChip       Overview and Money
  *   exportTables  ExportMenu tables
  *   children      extra page controls (after the scope control)
+ *   scopeSwitch   false = a page whose numbers no account switch or model/billing change touches (Clinics):
+ *                 no scope control and no caveat chips
  */
-export default function FilterBar({ usesPeriod = true, serviceScope = false, vatChip = false, exportTables, children }) {
+export default function FilterBar({ usesPeriod = true, serviceScope = false, vatChip = false, exportTables, scopeSwitch = true, children }) {
   const { stepper, period, compareCaveat } = usePeriod();
   const { tzWarning } = useAnalytics();
   const { internalCount } = useScope();
@@ -183,16 +185,17 @@ export default function FilterBar({ usesPeriod = true, serviceScope = false, vat
   const [sheetOpen, setSheetOpen] = useState(false);
   const filtersRef = useRef(null);
   const signature = [
-    usesPeriod, serviceScope, vatChip, period?.preset, stepper, internalCount,
+    usesPeriod, serviceScope, vatChip, scopeSwitch, period?.preset, stepper, internalCount,
     compareCaveat?.modelEraChanged, compareCaveat?.billingEraChanged, React.Children.count(children),
   ].join('|');
   const { compact, boxRef, rowRef } = useOneRow(isPhone, signature);
 
-  const scopeControl = serviceScope ? <ServiceChip /> : <ScopeControl />;
+  let scopeControl = serviceScope ? <ServiceChip /> : <ScopeControl />;
+  if (!scopeSwitch) scopeControl = null;
   const chips = (
     <>
       {vatChip && <VatChip />}
-      {usesPeriod && <CaveatChips />}
+      {usesPeriod && scopeSwitch && <CaveatChips />}
     </>
   );
   const tzLine = tzWarning && <p className="basis-full text-xs font-medium text-ink-soft">{t('common.tzWarning')}</p>;
@@ -246,9 +249,11 @@ export default function FilterBar({ usesPeriod = true, serviceScope = false, vat
           <Stepper />
         </span>
       )}
-      <span data-row-item="" className="inline-flex">
-        {scopeControl}
-      </span>
+      {scopeControl && (
+        <span data-row-item="" className="inline-flex">
+          {scopeControl}
+        </span>
+      )}
       {children && (
         <span data-row-item="" className="inline-flex items-center gap-3">
           {children}

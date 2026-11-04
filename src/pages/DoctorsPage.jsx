@@ -3,7 +3,7 @@ import { useAnalytics, useDoctors } from '../context/AnalyticsContext.jsx';
 import { Card, DataNotes, EmptyState, NotRecorded, PageLayout } from '../ui/index.js';
 import { STATS_START } from '../data/constants.js';
 import { matchesSearch } from '../data/metrics/doctors.js';
-import { t } from '../copy/index.js';
+import { doctorLabel, t } from '../copy/index.js';
 import { fmt } from '../format/format.js';
 import AddCreditsCard from './doctors/AddCreditsCard.jsx';
 import { ClassCard, FunnelCard } from './doctors/ClassCard.jsx';
@@ -12,6 +12,45 @@ import DoctorsTable from './doctors/DoctorsTable.jsx';
 import SuggestionRow from './doctors/SuggestionRow.jsx';
 import { useInternalToggle } from './doctors/hooks.js';
 import { answerItemsOf, exportTablesOf, itemText } from './doctors/text.js';
+import { useClinicActions } from './clinics/useClinics.js';
+import { reasonOf } from './clinics/reason.js';
+
+/**
+ * The "Clinic" column's state: which clinic pays for a doctor, changed after a question. Null while the
+ * clinic list is not loaded (demo data, or /clinics failed): then the column is left out.
+ */
+function useClinicColumn(ds) {
+  const actions = useClinicActions();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+  const onChange = useCallback(
+    async (pid, nextId) => {
+      const doctor = ds?.doctors?.get?.(pid);
+      const current = doctor?.clinicId ?? null;
+      if (current === nextId) return;
+      const name = doctorLabel(doctor);
+      const nameOf = (id) => ds?.clinicById?.get?.(id)?.name ?? id;
+      let question = t('doctors.clinic.confirmAdd', { name, to: nameOf(nextId) });
+      if (!nextId) question = t('doctors.clinic.confirmRemove', { name, from: nameOf(current) });
+      else if (current) question = t('doctors.clinic.confirmMove', { name, from: nameOf(current), to: nameOf(nextId) });
+      if (!window.confirm(question)) return;
+      setBusy(true);
+      setMessage(null);
+      try {
+        if (nextId) await actions.addMember(nextId, pid);
+        else await actions.removeMember(current, pid);
+        setMessage({ tone: 'good', text: t('doctors.clinic.done', { name, clinic: nextId ? nameOf(nextId) : t('doctors.clinic.none') }) });
+      } catch (err) {
+        setMessage({ tone: 'bad', text: t('doctors.clinic.error', { reason: reasonOf(err) }) });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [ds, actions],
+  );
+  const ready = ds?.sources?.clinics?.status === 'ok';
+  return useMemo(() => (ready ? { list: ds.clinics, busy, onChange, message } : null), [ready, ds, busy, onChange, message]);
+}
 
 /**
  * Doctors (§4.8): who uses Dr.Filler, who pays and what each doctor costs. PageLayout fixes the top
@@ -27,6 +66,7 @@ export default function DoctorsPage() {
   const metric = useDoctors({ view });
   const { dataset: ds } = useAnalytics();
   const toggle = useInternalToggle();
+  const clinicColumn = useClinicColumn(ds);
   const [creditPid, setCreditPid] = useState(null);
   const creditsCard = useRef(null);
   const addCreditsFor = useCallback((pid) => {
@@ -67,7 +107,7 @@ export default function DoctorsPage() {
               </div>
             </div>
             <AddCreditsCard ref={creditsCard} pid={creditPid} onPick={setCreditPid} />
-            <DoctorsTable data={data} rows={tableRows} ds={ds} view={view} onView={setView} search={search} onSearch={setSearch} toggle={toggle} onAddCredits={addCreditsFor} />
+            <DoctorsTable data={data} rows={tableRows} ds={ds} view={view} onView={setView} search={search} onSearch={setSearch} toggle={toggle} onAddCredits={addCreditsFor} clinic={clinicColumn} />
           </>
         )}
       </div>

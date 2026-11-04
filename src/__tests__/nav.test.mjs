@@ -9,19 +9,19 @@ import { PAGE_FILES } from '../pages/index.js';
 
 const srcPath = (relative) => fileURLToPath(new URL(`../${relative}`, import.meta.url));
 
-test('nav: 9 sections in the order of §3.1, English labels (OVERRIDES O1)', () => {
+test('nav: 10 sections in the order of §3.1 (+ Clinics after Doctors), English labels (OVERRIDES O1)', () => {
   assert.deepEqual(
     SECTIONS.map((s) => s.id),
-    ['overview', 'money', 'costs', 'requests', 'recording', 'models', 'prices', 'doctors', 'settings'],
+    ['overview', 'money', 'costs', 'requests', 'recording', 'models', 'prices', 'doctors', 'clinics', 'settings'],
   );
   assert.deepEqual(
     SECTIONS.map((s) => s.label),
-    ['Overview', 'Money', 'Costs', 'Requests', 'Recording', 'Models', 'Prices', 'Doctors', 'Settings'],
+    ['Overview', 'Money', 'Costs', 'Requests', 'Recording', 'Models', 'Prices', 'Doctors', 'Clinics', 'Settings'],
   );
   assert.equal(DEFAULT_SECTION, 'overview');
-  assert.equal(new Set(SECTIONS.map((s) => s.path)).size, 9, 'paths are unique');
+  assert.equal(new Set(SECTIONS.map((s) => s.path)).size, 10, 'paths are unique');
   SECTIONS.forEach((s) => assert.equal(s.path, `/${s.id}`));
-  assert.equal(PILL_SECTIONS.length, 8, 'Settings is the gear, not a pill');
+  assert.equal(PILL_SECTIONS.length, 9, 'Settings is the gear, not a pill');
   assert.deepEqual(SECTIONS.filter((s) => s.service).map((s) => s.id), ['models', 'prices']);
   assert.deepEqual(SECTIONS.filter((s) => !s.usesPeriod).map((s) => s.id), ['prices', 'settings']);
   assert.equal(LEGACY_PATH, '/legacy/index.html');
@@ -50,6 +50,6 @@ test('every section has its page, metric, copy file and a title + question', () 
     assert.equal(typeof copy.COPY[`${id}.title`], 'string', `${id}.title`);
     assert.equal(typeof copy.COPY[`${id}.question`], 'string', `${id}.question`);
   });
-  assert.equal(Object.keys(COMPUTE).length, 9);
-  assert.equal(Object.keys(PAGE_FILES).length, 9);
+  assert.equal(Object.keys(COMPUTE).length, 10);
+  assert.equal(Object.keys(PAGE_FILES).length, 10);
 });

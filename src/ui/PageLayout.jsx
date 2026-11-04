@@ -72,6 +72,7 @@ export function useScrollToHash(ready) {
  *   exportTables  ExportMenu tables
  *   filters       extra controls placed in the filter row
  *   filterBar     false = no filter row (Settings)
+ *   scopeSwitch   false = no account switch and no caveat chips in the filter row (Clinics)
  *   scopeLine     ready text instead of the built scope line (null hides it)
  *   aside         node at the right of the title (Settings: updated time + refresh)
  */
@@ -86,6 +87,7 @@ export default function PageLayout({
   exportTables,
   filters,
   filterBar = true,
+  scopeSwitch = true,
   scopeLine: scopeLineText,
   aside,
   children,
@@ -131,7 +133,7 @@ export default function PageLayout({
       <PrintHeader section={id} />
       <PageHeader title={title} question={question} scopeLine={scopeLine} aside={aside} />
       {filterBar && (
-        <FilterBar usesPeriod={section?.usesPeriod !== false} serviceScope={service} vatChip={vatChip} exportTables={exportTables}>
+        <FilterBar usesPeriod={section?.usesPeriod !== false} serviceScope={service} vatChip={vatChip} exportTables={exportTables} scopeSwitch={scopeSwitch}>
           {filters}
         </FilterBar>
       )}

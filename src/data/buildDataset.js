@@ -6,10 +6,11 @@ import { normalizeDoctors } from './normalize/doctors.js';
 import { normalizeRevenue } from './normalize/revenue.js';
 import { normalizeSettings } from './normalize/settings.js';
 import { normalizeSoniox } from './normalize/soniox.js';
+import { normalizeClinics } from './normalize/clinics.js';
 import { loggingSince, normalizeUsageRows } from './normalize/usage.js';
 
 /**
- * @typedef {'usage'|'doctors'|'config'|'revenue'|'soniox'|'costs'|'settings'} SourceName
+ * @typedef {'usage'|'doctors'|'config'|'revenue'|'soniox'|'costs'|'settings'|'clinics'} SourceName
  * @typedef {{ status: 'ok'|'off'|'error'|'limited'|'test', fetchedAt: number|null, cacheAgeMs: number|null, code?: string }} SourceState
  * @typedef {import('./normalize/usage.js').UsageRow} UsageRow
  * @typedef {import('./normalize/doctors.js').Doctor} Doctor
@@ -27,6 +28,7 @@ import { loggingSince, normalizeUsageRows } from './normalize/usage.js';
  *   revenue: { status: string, webhook: object|null, ignoredSessions: number, reason: string|null },
  *   soniox: import('./api/contract.js').SonioxApi|null, costsMonthly: import('./api/contract.js').MonthCost[], benchmark: SlimBenchmark,
  *   emailMode: 'off'|'click'|'list',
+ *   clinics: import('./normalize/clinics.js').Clinic[], clinicById: Map<string, import('./normalize/clinics.js').Clinic>,
  *   v2LoggingSince: { forms: number|null, dictation: number|null, events: number|null },
  *   sources: Record<SourceName, SourceState>,
  *   quality: import('./normalize/usage.js').Quality
@@ -34,14 +36,14 @@ import { loggingSince, normalizeUsageRows } from './normalize/usage.js';
  * @typedef {{
  *   usage: import('./api/contract.js').UsageRowApi[] | { rows: import('./api/contract.js').UsageRowApi[] } | null,
  *   doctors: object|null, config: object|null, revenue: object|null, soniox: object|null, costsMonthly: object|null,
- *   settings: object|null, sources: Record<SourceName, SourceState>
+ *   settings: object|null, clinics?: object|null, sources: Record<SourceName, SourceState>
  * }} RawBundle
  */
 
 let sequence = 0;
 
 const emptySources = () =>
-  Object.fromEntries(['usage', 'doctors', 'config', 'revenue', 'soniox', 'costs', 'settings'].map((name) => [name, { status: 'error', fetchedAt: null, cacheAgeMs: null }]));
+  Object.fromEntries(['usage', 'doctors', 'config', 'revenue', 'soniox', 'costs', 'settings', 'clinics'].map((name) => [name, { status: 'error', fetchedAt: null, cacheAgeMs: null }]));
 
 const freezeList = (list) => Object.freeze(list);
 
@@ -70,6 +72,7 @@ export function buildDataset(raw, { nowMs, staticPrices, benchmark }) {
   });
 
   const byKind = (kind) => freezeList(rows.filter((row) => row.kind === kind));
+  const clinics = normalizeClinics(raw?.clinics ?? null);
   if (revenue.status === 'test') sources.revenue = { ...sources.revenue, status: 'test' };
 
   sequence += 1;
@@ -100,6 +103,8 @@ export function buildDataset(raw, { nowMs, staticPrices, benchmark }) {
     costsMonthly: freezeList(normalizeCostsMonthly(raw?.costsMonthly ?? null)),
     benchmark: benchmark ?? { meta: {}, availability: [], combos: [] },
     emailMode: raw?.doctors?.emailMode ?? 'off',
+    clinics: freezeList(clinics),
+    clinicById: new Map(clinics.map((clinic) => [clinic.id, clinic])),
     v2LoggingSince: loggingSince(rows, apiRows),
     sources: Object.freeze(sources),
     quality: Object.freeze(quality),

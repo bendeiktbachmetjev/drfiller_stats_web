@@ -8,6 +8,7 @@ import { computeRecording } from './recording.js';
 import { computeModels } from './models.js';
 import { computePrices } from './prices.js';
 import { computeDoctors } from './doctors.js';
+import { computeClinics } from './clinics.js';
 import { computeSettings } from './settings.js';
 
 export const COMPUTE = Object.freeze({
@@ -19,6 +20,7 @@ export const COMPUTE = Object.freeze({
   models: computeModels,
   prices: computePrices,
   doctors: computeDoctors,
+  clinics: computeClinics,
   settings: computeSettings,
 });
 

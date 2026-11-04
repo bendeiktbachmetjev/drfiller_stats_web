@@ -438,8 +438,16 @@ SCHEMAS.clinic = obj({
   credits: obj({ available: num, used: num, total: num }),
   createdAt: nullable(num), updatedAt: nullable(num),
   members: arr(match(PID_RE)),
+  payments: opt(arr(obj({ month: match(MONTH_RE), amountEur: num, note: str, at: nullable(num) }))),
 });
 SCHEMAS.clinics = obj({ clinics: arr(SCHEMAS.clinic) });
+
+/** GET /grants: credits added by hand, to a doctor (pid) or a prepaid clinic, with what was paid (null = not recorded). */
+SCHEMAS.grant = obj({
+  id: str, t: num, pid: nullable(match(PID_RE)), clinicId: nullable(match(CLINIC_ID_RE)),
+  credits: num, priceEur: nullable(num), note: str,
+});
+SCHEMAS.grants = obj({ grants: arr(SCHEMAS.grant) });
 
 SCHEMAS.clinicUsageRow = obj({
   day: match(DAY_RE), pid: pidOrSpecial,
@@ -470,6 +478,7 @@ export const ROUTE_SCHEMAS = Object.freeze({
   doctorEmail: 'doctorEmail',
   clinics: 'clinics',
   clinicUsage: 'clinicUsage',
+  grants: 'grants',
 });
 
 /**

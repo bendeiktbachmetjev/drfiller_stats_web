@@ -1,5 +1,5 @@
 // Loads everything the dataset needs (§5.3.7). Required: /usage + /doctors (all-or-nothing). Optional:
-// /config, /revenue, /soniox-usage, /costs-monthly, /settings, /clinics (each may fail alone → its source is 'error').
+// /config, /revenue, /soniox-usage, /costs-monthly, /settings, /clinics, /grants (each may fail alone → its source is 'error').
 // A clinic's usage is not here: the Clinics page loads it for the period on screen (pages/clinics/useClinics.js).
 import { LIMITED_HISTORY_DAYS } from './constants.js';
 import { STATS_ORIGIN_MS } from './eras.js';
@@ -59,6 +59,7 @@ export async function loadAll({ client, signal, demo = null, nowMs }) {
       costsMonthly: demo.costsMonthly ?? null,
       settings: demo.settings ?? null,
       clinics: demo.clinics ?? null,
+      grants: demo.grants ?? null,
       sources: {
         usage: ok,
         doctors: ok,
@@ -69,6 +70,7 @@ export async function loadAll({ client, signal, demo = null, nowMs }) {
         settings: demo.settings ? ok : { ...ok, status: 'error' },
         // Clinics live on the server (and the mock), not in the demo data
         clinics: demo.clinics ? ok : { ...ok, status: 'off' },
+        grants: demo.grants ? ok : { ...ok, status: 'off' },
       },
     };
   }
@@ -98,7 +100,7 @@ export async function loadAll({ client, signal, demo = null, nowMs }) {
     }
   };
 
-  const [usage, doctors, config, revenue, soniox, costs, settings, clinics] = await Promise.all([
+  const [usage, doctors, config, revenue, soniox, costs, settings, clinics, grants] = await Promise.all([
     loadUsage(),
     get(ROUTES.doctors),
     optional(ROUTES.config),
@@ -107,6 +109,7 @@ export async function loadAll({ client, signal, demo = null, nowMs }) {
     optional(ROUTES.costsMonthly),
     optional(ROUTES.settings),
     optional(ROUTES.clinics),
+    optional(ROUTES.grants),
   ]);
   if (signal?.aborted) throw new DataError('ABORTED');
 
@@ -123,6 +126,7 @@ export async function loadAll({ client, signal, demo = null, nowMs }) {
     costsMonthly: costs.envelope?.data ?? null,
     settings: settings.envelope?.data ?? null,
     clinics: clinics.envelope?.data ?? null,
+    grants: grants.envelope?.data ?? null,
     sources: {
       usage: sourceOf(usage.envelope, nowMs, usage.status),
       doctors: sourceOf(doctors, nowMs),
@@ -132,6 +136,7 @@ export async function loadAll({ client, signal, demo = null, nowMs }) {
       costs: costs.envelope ? sourceOf(costs.envelope, nowMs) : failed(costs),
       settings: settings.envelope ? sourceOf(settings.envelope, nowMs) : failed(settings),
       clinics: clinics.envelope ? sourceOf(clinics.envelope, nowMs) : failed(clinics),
+      grants: grants.envelope ? sourceOf(grants.envelope, nowMs) : failed(grants),
     },
   };
 }

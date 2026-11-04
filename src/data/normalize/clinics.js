@@ -1,12 +1,14 @@
 // GET /clinics → Clinic[] (Clinics page, the Doctors page's clinic column). Copy-free.
-import { CLINIC_ID_RE, PID_RE } from '../api/contract.js';
+import { CLINIC_ID_RE, MONTH_RE, PID_RE } from '../api/contract.js';
 
 /**
  * @typedef {{
  *   id: string, name: string, billing: 'invoice'|'prepaid', active: boolean, monthlyCapPerDoctor: number,
  *   pricePerCreditEur: number|null, note: string, credits: { available: number, used: number, total: number },
- *   createdAt: number|null, updatedAt: number|null, members: string[]
+ *   createdAt: number|null, updatedAt: number|null, members: string[],
+ *   payments: Array<{ month: string, amountEur: number, note: string, at: number|null }>
  * }} Clinic
+ *   payments: what an invoiced clinic paid, one record per month (the owner enters them)
  */
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -32,6 +34,10 @@ export function normalizeClinics(api) {
       createdAt: numOrNull(c.createdAt),
       updatedAt: numOrNull(c.updatedAt),
       members: Array.isArray(c.members) ? c.members.filter((pid) => PID_RE.test(pid)).sort() : [],
+      payments: (Array.isArray(c.payments) ? c.payments : [])
+        .filter((p) => p && MONTH_RE.test(p.month) && Number.isFinite(p.amountEur))
+        .map((p) => ({ month: p.month, amountEur: p.amountEur, note: typeof p.note === 'string' ? p.note : '', at: numOrNull(p.at) }))
+        .sort((a, b) => (a.month < b.month ? -1 : 1)),
     }))
     .sort((a, b) => a.name.localeCompare(b.name) || (a.id < b.id ? -1 : 1));
 }

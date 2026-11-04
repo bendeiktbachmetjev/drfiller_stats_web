@@ -7,10 +7,12 @@ import { normalizeRevenue } from './normalize/revenue.js';
 import { normalizeSettings } from './normalize/settings.js';
 import { normalizeSoniox } from './normalize/soniox.js';
 import { normalizeClinics } from './normalize/clinics.js';
+import { normalizeGrants } from './normalize/grants.js';
+import { manualPaymentsOf } from './clinics/money.js';
 import { loggingSince, normalizeUsageRows } from './normalize/usage.js';
 
 /**
- * @typedef {'usage'|'doctors'|'config'|'revenue'|'soniox'|'costs'|'settings'|'clinics'} SourceName
+ * @typedef {'usage'|'doctors'|'config'|'revenue'|'soniox'|'costs'|'settings'|'clinics'|'grants'} SourceName
  * @typedef {{ status: 'ok'|'off'|'error'|'limited'|'test', fetchedAt: number|null, cacheAgeMs: number|null, code?: string }} SourceState
  * @typedef {import('./normalize/usage.js').UsageRow} UsageRow
  * @typedef {import('./normalize/doctors.js').Doctor} Doctor
@@ -29,6 +31,8 @@ import { loggingSince, normalizeUsageRows } from './normalize/usage.js';
  *   soniox: import('./api/contract.js').SonioxApi|null, costsMonthly: import('./api/contract.js').MonthCost[], benchmark: SlimBenchmark,
  *   emailMode: 'off'|'click'|'list',
  *   clinics: import('./normalize/clinics.js').Clinic[], clinicById: Map<string, import('./normalize/clinics.js').Clinic>,
+ *   grants: import('./normalize/grants.js').Grant[], manualPayments: Payment[],
+ *     (credits added by hand with their price, and invoiced clinics' month payments, as payments: Income counts them)
  *   v2LoggingSince: { forms: number|null, dictation: number|null, events: number|null },
  *   sources: Record<SourceName, SourceState>,
  *   quality: import('./normalize/usage.js').Quality
@@ -36,14 +40,14 @@ import { loggingSince, normalizeUsageRows } from './normalize/usage.js';
  * @typedef {{
  *   usage: import('./api/contract.js').UsageRowApi[] | { rows: import('./api/contract.js').UsageRowApi[] } | null,
  *   doctors: object|null, config: object|null, revenue: object|null, soniox: object|null, costsMonthly: object|null,
- *   settings: object|null, clinics?: object|null, sources: Record<SourceName, SourceState>
+ *   settings: object|null, clinics?: object|null, grants?: object|null, sources: Record<SourceName, SourceState>
  * }} RawBundle
  */
 
 let sequence = 0;
 
 const emptySources = () =>
-  Object.fromEntries(['usage', 'doctors', 'config', 'revenue', 'soniox', 'costs', 'settings', 'clinics'].map((name) => [name, { status: 'error', fetchedAt: null, cacheAgeMs: null }]));
+  Object.fromEntries(['usage', 'doctors', 'config', 'revenue', 'soniox', 'costs', 'settings', 'clinics', 'grants'].map((name) => [name, { status: 'error', fetchedAt: null, cacheAgeMs: null }]));
 
 const freezeList = (list) => Object.freeze(list);
 
@@ -64,15 +68,18 @@ export function buildDataset(raw, { nowMs, staticPrices, benchmark }) {
 
   const revenue = normalizeRevenue(raw?.revenue ?? null);
   const sources = { ...emptySources(), ...(raw?.sources ?? {}) };
+  const clinics = normalizeClinics(raw?.clinics ?? null);
+  const grants = normalizeGrants(raw?.grants ?? null);
+  const manualPayments = manualPaymentsOf(grants, clinics);
   const { doctors, doctorList } = normalizeDoctors(raw?.doctors ?? null, {
-    payments: revenue.revenueMode === 'live' ? revenue.payments : [],
+    // A doctor who paid us by hand counts as paying, like a Stripe buyer
+    payments: [...(revenue.revenueMode === 'live' ? revenue.payments : []), ...manualPayments.filter((p) => p.pid)],
     stripeLive: revenue.status === 'ok' && revenue.revenueMode === 'live',
     rows,
     internalPids: raw?.settings && sources.settings?.status !== 'error' ? settings.internalPids : null,
   });
 
   const byKind = (kind) => freezeList(rows.filter((row) => row.kind === kind));
-  const clinics = normalizeClinics(raw?.clinics ?? null);
   if (revenue.status === 'test') sources.revenue = { ...sources.revenue, status: 'test' };
 
   sequence += 1;
@@ -105,6 +112,8 @@ export function buildDataset(raw, { nowMs, staticPrices, benchmark }) {
     emailMode: raw?.doctors?.emailMode ?? 'off',
     clinics: freezeList(clinics),
     clinicById: new Map(clinics.map((clinic) => [clinic.id, clinic])),
+    grants: freezeList(grants),
+    manualPayments: freezeList(manualPayments),
     v2LoggingSince: loggingSince(rows, apiRows),
     sources: Object.freeze(sources),
     quality: Object.freeze(quality),

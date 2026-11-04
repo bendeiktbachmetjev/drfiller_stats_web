@@ -5,7 +5,7 @@ import { STATS_START } from '../data/constants.js';
 import { matchesSearch } from '../data/metrics/doctors.js';
 import { doctorLabel, t } from '../copy/index.js';
 import { fmt } from '../format/format.js';
-import AddCreditsCard from './doctors/AddCreditsCard.jsx';
+import TopUpCard from './doctors/TopUpCard.jsx';
 import { ClassCard, FunnelCard } from './doctors/ClassCard.jsx';
 import DoctorTiles from './doctors/DoctorTiles.jsx';
 import DoctorsTable from './doctors/DoctorsTable.jsx';
@@ -106,7 +106,7 @@ export default function DoctorsPage() {
                 <FunnelCard data={data} />
               </div>
             </div>
-            <AddCreditsCard ref={creditsCard} pid={creditPid} onPick={setCreditPid} />
+            <TopUpCard ref={creditsCard} pid={creditPid} onPick={setCreditPid} />
             <DoctorsTable data={data} rows={tableRows} ds={ds} view={view} onView={setView} search={search} onSearch={setSearch} toggle={toggle} onAddCredits={addCreditsFor} clinic={clinicColumn} />
           </>
         )}

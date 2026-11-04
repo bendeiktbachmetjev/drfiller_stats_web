@@ -47,3 +47,46 @@ export function withClinicCredits(raw, id, credits) {
   const clinics = clinicsOf(raw).map((c) => (c.id === id ? { ...c, credits } : c));
   return { ...raw, clinics: { ...(raw?.clinics ?? {}), clinics } };
 }
+
+/**
+ * A credit grant the owner just added (doctor or clinic), until the next load brings the server's list.
+ * @param {object} raw RawBundle
+ * @param {{ pid?: string|null, clinicId?: string|null, credits: number, priceEur: number|null, note?: string, t: number }} grant
+ */
+export function withGrant(raw, { pid = null, clinicId = null, credits, priceEur, note = '', t }) {
+  const list = Array.isArray(raw?.grants?.grants) ? raw.grants.grants : [];
+  const grant = { id: `glocal-${t}-${list.length}`, t, pid, clinicId, credits, priceEur, note };
+  return { ...raw, grants: { ...(raw?.grants ?? {}), grants: [...list, grant] } };
+}
+
+/**
+ * A doctor's own balance after a hand top-up (the server's answer).
+ * @param {object} raw RawBundle
+ * @param {string} pid
+ * @param {{ available: number, used?: number, total?: number }} credits
+ */
+export function withDoctorCredits(raw, pid, credits) {
+  const doctors = doctorsOf(raw).map((d) => (d.pid === pid ? { ...d, credits: { ...(d.credits ?? {}), ...credits, consistent: true } } : d));
+  return { ...raw, doctors: raw?.doctors ? { ...raw.doctors, doctors } : raw?.doctors };
+}
+
+/**
+ * A month an invoiced clinic paid (payment), or that record removed (null).
+ * @param {object} raw RawBundle
+ * @param {string} id clinic
+ * @param {string} month 'YYYY-MM'
+ * @param {{ month: string, amountEur: number, note: string, at: number|null }|null} payment
+ */
+export function withClinicPayment(raw, id, month, payment) {
+  const clinics = clinicsOf(raw).map((c) => {
+    if (c.id !== id) return c;
+    const others = (c.payments ?? []).filter((p) => p.month !== month);
+    return { ...c, payments: payment ? [...others, payment].sort((a, b) => (a.month < b.month ? -1 : 1)) : others };
+  });
+  return { ...raw, clinics: { ...(raw?.clinics ?? {}), clinics } };
+}
+
+/** A deleted clinic leaves the list. */
+export function withoutClinic(raw, id) {
+  return { ...raw, clinics: { ...(raw?.clinics ?? {}), clinics: clinicsOf(raw).filter((c) => c.id !== id) } };
+}

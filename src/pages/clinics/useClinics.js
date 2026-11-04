@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAdmin } from '../../context/AdminContext.jsx';
 import { useAnalytics } from '../../context/AnalyticsContext.jsx';
-import { ROUTES, clinicCreditsRoute, clinicMemberRoute, clinicRoute, clinicUsageRoute } from '../../data/api/endpoints.js';
-import { withClinic, withClinicCredits, withMembership } from '../../data/clinics/edits.js';
+import { ROUTES, clinicCreditsRoute, clinicMemberRoute, clinicPaymentRoute, clinicRoute, clinicUsageRoute, doctorCreditsRoute } from '../../data/api/endpoints.js';
+import { withClinic, withClinicCredits, withClinicPayment, withDoctorCredits, withGrant, withMembership, withoutClinic } from '../../data/clinics/edits.js';
 
 // A clinic's usage of one period, kept while the site is open: past days never change (credits are counted
 // when they are used), so only today's numbers move — a minute-old answer is reloaded.
@@ -104,14 +104,54 @@ export function useClinicActions() {
     [client, rebuild],
   );
 
+  /** A prepaid clinic's purchase: credits and what it paid for them (priceEur, 0 = free). */
   const addCredits = useCallback(
-    async (id, credits, note) => {
-      const data = await client.post(clinicCreditsRoute(id), { credits, note });
-      rebuild((raw) => withClinicCredits(raw, id, data.credits));
+    async (id, credits, priceEur, note) => {
+      const data = await client.post(clinicCreditsRoute(id), { credits, priceEur, note });
+      const t = Date.now();
+      rebuild((raw) => withGrant(withClinicCredits(raw, id, data.credits), { clinicId: id, credits, priceEur, note, t }));
       return data;
     },
     [client, rebuild],
   );
 
-  return { createClinic, updateClinic, addMember, removeMember, addCredits };
+  /** A doctor who pays us directly: credits and what was paid (0 = free). Refused while a clinic pays for them. */
+  const addDoctorCredits = useCallback(
+    async (pid, credits, priceEur, note) => {
+      const data = await client.post(doctorCreditsRoute(pid), { credits, priceEur, note });
+      const t = Date.now();
+      rebuild((raw) => withGrant(withDoctorCredits(raw, pid, data.credits), { pid, credits, priceEur, note, t }));
+      return data;
+    },
+    [client, rebuild],
+  );
+
+  /** What an invoiced clinic paid for a month (written again = corrected). */
+  const savePayment = useCallback(
+    async (id, month, amountEur, note) => {
+      const data = await client.put(clinicPaymentRoute(id, month), { amountEur, note });
+      rebuild((raw) => withClinicPayment(raw, id, month, data.payment));
+      return data.payment;
+    },
+    [client, rebuild],
+  );
+
+  const removePayment = useCallback(
+    async (id, month) => {
+      await client.del(clinicPaymentRoute(id, month));
+      rebuild((raw) => withClinicPayment(raw, id, month, null));
+    },
+    [client, rebuild],
+  );
+
+  /** Deletes a clinic without doctors (the server refuses otherwise); its records stay on the server. */
+  const deleteClinic = useCallback(
+    async (id) => {
+      await client.del(clinicRoute(id));
+      rebuild((raw) => withoutClinic(raw, id));
+    },
+    [client, rebuild],
+  );
+
+  return { createClinic, updateClinic, addMember, removeMember, addCredits, addDoctorCredits, savePayment, removePayment, deleteClinic };
 }

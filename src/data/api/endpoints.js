@@ -10,6 +10,7 @@ export const ROUTES = Object.freeze({
   costsMonthly: '/costs-monthly',
   settings: '/settings',
   clinics: '/clinics',
+  grants: '/grants',
 });
 
 /** @param {string} pid @returns {string} '/doctors/:pid/email' (email mode click or list) */
@@ -33,3 +34,6 @@ export const clinicCreditsRoute = (id) => `/clinics/${encodeURIComponent(id)}/cr
 
 /** @param {string} id @returns {string} '/clinics/:id/usage' (GET ?from=YYYY-MM-DD&to=YYYY-MM-DD, `to` exclusive) */
 export const clinicUsageRoute = (id) => `/clinics/${encodeURIComponent(id)}/usage`;
+
+/** @param {string} id @param {string} month 'YYYY-MM' @returns {string} '/clinics/:id/payments/:month' (PUT { amountEur, note }, DELETE) */
+export const clinicPaymentRoute = (id, month) => `/clinics/${encodeURIComponent(id)}/payments/${encodeURIComponent(month)}`;

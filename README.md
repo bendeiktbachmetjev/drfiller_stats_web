@@ -67,6 +67,14 @@ doctors). How the server decides who pays and counts each credit: `../backend/se
   (`GET /clinics`, `data/normalize/clinics.js`); a clinic's usage is loaded for the period on screen
   (`GET /clinics/:id/usage?from&to`, one row per doctor per Vilnius day) and summed in `data/clinics/report.js`.
 - Doctors page: the "Clinic" column puts a doctor into a clinic, moves or takes them out (after a question).
+  The "Top up" card switches between **Doctor** (any number of credits with what was paid, 0 = free; not for a
+  doctor whose clinic pays) and **Clinic** (a prepaid clinic's credits with their price, or what an invoiced
+  clinic paid for a month); a picked doctor shows what they bought, paid, the average price of a credit and used.
+- Clinics page: an invoiced clinic has "Months" — every month the period touches, in full: credits, the amount
+  at its price, paid, "Mark paid"; a prepaid clinic has "Credits bought" with the price of each lot and the
+  average. "Delete" works once no doctor is left in the clinic (its records stay on the server).
+- Money: hand top-ups with a price and month payments are income too ("By hand", no payment fee); they come
+  from `GET /grants` and the clinics' `payments` (`data/clinics/money.js`).
 - Export on the Clinics page gives the period's doctors (the invoice's annex) and its days as CSV.
 - Mock: `npm run dev:mock` serves two demo clinics (`src/dev/demoClinics.js`); changes last until the mock
   stops. `?demo` has no clinics.

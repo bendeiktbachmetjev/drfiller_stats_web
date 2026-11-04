@@ -1,4 +1,5 @@
-// Income of a period (§5.3.7 "Income"): Dr.Filler pack payments in live mode only, on their money time.
+// Income of a period (§5.3.7 "Income"): Dr.Filler pack payments in live mode only, on their money time, plus the
+// money the owner recorded by hand (ds.manualPayments: priced hand grants, invoiced clinics' month payments).
 // net = gross − refund − fee − VAT (if we pay it); disputes on their own date; account-level Stripe fees
 // are listed, never subtracted. Stripe off / error / test → the income is not known ('missing').
 import { PACK_SIZES } from '../constants.js';
@@ -128,7 +129,7 @@ export function incomeOf(ds, period, scope) {
   const payers = new Set();
   let estimated = false;
 
-  (ds.payments ?? []).forEach((payment) => {
+  [...(ds.payments ?? []), ...(ds.manualPayments ?? [])].forEach((payment) => {
     if (!keep(payment.pid)) return;
     if (payment.t < period.toMs && (income.lastPaymentMs === null || payment.t > income.lastPaymentMs)) income.lastPaymentMs = payment.t;
     if (!inPeriod(payment.t, period)) return;

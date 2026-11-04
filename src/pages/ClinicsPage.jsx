@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Building2, Pencil, Plus } from 'lucide-react';
+import { Building2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useAnalytics, useClinicsMetric } from '../context/AnalyticsContext.jsx';
 import { useAdmin } from '../context/AdminContext.jsx';
 import { Card, CardHeader, DataTable, EmptyState, ErrorBanner, KpiTile, PageLayout } from '../ui/index.js';
@@ -10,7 +10,8 @@ import { clinicReport } from '../data/clinics/report.js';
 import AddDoctors from './clinics/AddDoctors.jsx';
 import ClinicDoctors from './clinics/ClinicDoctors.jsx';
 import ClinicForm, { PRIMARY, SECONDARY } from './clinics/ClinicForm.jsx';
-import TopUpCard from './clinics/TopUpCard.jsx';
+import { ClinicMonths, ClinicTopups } from './clinics/ClinicMoney.jsx';
+import { invoiceMonths, wholeMonths } from '../data/clinics/money.js';
 import { answerItemsOf, exportTablesOf } from './clinics/text.js';
 import { useClinicActions, useClinicUsage } from './clinics/useClinics.js';
 import { priceText, reasonOf } from './clinics/reason.js';
@@ -29,8 +30,8 @@ function ModeChips({ clinic, inverse = false }) {
   );
 }
 
-/** The clinic's name, mode, price, limit and note, with Edit and Pause / Switch on. */
-function ClinicHead({ clinic, onEdit, onToggleActive, busy }) {
+/** The clinic's name, mode, price, limit and note, with Edit, Pause / Switch on and Delete. */
+function ClinicHead({ clinic, onEdit, onToggleActive, onDelete, busy }) {
   const details = [
     clinic.billing === 'invoice' ? (clinic.pricePerCreditEur == null ? t('clinics.head.noPrice') : t('clinics.head.price', { price: priceText(clinic.pricePerCreditEur) })) : null,
     t('clinics.head.cap', { n: fmt.int(clinic.monthlyCapPerDoctor) }),
@@ -55,14 +56,18 @@ function ClinicHead({ clinic, onEdit, onToggleActive, busy }) {
           <button type="button" disabled={busy} onClick={onToggleActive} className={SECONDARY}>
             {t(clinic.active ? 'clinics.head.pause' : 'clinics.head.resume')}
           </button>
+          <button type="button" disabled={busy} onClick={onDelete} className={`${SECONDARY} text-bad`}>
+            <Trash2 className="mr-1.5 w-3.5 h-3.5" aria-hidden="true" />
+            {t('clinics.head.delete')}
+          </button>
         </div>
       </div>
     </Card>
   );
 }
 
-/** Tiles: credits used · to invoice (or credits left) · doctors · our costs. */
-function ClinicTiles({ clinic, report, costEur, firstLoad }) {
+/** Tiles: credits used · to invoice (or credits left) · doctors · our costs. paidEur: what the period's months got paid. */
+function ClinicTiles({ clinic, report, costEur, firstLoad, paidEur }) {
   const tt = report.totals;
   const amount = tt.amountEur;
   const result = Number.isFinite(amount) ? amount - costEur : null;
@@ -91,7 +96,7 @@ function ClinicTiles({ clinic, report, costEur, firstLoad }) {
           value={amount}
           format="eur"
           hintKey="clinics.tile.amount"
-          sub={clinic.pricePerCreditEur == null ? t('clinics.tile.amount.none') : t('clinics.tile.amount.sub', { price: priceText(clinic.pricePerCreditEur) })}
+          sub={clinic.pricePerCreditEur == null ? t('clinics.tile.amount.none') : t('clinics.tile.amount.sub', { price: priceText(clinic.pricePerCreditEur), paid: fmt.eur(paidEur) })}
           firstLoad={firstLoad}
         />
       )}
@@ -168,6 +173,14 @@ export default function ClinicsPage() {
     () => (clinic && usage.status !== 'idle' ? clinicReport(usage.rows, { pricePerCreditEur: clinic.pricePerCreditEur, members: clinic.members }) : null),
     [clinic, usage.rows, usage.status],
   );
+  // An invoice is for whole months: the months card reads every month the period touches in full
+  const monthRange = useMemo(() => wholeMonths(period), [period]);
+  const monthUsage = useClinicUsage(clinic?.billing === 'invoice' ? clinic.id : null, monthRange.from, monthRange.to);
+  const monthReport = useMemo(
+    () => (clinic && monthUsage.status !== 'idle' ? clinicReport(monthUsage.rows, { pricePerCreditEur: clinic.pricePerCreditEur, members: clinic.members }) : null),
+    [clinic, monthUsage.rows, monthUsage.status],
+  );
+  const paidEur = clinic && monthReport ? invoiceMonths(monthReport.days, clinic).paidEur : 0;
   const costEur = metric.data?.tables?.clinics?.find((row) => row.id === clinic?.id)?.costEur ?? 0;
 
   const answerItems = useMemo(() => answerItemsOf({ clinics, clinic, report: usage.status === 'ready' ? report : null, period }), [clinics, clinic, report, usage.status, period]);
@@ -181,6 +194,29 @@ export default function ClinicsPage() {
     } else {
       await actions.updateClinic(clinic.id, body);
       setMode(null);
+    }
+  };
+
+  const remove = async () => {
+    setHeadError(null);
+    if (clinic.members.length) {
+      setHeadError(t('clinics.head.deleteHasDoctors', { n: fmt.int(clinic.members.length) }));
+      return;
+    }
+    const left = clinic.billing === 'prepaid' && clinic.credits.available > 0 ? t('clinics.head.deleteCreditsLeft', { n: fmt.int(clinic.credits.available) }) : '';
+    if (!window.confirm(`${t('clinics.head.deleteConfirm', { name: clinic.name })}${left ? ` ${left}` : ''}`)) return;
+    setBusy(true);
+    try {
+      await actions.deleteClinic(clinic.id);
+      setParams((p) => {
+        const next = new URLSearchParams(p);
+        next.delete('clinic');
+        return next;
+      }, { replace: true });
+    } catch (err) {
+      setHeadError(t('clinics.form.error', { reason: reasonOf(err) }));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -237,16 +273,26 @@ export default function ClinicsPage() {
 
         {clinic && mode !== 'new' && (
           <>
-            <ClinicHead clinic={clinic} busy={busy} onEdit={() => setMode(mode === 'edit' ? null : 'edit')} onToggleActive={toggleActive} />
+            <ClinicHead clinic={clinic} busy={busy} onEdit={() => setMode(mode === 'edit' ? null : 'edit')} onToggleActive={toggleActive} onDelete={remove} />
             {headError && <p role="status" className="-mt-3 text-sm font-semibold text-bad">{headError}</p>}
             {mode === 'edit' && <ClinicForm key={clinic.id} clinic={clinic} onSave={save} onCancel={() => setMode(null)} />}
             {usage.status === 'error' && (
               <ErrorBanner error={usage.error} onRetry={usage.reload} />
             )}
-            {report && <ClinicTiles clinic={clinic} report={report} costEur={costEur} firstLoad={usage.status === 'loading' && !usage.rows.length} />}
+            {report && <ClinicTiles clinic={clinic} report={report} costEur={costEur} paidEur={paidEur} firstLoad={usage.status === 'loading' && !usage.rows.length} />}
             {report && <ClinicDoctors clinic={clinic} report={report} ds={ds} onRemove={(pid) => actions.removeMember(clinic.id, pid)} />}
             <AddDoctors clinic={clinic} ds={ds} onAdd={(pid) => actions.addMember(clinic.id, pid)} />
-            {clinic.billing === 'prepaid' && <TopUpCard clinic={clinic} onAdd={(n, note) => actions.addCredits(clinic.id, n, note)} />}
+            {clinic.billing === 'prepaid' && (
+              <ClinicTopups clinic={clinic} report={report} grants={ds?.grants ?? []} period={period} onAdd={(n, priceEur, note) => actions.addCredits(clinic.id, n, priceEur, note)} />
+            )}
+            {clinic.billing === 'invoice' && monthReport && (
+              <ClinicMonths
+                clinic={clinic}
+                report={monthReport}
+                onSave={(month, eur, note) => actions.savePayment(clinic.id, month, eur, note)}
+                onRemove={(month) => actions.removePayment(clinic.id, month)}
+              />
+            )}
             {report && <ClinicDays report={report} priced={clinic.pricePerCreditEur != null} />}
             <p className="text-xs font-medium text-ink-mute">{t('clinics.footnote')}</p>
           </>

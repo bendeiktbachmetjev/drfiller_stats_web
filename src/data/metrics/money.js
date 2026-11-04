@@ -77,7 +77,10 @@ export function moneySeriesOf(ds, period, scope, { incomeOk, planning }) {
 
 const scopedPaymentsIn = (ds, period, scope) => {
   const hide = hidesInternal(ds, scope);
-  return (ds.payments ?? []).filter((payment) => inPeriod(payment.t, period) && !(hide && payment.pid && isInternal(payment.pid, ds)));
+  // Stripe's purchases and the money recorded by hand, by time
+  return [...(ds.payments ?? []), ...(ds.manualPayments ?? [])]
+    .filter((payment) => inPeriod(payment.t, period) && !(hide && payment.pid && isInternal(payment.pid, ds)))
+    .sort((a, b) => a.t - b.t);
 };
 
 /** Every purchase of the period with its money (§4.2 A "Purchases"); empty unless Stripe is live. */
@@ -88,6 +91,8 @@ function paymentRows(payments, { prices, vatPayer }) {
       key: payment.id,
       t: payment.t,
       pid: payment.pid ?? null,
+      clinicId: payment.clinicId ?? null,
+      month: payment.month ?? null,
       packId: payment.packId ?? null,
       credits: paymentCredits(payment),
       grossEur: money.grossEur,

@@ -51,6 +51,7 @@ const state = {
   fresh: new Map(), // route → last fresh=1 time
   clinics: null, // Map id → clinic (without members), seeded from demoClinics on first use
   memberOf: null, // Map pid → clinic id
+  grantList: [], // hand grants with their price: { id, t, pid|null, clinicId|null, credits, priceEur, note }
 };
 
 const send = (res, status, body) => {
@@ -155,6 +156,7 @@ function handleControl(res, query) {
     state.months.clear();
     state.clinics = null;
     state.memberOf = null;
+    state.grantList = [];
   }
   return send(res, 200, { success: true, mock: state.sticky });
 }
@@ -216,13 +218,16 @@ function clinicsState(api, nowMs) {
 }
 
 const membersOf = (id) => [...state.memberOf.entries()].filter(([, clinicId]) => clinicId === id).map(([pid]) => pid).sort();
-const clinicOut = (clinic) => ({ ...clinic, members: membersOf(clinic.id) });
+const clinicOut = ({ deletedAt, ...clinic }) => ({ ...clinic, members: membersOf(clinic.id), payments: clinic.payments ?? [] });
+/** Euros typed by the owner (like the backend's eurOf): 0..1e6, at most 2 decimals; null otherwise. */
+const eurOf = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1e6 && Math.abs(v * 100 - Math.round(v * 100)) < 1e-6 ? Math.round(v * 100) / 100 : null);
+const vilniusMonthOf = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit' }).format(new Date(ms));
 
 async function handleClinics(req, res, route, query, api, nowMs) {
   const clinics = clinicsState(api, nowMs);
   const doctorOk = (pid) => PID_RE.test(pid) && api.doctors.doctors.some((d) => d.pid === pid && d.exists?.auth);
   if (route === '/clinics' && req.method === 'GET') {
-    return ok(res, { clinics: [...clinics.values()].map(clinicOut).sort((a, b) => a.name.localeCompare(b.name)) });
+    return ok(res, { clinics: [...clinics.values()].filter((c) => !c.deletedAt).map(clinicOut).sort((a, b) => a.name.localeCompare(b.name)) });
   }
   if (route === '/clinics' && req.method === 'POST') {
     const { errors, value } = checkClinic(await readBody(req), false);
@@ -232,13 +237,36 @@ async function handleClinics(req, res, route, query, api, nowMs) {
     clinics.set(id, clinic);
     return ok(res, { clinic: clinicOut(clinic) });
   }
-  const match = /^\/clinics\/([^/]+)(?:\/(members|credits|usage)(?:\/([^/]+))?)?$/.exec(route);
+  const match = /^\/clinics\/([^/]+)(?:\/(members|credits|usage|payments)(?:\/([^/]+))?)?$/.exec(route);
   if (!match) return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
   const id = decodeURIComponent(match[1]);
   const part = match[2] ?? null;
   const pid = match[3] ? decodeURIComponent(match[3]) : null;
   const clinic = CLINIC_ID_RE.test(id) ? clinics.get(id) : null;
-  if (!clinic) return fail(res, 404, 'NOT_FOUND', 'Unknown clinic');
+  if (!clinic || clinic.deletedAt) return fail(res, 404, 'NOT_FOUND', 'Unknown clinic');
+
+  if (!part && req.method === 'DELETE') {
+    const left = membersOf(id).length;
+    if (left) return fail(res, 409, 'HAS_DOCTORS', `Take the clinic's ${left} doctor(s) out first`);
+    clinic.deletedAt = nowMs;
+    return ok(res, { clinicId: id, deleted: true });
+  }
+  if (part === 'payments' && pid && req.method === 'PUT') {
+    const month = pid;
+    if (!MONTH_RE.test(month) || month < '2026-01' || month > vilniusMonthOf(nowMs)) return fail(res, 400, 'INVALID_BODY', 'month must be YYYY-MM from 2026-01 up to this month');
+    const body = await readBody(req);
+    const amountEur = eurOf(body?.amountEur);
+    if (amountEur === null) return fail(res, 400, 'INVALID_BODY', 'amountEur must be euros, at most 2 decimals');
+    const payment = { month, amountEur, note: typeof body.note === 'string' ? body.note.slice(0, 200) : '', at: nowMs };
+    clinic.payments = [...(clinic.payments ?? []).filter((p) => p.month !== month), payment].sort((a, b) => (a.month < b.month ? -1 : 1));
+    return ok(res, { clinicId: id, payment });
+  }
+  if (part === 'payments' && pid && req.method === 'DELETE') {
+    const before = (clinic.payments ?? []).length;
+    clinic.payments = (clinic.payments ?? []).filter((p) => p.month !== pid);
+    if (clinic.payments.length === before) return fail(res, 404, 'NOT_FOUND', 'Unknown payment');
+    return ok(res, { clinicId: id, month: pid, removed: true });
+  }
 
   if (!part && req.method === 'PUT') {
     const { errors, value } = checkClinic(await readBody(req), true);
@@ -261,10 +289,13 @@ async function handleClinics(req, res, route, query, api, nowMs) {
     const body = await readBody(req);
     const credits = body?.credits;
     if (!Number.isInteger(credits) || credits < 1 || credits > 100000) return fail(res, 400, 'INVALID_BODY', 'credits must be a whole number from 1 to 100000');
+    const priceEur = body.priceEur == null ? null : eurOf(body.priceEur);
+    if (body.priceEur != null && priceEur === null) return fail(res, 400, 'INVALID_BODY', 'priceEur must be euros from 0, at most 2 decimals');
     if (clinic.billing !== 'prepaid') return fail(res, 409, 'NOT_PREPAID', 'This clinic pays by invoice; switch it to prepaid credits first');
     clinic.credits = { available: clinic.credits.available + credits, used: clinic.credits.used, total: clinic.credits.total + credits };
     clinic.updatedAt = nowMs;
-    return ok(res, { clinicId: id, added: credits, credits: clinic.credits });
+    state.grantList.push({ id: `gmock${state.grantList.length + 1}`, t: nowMs, pid: null, clinicId: id, credits, priceEur, note: typeof body.note === 'string' ? body.note : '' });
+    return ok(res, { clinicId: id, added: credits, priceEur, credits: clinic.credits });
   }
   if (part === 'usage' && req.method === 'GET') {
     const from = query.get('from');
@@ -340,12 +371,18 @@ async function handle(req, res) {
     const pid = decodeURIComponent(creditsMatch[1]);
     const body = await readBody(req);
     const credits = body?.credits;
-    if (!Number.isInteger(credits) || credits < 1 || credits > 5000) return fail(res, 400, 'INVALID_BODY', 'credits must be a whole number from 1 to 5000');
+    if (!Number.isInteger(credits) || credits < 1 || credits > 100000) return fail(res, 400, 'INVALID_BODY', 'credits must be a whole number from 1 to 100000');
+    const priceEur = body.priceEur == null ? null : eurOf(body.priceEur);
+    if (body.priceEur != null && priceEur === null) return fail(res, 400, 'INVALID_BODY', 'priceEur must be euros from 0, at most 2 decimals');
     const doctor = api.doctors.doctors.find((d) => d.pid === pid);
     if (!PID_RE.test(pid) || !doctor || !doctor.exists?.auth) return fail(res, 404, 'NOT_FOUND', 'Unknown doctor.');
+    const clinicsNow = clinicsState(api, nowMs);
+    const paying = clinicsNow.get(state.memberOf.get(pid));
+    if (paying && paying.active !== false && !paying.deletedAt) return fail(res, 409, 'IN_CLINIC', 'This doctor is paid for by a clinic; top up the clinic instead');
     state.grants.set(pid, (state.grants.get(pid) ?? 0) + credits);
+    state.grantList.push({ id: `gmock${state.grantList.length + 1}`, t: nowMs, pid, clinicId: null, credits, priceEur, note: typeof body.note === 'string' ? body.note : '' });
     const c = withGrant(doctor).credits;
-    return ok(res, { pid, added: credits, credits: { available: c.available, used: c.used, total: c.total } });
+    return ok(res, { pid, added: credits, priceEur, credits: { available: c.available, used: c.used, total: c.total } });
   }
   if (req.method !== 'GET') return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
 
@@ -404,6 +441,8 @@ async function handle(req, res) {
     }
     case route === '/settings':
       return ok(res, { settings: settingsNow() }, notes);
+    case route === '/grants':
+      return ok(res, { grants: state.grantList }, notes);
     default:
       return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
   }

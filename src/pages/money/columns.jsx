@@ -6,6 +6,9 @@ import { t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
 import { creditedLabel, creditsText, doctorOf, doctorText, methodLabel, packName } from './text.js';
 
+/** A payment recorded by hand: "700 credits", or "October 2026" for an invoiced clinic's month. */
+const manualLabel = (row) => (row.month ? t('money.manual.month', { month: fmt.month(`${row.month}-01`) }) : t('money.manual.credits', { n: fmt.int(row.credits) }));
+
 /** Table twin of the money chart: bucket · income · forms · recording · medical history · server · result. */
 export const moneyChartColumns = (showIncome) =>
   [
@@ -37,10 +40,15 @@ export const paymentColumns = ({ ds, vatPayer }) =>
       header: t('money.col.doctor'),
       type: 'node',
       priority: 2,
-      sortValue: (row) => doctorText(ds, row.pid),
-      render: (row) => (row.pid ? <DoctorName doctor={doctorOf(ds, row.pid)} stacked /> : fmt.empty),
+      sortValue: (row) => (row.pid ? doctorText(ds, row.pid) : ds?.clinicById?.get?.(row.clinicId)?.name ?? ''),
+      // A clinic's payment (by hand) names the clinic
+      render: (row) => {
+        if (row.pid) return <DoctorName doctor={doctorOf(ds, row.pid)} stacked />;
+        const clinic = row.clinicId ? ds?.clinicById?.get?.(row.clinicId) : null;
+        return clinic ? clinic.name : fmt.empty;
+      },
     },
-    { key: 'packId', header: t('money.col.pack'), type: 'node', priority: 1, sortValue: (row) => row.credits, render: (row) => packName(row.packId) },
+    { key: 'packId', header: t('money.col.pack'), type: 'node', priority: 1, sortValue: (row) => row.credits, render: (row) => (row.method === 'manual' ? manualLabel(row) : packName(row.packId)) },
     { key: 'grossEur', header: t('money.col.paid'), type: 'eur', priority: 2 },
     { key: 'discountEur', header: t('money.col.discount'), type: 'eur', priority: 3 },
     { key: 'feeEur', header: t('money.col.fee'), type: 'eur', priority: 3 },

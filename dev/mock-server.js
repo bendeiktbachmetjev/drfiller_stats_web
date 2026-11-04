@@ -163,7 +163,7 @@ function handleControl(res, query) {
 
 // --- clinics (like the backend's routes/adminClinics.js, without its rate limits and logs) ----------------
 
-const CLINIC_FIELDS = ['name', 'billing', 'active', 'monthlyCapPerDoctor', 'pricePerCreditEur', 'note'];
+const CLINIC_FIELDS = ['name', 'billing', 'active', 'monthlyCapPerDoctor', 'pricePerCreditEur', 'markupPct', 'note'];
 
 /** The backend's validateClinic in short: field names of the errors, or the clean value. */
 function checkClinic(body, partial) {
@@ -186,6 +186,11 @@ function checkClinic(body, partial) {
     const n = b.monthlyCapPerDoctor;
     if (Number.isInteger(n) && n >= 1 && n <= 100000) value.monthlyCapPerDoctor = n;
     else errors.push('monthlyCapPerDoctor');
+  }
+  if (has('markupPct')) {
+    const m = b.markupPct;
+    if (typeof m === 'number' && Number.isFinite(m) && m >= 0 && m <= 300 && Math.abs(m * 100 - Math.round(m * 100)) < 1e-6) value.markupPct = Math.round(m * 100) / 100;
+    else errors.push('markupPct');
   }
   if (has('pricePerCreditEur')) {
     const p = b.pricePerCreditEur;
@@ -233,7 +238,7 @@ async function handleClinics(req, res, route, query, api, nowMs) {
     const { errors, value } = checkClinic(await readBody(req), false);
     if (errors.length) return fail(res, 400, 'INVALID_BODY', `Invalid fields: ${errors.join(', ')}`);
     const id = `c${randomBytes(8).toString('hex')}`;
-    const clinic = { id, active: true, monthlyCapPerDoctor: 3000, pricePerCreditEur: null, note: '', ...value, credits: { available: 0, used: 0, total: 0 }, createdAt: nowMs, updatedAt: nowMs };
+    const clinic = { id, active: true, monthlyCapPerDoctor: 3000, markupPct: 30, note: '', ...value, credits: { available: 0, used: 0, total: 0 }, createdAt: nowMs, updatedAt: nowMs };
     clinics.set(id, clinic);
     return ok(res, { clinic: clinicOut(clinic) });
   }
@@ -314,7 +319,7 @@ async function handleClinics(req, res, route, query, api, nowMs) {
     const from = query.get('from');
     const to = query.get('to');
     if (!DAY_RE.test(from ?? '') || !DAY_RE.test(to ?? '') || from >= to) return fail(res, 400, 'BAD_RANGE', 'from and to must be days (YYYY-MM-DD), from before to');
-    return ok(res, { clinicId: id, range: { from, to }, rows: demoClinicUsage(api, membersOf(id), from, to) });
+    return ok(res, { clinicId: id, range: { from, to }, rows: demoClinicUsage(api, membersOf(id), from, to, { markupPct: clinic.billing === 'invoice' ? clinic.markupPct ?? 30 : null }) });
   }
   return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
 }

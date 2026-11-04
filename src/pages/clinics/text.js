@@ -67,8 +67,8 @@ export function exportTablesOf({ clinic, report, period, ds }) {
             given_back: row.refunded,
             days_used: row.activeDays,
             credits: row.credits,
-            price_per_credit_eur: clinic.pricePerCreditEur,
-            amount_eur: row.amountEur,
+            cost_eur: Math.round(row.costEur * 10000) / 10000,
+            amount_eur: Math.round(row.amountEur * 100) / 100,
           };
         }),
     },

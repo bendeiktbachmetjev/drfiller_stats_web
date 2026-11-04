@@ -15,7 +15,7 @@ import { ClinicMonths, ClinicTopups } from './clinics/ClinicMoney.jsx';
 import { invoiceMonths, wholeMonths } from '../data/clinics/money.js';
 import { answerItemsOf, exportTablesOf } from './clinics/text.js';
 import { useClinicActions, useClinicUsage } from './clinics/useClinics.js';
-import { priceText, reasonOf } from './clinics/reason.js';
+import { reasonOf } from './clinics/reason.js';
 
 const RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 const CHIP = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap';
@@ -34,7 +34,7 @@ function ModeChips({ clinic, inverse = false }) {
 /** The clinic's name, mode, price, limit and note, with Edit, Pause / Switch on and Delete. */
 function ClinicHead({ clinic, onEdit, onToggleActive, onDelete, busy }) {
   const details = [
-    clinic.billing === 'invoice' ? (clinic.pricePerCreditEur == null ? t('clinics.head.noPrice') : t('clinics.head.price', { price: priceText(clinic.pricePerCreditEur) })) : null,
+    clinic.billing === 'invoice' ? t('clinics.head.markup', { pct: fmt.int(clinic.markupPct) }) : null,
     t('clinics.head.cap', { n: fmt.int(clinic.monthlyCapPerDoctor) }),
     t('clinics.members', { n: fmt.int(clinic.members.length) }),
   ].filter(Boolean);
@@ -67,11 +67,16 @@ function ClinicHead({ clinic, onEdit, onToggleActive, onDelete, busy }) {
   );
 }
 
-/** Tiles: credits used · to invoice (or credits left) · doctors · our costs. paidEur: what the period's months got paid. */
-function ClinicTiles({ clinic, report, costEur, firstLoad, paidEur }) {
+/**
+ * Tiles: credits used · to invoice (or credits left) · doctors · our cost. The cost and the amount come from the
+ * clinic's own rows (fixed per request by the server); paidEur: what the period's months got paid.
+ */
+function ClinicTiles({ clinic, report, firstLoad, paidEur }) {
   const tt = report.totals;
+  const invoice = clinic.billing === 'invoice';
   const amount = tt.amountEur;
-  const result = Number.isFinite(amount) ? amount - costEur : null;
+  const costEur = tt.costEur;
+  const result = invoice ? amount - costEur : null;
   return (
     <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
       <KpiTile
@@ -97,7 +102,7 @@ function ClinicTiles({ clinic, report, costEur, firstLoad, paidEur }) {
           value={amount}
           format="eur"
           hintKey="clinics.tile.amount"
-          sub={clinic.pricePerCreditEur == null ? t('clinics.tile.amount.none') : t('clinics.tile.amount.sub', { price: priceText(clinic.pricePerCreditEur), paid: fmt.eur(paidEur) })}
+          sub={t('clinics.tile.amount.sub', { pct: fmt.int(clinic.markupPct), paid: fmt.eur(paidEur) })}
           firstLoad={firstLoad}
         />
       )}
@@ -113,7 +118,7 @@ function ClinicTiles({ clinic, report, costEur, firstLoad, paidEur }) {
         format="eur"
         hintKey="clinics.tile.cost"
         sub={result === null ? undefined : t('clinics.tile.cost.sub', { result: fmt.eurSigned(result) })}
-        badge="estimate"
+        firstLoad={firstLoad}
       />
     </div>
   );
@@ -171,18 +176,17 @@ export default function ClinicsPage() {
 
   const usage = useClinicUsage(clinic?.id ?? null, period.from, period.effTo);
   const report = useMemo(
-    () => (clinic && usage.status !== 'idle' ? clinicReport(usage.rows, { pricePerCreditEur: clinic.pricePerCreditEur, members: clinic.members }) : null),
+    () => (clinic && usage.status !== 'idle' ? clinicReport(usage.rows, { members: clinic.members }) : null),
     [clinic, usage.rows, usage.status],
   );
   // An invoice is for whole months: the months card reads every month the period touches in full
   const monthRange = useMemo(() => wholeMonths(period), [period]);
   const monthUsage = useClinicUsage(clinic?.billing === 'invoice' ? clinic.id : null, monthRange.from, monthRange.to);
   const monthReport = useMemo(
-    () => (clinic && monthUsage.status !== 'idle' ? clinicReport(monthUsage.rows, { pricePerCreditEur: clinic.pricePerCreditEur, members: clinic.members }) : null),
+    () => (clinic && monthUsage.status !== 'idle' ? clinicReport(monthUsage.rows, { members: clinic.members }) : null),
     [clinic, monthUsage.rows, monthUsage.status],
   );
   const paidEur = clinic && monthReport ? invoiceMonths(monthReport.days, clinic).paidEur : 0;
-  const costEur = metric.data?.tables?.clinics?.find((row) => row.id === clinic?.id)?.costEur ?? 0;
 
   const answerItems = useMemo(() => answerItemsOf({ clinics, clinic, report: usage.status === 'ready' ? report : null, period }), [clinics, clinic, report, usage.status, period]);
   const exportTables = useMemo(() => exportTablesOf({ clinic, report, period, ds }), [clinic, report, period, ds]);
@@ -280,7 +284,7 @@ export default function ClinicsPage() {
             {usage.status === 'error' && (
               <ErrorBanner error={usage.error} onRetry={usage.reload} />
             )}
-            {report && <ClinicTiles clinic={clinic} report={report} costEur={costEur} paidEur={paidEur} firstLoad={usage.status === 'loading' && !usage.rows.length} />}
+            {report && <ClinicTiles clinic={clinic} report={report} paidEur={paidEur} firstLoad={usage.status === 'loading' && !usage.rows.length} />}
             {report && <ClinicDoctors clinic={clinic} report={report} ds={ds} onRemove={(pid) => actions.removeMember(clinic.id, pid)} />}
             <AddDoctors clinic={clinic} ds={ds} onAdd={(pid) => actions.addMember(clinic.id, pid)} />
             {clinic.billing === 'prepaid' && (
@@ -295,7 +299,7 @@ export default function ClinicsPage() {
               />
             )}
             <ClinicShare key={clinic.id} clinic={clinic} onCreate={actions.shareClinic} onStop={actions.stopSharing} />
-            {report && <ClinicDays report={report} priced={clinic.pricePerCreditEur != null} />}
+            {report && <ClinicDays report={report} priced={clinic.billing === 'invoice'} />}
             <p className="text-xs font-medium text-ink-mute">{t('clinics.footnote')}</p>
           </>
         )}

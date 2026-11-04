@@ -6,8 +6,11 @@
 //   anamnesisCredits  anamnesisCredits − anamnesisRefunded
 //   audioCredits      credits charged for recorded audio; audioMin = the audio recorded
 //   refunded          credits given back after failures (already left out of the above)
-//   credits           forms + anamnesisCredits + audioCredits = what the clinic is invoiced for
-//   amountEur         credits × the clinic's price of one credit (null until the price is set)
+//   credits           forms + anamnesisCredits + audioCredits (the monthly limit counts them)
+//   costEur           our real cost of that work: tokens and recorded minutes (costAiEur + costAudioEur)
+//   amountEur         what an invoiced clinic pays for it: the cost plus its markup, fixed by the server when
+//                     each request was done (amountAiEur + amountAudioEur; 0 for a prepaid clinic)
+// Euros are summed as they come; round only to show them (fmt.eur) or at a month's end (roundCents).
 
 const MIN_MS = 60000;
 
@@ -16,10 +19,7 @@ const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 /** Cents, half up (0.125 → 0.13). */
 export const roundCents = (eur) => Math.round(eur * 100 + 1e-7) / 100;
 
-/** The invoice amount of `credits` at `price` € a credit; null without a price. */
-export const amountOf = (credits, price) => (typeof price === 'number' && Number.isFinite(price) ? roundCents(credits * price) : null);
-
-const blank = () => ({ forms: 0, anamnesisCredits: 0, audioCredits: 0, audioMin: 0, refunded: 0, credits: 0 });
+const blank = () => ({ forms: 0, anamnesisCredits: 0, audioCredits: 0, audioMin: 0, refunded: 0, credits: 0, costEur: 0, amountEur: 0 });
 
 /** Adds one usage row to a running total (mutates `total`). */
 function addRow(total, row) {
@@ -32,22 +32,25 @@ function addRow(total, row) {
   total.audioMin += num(row.audioMs) / MIN_MS;
   total.refunded += num(row.formRefunded) + num(row.anamnesisRefunded);
   total.credits += forms + anamnesis + audio;
+  total.costEur += num(row.costAiEur) + num(row.costAudioEur);
+  total.amountEur += num(row.amountAiEur) + num(row.amountAudioEur);
   return total;
 }
 
 /**
  * @param {Array<{ day: string, pid: string, formCredits?: number, formRefunded?: number, anamnesisCredits?: number,
- *   anamnesisRefunded?: number, audioCredits?: number, audioMs?: number }>} rows the period's usage rows
- * @param {{ pricePerCreditEur?: number|null, members?: string[] }} [options] members: the clinic's doctors now
- *   (each gets a line even without usage, so the table lists everyone)
+ *   anamnesisRefunded?: number, audioCredits?: number, audioMs?: number, costAiEur?: number, costAudioEur?: number,
+ *   amountAiEur?: number, amountAudioEur?: number }>} rows the period's usage rows
+ * @param {{ members?: string[] }} [options] members: the clinic's doctors now (each gets a line even without
+ *   usage, so the table lists everyone)
  * @returns {{
  *   totals: { forms: number, anamnesisCredits: number, audioCredits: number, audioMin: number, refunded: number,
- *     credits: number, amountEur: number|null, doctorsWithUsage: number, days: number },
- *   doctors: Array<{ pid: string, member: boolean, activeDays: number, amountEur: number|null } & ReturnType<typeof blank>>,
- *   days: Array<{ day: string, doctors: number, amountEur: number|null } & ReturnType<typeof blank>>
+ *     credits: number, costEur: number, amountEur: number, doctorsWithUsage: number, days: number },
+ *   doctors: Array<{ pid: string, member: boolean, activeDays: number } & ReturnType<typeof blank>>,
+ *   days: Array<{ day: string, doctors: number } & ReturnType<typeof blank>>
  * }} doctors sorted by credits (most first), days by date
  */
-export function clinicReport(rows, { pricePerCreditEur = null, members = [] } = {}) {
+export function clinicReport(rows, { members = [] } = {}) {
   const memberSet = new Set(members);
   const byPid = new Map();
   const byDay = new Map();
@@ -73,16 +76,15 @@ export function clinicReport(rows, { pricePerCreditEur = null, members = [] } = 
       member: memberSet.has(pid),
       ...total,
       activeDays: daysOf.get(pid)?.size ?? 0,
-      amountEur: amountOf(total.credits, pricePerCreditEur),
     }))
     .sort((a, b) => b.credits - a.credits || (a.pid < b.pid ? -1 : 1));
 
   const days = [...byDay.entries()]
     .sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([day, { pids, ...total }]) => ({ day, doctors: pids.size, ...total, amountEur: amountOf(total.credits, pricePerCreditEur) }));
+    .map(([day, { pids, ...total }]) => ({ day, doctors: pids.size, ...total }));
 
   const totals = doctors.reduce((sum, d) => {
-    ['forms', 'anamnesisCredits', 'audioCredits', 'audioMin', 'refunded', 'credits'].forEach((key) => {
+    ['forms', 'anamnesisCredits', 'audioCredits', 'audioMin', 'refunded', 'credits', 'costEur', 'amountEur'].forEach((key) => {
       sum[key] += d[key];
     });
     return sum;
@@ -91,7 +93,6 @@ export function clinicReport(rows, { pricePerCreditEur = null, members = [] } = 
   return {
     totals: {
       ...totals,
-      amountEur: amountOf(totals.credits, pricePerCreditEur),
       doctorsWithUsage: doctors.filter((d) => d.activeDays > 0).length,
       days: days.length,
     },

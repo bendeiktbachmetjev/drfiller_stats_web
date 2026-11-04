@@ -4,7 +4,7 @@
 //   2. the figures of one doctor or clinic: credits bought, euros paid, the average price of a credit, months
 //      invoiced and paid.
 import { dayKeyOf, monthKeyOf, weekKeyOf } from '../period.js';
-import { amountOf, roundCents } from './report.js';
+import { roundCents } from './report.js';
 
 const cents = (eur) => Math.round(eur * 100);
 
@@ -147,37 +147,44 @@ export function clinicTopups(grants, clinicId, { fromMs, toMs }) {
 }
 
 /**
- * An invoiced clinic month by month: the credits its doctors used (from the period's usage report days), the
- * amount at the clinic's price, and what it paid (the owner's records).
- * @param {Array<{ day: string, credits: number }>} days clinicReport(...).days
- * @param {{ pricePerCreditEur: number|null, payments: Array<{ month: string, amountEur: number, note: string, at: number|null }> }} clinic
- * @returns {{ rows: Array<{ month: string, credits: number, amountEur: number|null, paidEur: number|null, note: string,
- *   status: 'paid'|'part'|'open'|'none' }>, credits: number, amountEur: number|null, paidEur: number, avgEur: number|null }}
- *   status: paid (≥ the amount), part (less), open (nothing yet), none (no price to compare with)
+ * An invoiced clinic month by month: what its doctors used (from the period's usage report days), what it pays
+ * for that (our cost + its markup, fixed by the server per request; rounded to the cent per month) and what it
+ * paid (the owner's records).
+ * @param {Array<{ day: string, credits: number, costEur: number, amountEur: number }>} days clinicReport(...).days
+ * @param {{ payments: Array<{ month: string, amountEur: number, note: string, at: number|null }> }} clinic
+ * @returns {{ rows: Array<{ month: string, credits: number, costEur: number, amountEur: number, paidEur: number|null,
+ *   note: string, status: 'paid'|'part'|'open'|'none' }>, credits: number, costEur: number, amountEur: number,
+ *   paidEur: number }}
+ *   status: paid (≥ the amount), part (less), open (nothing yet), none (nothing to pay and nothing paid)
  */
 export function invoiceMonths(days, clinic) {
   const byMonth = new Map();
-  (days ?? []).forEach((d) => byMonth.set(d.day.slice(0, 7), (byMonth.get(d.day.slice(0, 7)) ?? 0) + d.credits));
+  (days ?? []).forEach((d) => {
+    const month = d.day.slice(0, 7);
+    const m = byMonth.get(month) ?? { credits: 0, costEur: 0, amountEur: 0 };
+    m.credits += d.credits;
+    m.costEur += d.costEur ?? 0;
+    m.amountEur += d.amountEur ?? 0;
+    byMonth.set(month, m);
+  });
   const paid = new Map((clinic?.payments ?? []).map((p) => [p.month, p]));
   const rows = [...byMonth.entries()]
     .sort(([a], [b]) => (a < b ? 1 : -1))
-    .map(([month, credits]) => {
-      const amountEur = amountOf(credits, clinic?.pricePerCreditEur);
+    .map(([month, m]) => {
+      const amountEur = roundCents(m.amountEur);
       const payment = paid.get(month) ?? null;
       const paidEur = payment ? payment.amountEur : null;
       let status = 'open';
-      if (paidEur !== null) status = amountEur === null ? 'paid' : paidEur + 0.005 >= amountEur ? 'paid' : 'part';
-      else if (amountEur === null) status = 'none';
-      return { month, credits, amountEur, paidEur, note: payment?.note ?? '', status };
+      if (paidEur !== null) status = paidEur + 0.005 >= amountEur ? 'paid' : 'part';
+      else if (amountEur === 0) status = 'none';
+      return { month, credits: m.credits, costEur: m.costEur, amountEur, paidEur, note: payment?.note ?? '', status };
     });
-  const credits = rows.reduce((s, r) => s + r.credits, 0);
   const paidRows = rows.filter((r) => r.paidEur !== null);
-  const paidEur = roundCents(paidRows.reduce((s, r) => s + r.paidEur, 0));
   return {
     rows,
-    credits,
-    amountEur: amountOf(credits, clinic?.pricePerCreditEur),
-    paidEur,
-    avgEur: averageOf(paidEur, paidRows.reduce((s, r) => s + r.credits, 0)),
+    credits: rows.reduce((s, r) => s + r.credits, 0),
+    costEur: rows.reduce((s, r) => s + r.costEur, 0),
+    amountEur: roundCents(rows.reduce((s, r) => s + r.amountEur, 0)),
+    paidEur: roundCents(paidRows.reduce((s, r) => s + r.paidEur, 0)),
   };
 }

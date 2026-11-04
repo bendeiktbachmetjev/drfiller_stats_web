@@ -25,7 +25,7 @@ export function demoClinics(api, nowMs) {
       billing: 'invoice',
       active: true,
       monthlyCapPerDoctor: 3000,
-      pricePerCreditEur: 0.04,
+      markupPct: 30,
       note: 'Contract 2026-11',
       credits: { available: 0, used: 0, total: 0 },
       createdAt: created,
@@ -38,7 +38,7 @@ export function demoClinics(api, nowMs) {
       billing: 'prepaid',
       active: true,
       monthlyCapPerDoctor: 2000,
-      pricePerCreditEur: null,
+      markupPct: 30,
       note: '',
       credits: { available: 1240, used: 260, total: 1500 },
       createdAt: created,
@@ -56,7 +56,15 @@ export function demoClinics(api, nowMs) {
  * @param {string} fromDay 'YYYY-MM-DD'
  * @param {string} toDay 'YYYY-MM-DD', exclusive
  */
-export function demoClinicUsage(api, pids, fromDay, toDay) {
+export function demoClinicUsage(api, pids, fromDay, toDay, { markupPct = null } = {}) {
+  // Our cost (the demo's list prices, USD → EUR) and, for an invoiced clinic, cost + markup — as the server books them
+  const EUR_PER_USD = 1 / 1.1463;
+  const SONIOX_PER_MIN_USD = 0.1 / 60;
+  const book = (row, kind, usd) => {
+    const eur = (Number(usd) || 0) * EUR_PER_USD;
+    row[`cost${kind}Eur`] += eur;
+    if (markupPct !== null) row[`amount${kind}Eur`] += eur * (1 + markupPct / 100);
+  };
   const members = new Set(pids);
   const rows = new Map();
   api.usage.rows.forEach((r) => {
@@ -64,13 +72,18 @@ export function demoClinicUsage(api, pids, fromDay, toDay) {
     const day = dayOf(r.t);
     if (day < fromDay || day >= toDay) return;
     const key = `${day}|${r.pid}`;
-    if (!rows.has(key)) rows.set(key, { day, pid: r.pid, formCredits: 0, formRefunded: 0, anamnesisCredits: 0, anamnesisRefunded: 0, audioCredits: 0, audioMs: 0 });
+    if (!rows.has(key)) rows.set(key, { day, pid: r.pid, formCredits: 0, formRefunded: 0, anamnesisCredits: 0, anamnesisRefunded: 0, audioCredits: 0, audioMs: 0, costAiEur: 0, costAudioEur: 0, amountAiEur: 0, amountAudioEur: 0 });
     const row = rows.get(key);
-    if (r.action === 'ai_processing') row.formCredits += Number.isFinite(r.credits) ? r.credits : 1;
-    else if (r.action.startsWith('anamnesis_')) row.anamnesisCredits += Number.isFinite(r.credits) ? r.credits : 0;
-    else if (r.action === 'audio_meter') {
+    if (r.action === 'ai_processing') {
+      row.formCredits += Number.isFinite(r.credits) ? r.credits : 1;
+      book(row, 'Ai', r.costUsd);
+    } else if (r.action.startsWith('anamnesis_')) {
+      row.anamnesisCredits += Number.isFinite(r.credits) ? r.credits : 0;
+      book(row, 'Ai', r.costUsd);
+    } else if (r.action === 'audio_meter') {
       row.audioCredits += r.chargedCredits ?? 0;
       row.audioMs += r.addedMs ?? 0;
+      book(row, 'Audio', ((r.addedMs ?? 0) / 60000) * SONIOX_PER_MIN_USD);
     } else if (r.action === 'request_failed' && r.refunded && r.feature === 'process') {
       // A refunded form: charged and given back the same day
       row.formCredits += 1;

@@ -12,23 +12,25 @@ const HINT = 'mt-1.5 text-xs font-medium text-ink-mute';
 
 const MAX_CAP = 100000;
 const DEFAULT_CAP = 3000;
+// An invoiced clinic pays our real cost plus this markup (backend services/billing/costs.js)
+const DEFAULT_MARKUP = 30;
+const MAX_MARKUP = 300;
 
-/** '0,035' or '0.035' → 0.035; '' → null; anything else → NaN. */
-const parsePrice = (text) => {
+/** '30' or '32,5' → 32.5; anything else → NaN. */
+const parsePercent = (text) => {
   const s = text.trim().replace(',', '.');
-  if (s === '') return null;
-  return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
+  return /^\d+(\.\d{1,2})?$/.test(s) ? Number(s) : NaN;
 };
 
 /** The body to save, or the copy key of the first problem. */
-function check({ name, billing, price, cap, note, active }, isNew) {
+function check({ name, billing, markup, cap, note, active }, isNew) {
   const cleanName = name.replace(/\s+/g, ' ').trim();
   if (!cleanName || cleanName.length > 120) return { problem: 'clinics.form.bad.name' };
-  const p = parsePrice(price);
-  if (Number.isNaN(p) || (p !== null && (p > 10 || Math.abs(p * 10000 - Math.round(p * 10000)) > 1e-6))) return { problem: 'clinics.form.bad.price' };
+  const m = parsePercent(markup);
+  if (Number.isNaN(m) || m > MAX_MARKUP) return { problem: 'clinics.form.bad.markup' };
   const c = Number(cap);
   if (!Number.isInteger(c) || c < 1 || c > MAX_CAP) return { problem: 'clinics.form.bad.cap' };
-  const body = { name: cleanName, billing, pricePerCreditEur: p, monthlyCapPerDoctor: c, note: note.trim() };
+  const body = { name: cleanName, billing, markupPct: m, monthlyCapPerDoctor: c, note: note.trim() };
   if (!isNew) body.active = active;
   return { body };
 }
@@ -43,7 +45,7 @@ export default function ClinicForm({ clinic, onSave, onCancel }) {
   const [form, setForm] = useState(() => ({
     name: clinic?.name ?? '',
     billing: clinic?.billing ?? 'invoice',
-    price: clinic?.pricePerCreditEur == null ? '' : String(clinic.pricePerCreditEur),
+    markup: String(clinic?.markupPct ?? DEFAULT_MARKUP).replace('.', ','),
     cap: String(clinic?.monthlyCapPerDoctor ?? DEFAULT_CAP),
     note: clinic?.note ?? '',
     active: clinic?.active ?? true,
@@ -87,11 +89,13 @@ export default function ClinicForm({ clinic, onSave, onCancel }) {
           <Segmented options={billingOptions} value={form.billing} onChange={set('billing')} ariaLabel={t('clinics.form.billing')} />
           <p className={HINT}>{t(form.billing === 'prepaid' ? 'clinics.form.billingHint.prepaid' : 'clinics.form.billingHint.invoice')}</p>
         </div>
-        <label className="block min-w-0">
-          <span className={LABEL}>{t('clinics.form.price')}</span>
-          <input value={form.price} onChange={(e) => set('price')(e.target.value)} inputMode="decimal" placeholder={t('clinics.form.pricePlaceholder')} className={INPUT} />
-          <p className={HINT}>{t('clinics.form.priceHint')}</p>
-        </label>
+        {form.billing === 'invoice' && (
+          <label className="block min-w-0">
+            <span className={LABEL}>{t('clinics.form.markup')}</span>
+            <input value={form.markup} onChange={(e) => set('markup')(e.target.value)} inputMode="decimal" className={INPUT} />
+            <p className={HINT}>{t('clinics.form.markupHint')}</p>
+          </label>
+        )}
         <label className="block min-w-0">
           <span className={LABEL}>{t('clinics.form.cap')}</span>
           <input value={form.cap} onChange={(e) => set('cap')(e.target.value.replace(/\D/g, ''))} inputMode="numeric" className={INPUT} />

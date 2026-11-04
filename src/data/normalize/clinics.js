@@ -4,13 +4,14 @@ import { CLINIC_ID_RE, MONTH_RE, PID_RE } from '../api/contract.js';
 /**
  * @typedef {{
  *   id: string, name: string, billing: 'invoice'|'prepaid', active: boolean, monthlyCapPerDoctor: number,
- *   pricePerCreditEur: number|null, note: string, credits: { available: number, used: number, total: number },
+ *   markupPct: number, note: string, credits: { available: number, used: number, total: number },
  *   createdAt: number|null, updatedAt: number|null, members: string[],
  *   payments: Array<{ month: string, amountEur: number, note: string, at: number|null }>,
  *   share: { createdAt: number|null, lastOpenedAt: number|null, opens: number }|null
  * }} Clinic
  *   payments: what an invoiced clinic paid, one record per month (the owner enters them)
  *   share: the clinic's working read-only link (its page in Lithuanian), null when there is none
+ *   markupPct: an invoiced clinic pays our real cost plus this many percent (default 30; never shown to it)
  */
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -30,7 +31,7 @@ export function normalizeClinics(api) {
       billing: c.billing === 'prepaid' ? 'prepaid' : 'invoice',
       active: c.active !== false,
       monthlyCapPerDoctor: Number.isInteger(c.monthlyCapPerDoctor) ? c.monthlyCapPerDoctor : 3000,
-      pricePerCreditEur: numOrNull(c.pricePerCreditEur),
+      markupPct: typeof c.markupPct === 'number' && Number.isFinite(c.markupPct) ? c.markupPct : 30,
       note: typeof c.note === 'string' ? c.note : '',
       credits: { available: num(c.credits?.available), used: num(c.credits?.used), total: num(c.credits?.total) },
       createdAt: numOrNull(c.createdAt),

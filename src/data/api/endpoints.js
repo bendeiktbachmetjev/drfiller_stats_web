@@ -23,7 +23,7 @@ export const costsMonthRoute = (month) => `/costs-monthly/${encodeURIComponent(m
 /** @param {string} pid @returns {string} '/doctors/:pid/credits' (POST { credits, note }) */
 export const doctorCreditsRoute = (pid) => `/doctors/${encodeURIComponent(pid)}/credits`;
 
-/** @param {string} id @returns {string} '/clinics/:id' (PUT { name?, billing?, active?, monthlyCapPerDoctor?, pricePerCreditEur?, note? }) */
+/** @param {string} id @returns {string} '/clinics/:id' (PUT { name?, billing?, active?, monthlyCapPerDoctor?, markupPct?, note? }) */
 export const clinicRoute = (id) => `/clinics/${encodeURIComponent(id)}`;
 
 /** @param {string} id @param {string} pid @returns {string} '/clinics/:id/members/:pid' (PUT adds, DELETE takes out) */

@@ -14,7 +14,7 @@ const grants = [
   { id: 'g3', t: T - 1000, pid: A, clinicId: null, credits: 50, priceEur: null, note: 'senas' },
   { id: 'g4', t: T, pid: null, clinicId: C, credits: 1500, priceEur: 45, note: 'Sąskaita 7' },
 ];
-const clinic = { id: C, pricePerCreditEur: 0.04, payments: [{ month: '2026-10', amountEur: 48.6, note: 'Pavedimas 31', at: T + 1000 }, { month: '2026-09', amountEur: 0, note: '', at: null }] };
+const clinic = { id: C, markupPct: 30, payments: [{ month: '2026-10', amountEur: 48.6, note: 'Pavedimas 31', at: T + 1000 }, { month: '2026-09', amountEur: 0, note: '', at: null }] };
 
 test('hand money becomes payments: priced grants and paid months, no fee, no pack', () => {
   const list = manualPaymentsOf(grants, [clinic]);
@@ -64,22 +64,21 @@ test("a prepaid clinic's top-ups in a period, newest first", () => {
   assert.equal(clinicTopups(grants, C, { fromMs: T + 1, toMs: T + 2 }).rows.length, 0);
 });
 
-test('an invoiced clinic month by month: amount at its price, paid, part or open', () => {
+test('an invoiced clinic month by month: what it pays (cost + markup), paid, part, open or nothing', () => {
   const days = [
-    { day: '2026-10-03', credits: 700 }, { day: '2026-10-20', credits: 515 },
-    { day: '2026-11-02', credits: 100 },
-    { day: '2026-09-30', credits: 10 },
+    { day: '2026-10-03', credits: 700, costEur: 20, amountEur: 26.004 }, { day: '2026-10-20', credits: 515, costEur: 17.38, amountEur: 22.596 },
+    { day: '2026-11-02', credits: 100, costEur: 3.08, amountEur: 4.004 },
+    { day: '2026-09-30', credits: 10, costEur: 0.3, amountEur: 0.4 },
+    { day: '2026-08-31', credits: 0, costEur: 0, amountEur: 0 },
   ];
   const r = invoiceMonths(days, clinic);
   assert.deepEqual(r.rows.map((row) => [row.month, row.credits, row.amountEur, row.paidEur, row.status]), [
     ['2026-11', 100, 4, null, 'open'],
     ['2026-10', 1215, 48.6, 48.6, 'paid'],
     ['2026-09', 10, 0.4, 0, 'part'],
-  ]);
-  assert.deepEqual([r.credits, r.amountEur, r.paidEur], [1325, 53, 48.6]);
-  assert.equal(r.avgEur, 48.6 / (1215 + 10));
-  const noPrice = invoiceMonths(days, { pricePerCreditEur: null, payments: [] });
-  assert.ok(noPrice.rows.every((row) => row.status === 'none' && row.amountEur === null));
+    ['2026-08', 0, 0, null, 'none'],
+  ], 'a month is rounded to the cent once, from the amounts the server booked');
+  assert.deepEqual([r.credits, r.amountEur, r.paidEur, Math.round(r.costEur * 100) / 100], [1325, 53, 48.6, 40.76]);
 });
 
 test('the months card reads whole months: a period starting or ending mid-month is widened', () => {

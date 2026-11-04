@@ -99,17 +99,15 @@ export function ClinicMonths({ clinic, report, onSave, onRemove }) {
   ];
   const open = editing ? months.rows.find((row) => row.month === editing) : null;
   // What is still owed: a month not paid at all, and the rest of one paid in part
-  const unpaid = months.rows.reduce((s, row) => s + (row.amountEur === null ? 0 : Math.max(0, row.amountEur - (row.paidEur ?? 0))), 0);
+  const unpaid = months.rows.reduce((s, row) => s + Math.max(0, row.amountEur - (row.paidEur ?? 0)), 0);
   return (
     <Card padding="none" className="min-w-0 p-4 sm:p-6 lg:p-8">
       <CardHeader title={t('clinics.months.title')} hintKey="clinics.months" />
       <p className="-mt-2 mb-4 text-sm font-medium text-ink-soft">
         {t('clinics.months.summary', {
-          credits: fmt.int(months.credits),
           invoiced: fmt.eur(months.amountEur),
           paid: fmt.eur(months.paidEur),
           unpaid: fmt.eur(unpaid),
-          avg: avgText(months.avgEur),
         })}
       </p>
       <DataTable columns={columns} rows={months.rows.map((row) => ({ ...row, key: row.month }))} limit={12} emptyText={t('common.list.empty')} caption={t('clinics.months.title')} />

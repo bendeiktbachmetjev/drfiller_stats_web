@@ -434,7 +434,7 @@ SCHEMAS.doctorEmail = obj({ pid: match(PID_RE), email: nullable(str) });
 
 SCHEMAS.clinic = obj({
   id: match(CLINIC_ID_RE), name: str, billing: oneOf(['invoice', 'prepaid']), active: bool,
-  monthlyCapPerDoctor: int, pricePerCreditEur: nullable(num), note: str,
+  monthlyCapPerDoctor: int, pricePerCreditEur: opt(nullable(num)), markupPct: opt(num), note: str,
   credits: obj({ available: num, used: num, total: num }),
   createdAt: nullable(num), updatedAt: nullable(num),
   members: arr(match(PID_RE)),
@@ -453,6 +453,8 @@ SCHEMAS.grants = obj({ grants: arr(SCHEMAS.grant) });
 SCHEMAS.clinicUsageRow = obj({
   day: match(DAY_RE), pid: pidOrSpecial,
   formCredits: num, formRefunded: num, anamnesisCredits: num, anamnesisRefunded: num, audioCredits: num, audioMs: num,
+  // our real cost and what an invoiced clinic pays (cost + markup), euros, fixed per request by the server
+  costAiEur: opt(num), costAudioEur: opt(num), amountAiEur: opt(num), amountAudioEur: opt(num),
 });
 SCHEMAS.clinicUsage = obj({
   clinicId: match(CLINIC_ID_RE),

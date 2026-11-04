@@ -12,13 +12,13 @@ const PILL = `relative inline-flex items-center gap-1 h-7 px-2.5 rounded-full bo
 export const doctorOf = (ds, pid) => ds?.doctors?.get?.(pid) ?? { pid, code: pid === 'deleted' ? '—' : pid, email: null, noText: null, deletedAccount: true };
 
 /**
- * The clinic's doctors in the period: credits by kind, the amount at the clinic's price, and "Take out".
+ * The clinic's doctors in the period: credits by kind, what an invoiced clinic pays for each, and "Take out".
  * @param {{ clinic: object, report: object, ds: object, onRemove: (pid: string) => Promise<unknown> }} props
  */
 export default function ClinicDoctors({ clinic, report, ds, onRemove }) {
   const [busyPid, setBusyPid] = useState(null);
   const [message, setMessage] = useState(null);
-  const priced = clinic.pricePerCreditEur != null;
+  const priced = clinic.billing === 'invoice';
 
   const remove = async (row) => {
     const name = doctorLabel(doctorOf(ds, row.pid));

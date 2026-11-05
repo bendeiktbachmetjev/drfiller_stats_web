@@ -12,6 +12,8 @@
 //   sticky for the browser (the site never forwards its own query string to the API):
 //     GET /api/admin/v2/__mock?scenario=planned&off=revenue&stripe=test&fail=settings&email=click&fallbackOn404=1
 //     GET /api/admin/v2/__mock?reset=1   back to the environment defaults (no key needed on __mock)
+//     GET /api/admin/v2/__mock?spec=<pid>:<specialty>   the person picks another specialty in the extension
+//                                (spec=<pid>: = none); the profile's role then counts again over a role set before
 //   environment: EMAIL_MODE=off|click|list (default list, O2), FALLBACK_ON_404=0|1 (default 0),
 //     MOCK_SCENARIO, MOCK_OFF, MOCK_STRIPE, MOCK_FAIL (the sticky defaults), MOCK_PORT
 // PUT /settings and PUT /costs-monthly/:month validate like §5.2.3.7 and keep state for the process
@@ -21,13 +23,15 @@
 // Work statistics (spec v1 §7.2): GET /clinics/:id/work?from&to&workers comes from src/dev/demoWork.js (its own
 // invented world, not the usage rows); PATCH /clinics/:id/staff/:pid { role?, ex?, statsOff? } and PUT /clinics/:id
 // { hourEur?, statsShown? } change it; each clinic of GET /clinics has `staff`: its members and the past members
-// the owner marked, as { pid, role, guessed, spec, ex, statsOff, member } (the backend's shape).
+// the owner marked, as { pid, role, guessed, from, profile, spec, ex, statsOff, member } (the backend's shape).
+// Roles follow the backend's rule (src/data/clinics/staff.js roleOf): the owner's while the profile gives the
+// role it gave when the owner set it, else the profile's, else a guess.
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { makeDemoApi } from '../src/dev/demoData.js';
 import { demoClinics, demoClinicUsage } from '../src/dev/demoClinics.js';
 import { demoWork } from '../src/dev/demoWork.js';
-import { guessRole } from '../src/data/clinics/staff.js';
+import { profileRole, roleOf } from '../src/data/clinics/staff.js';
 import { CLINIC_ID_RE, DAY_RE, DEFAULT_PLANNING, DEFAULT_SETTINGS, envelope, errorBody, HOUR_EUR_MAX, MONTH_COST_LIMITS, MONTH_RE, PID_RE, PLANNING_LIMITS, STAFF_ROLES, validate } from '../src/data/api/contract.js';
 
 const PORT = Number(process.env.MOCK_PORT) || 8323;
@@ -58,7 +62,9 @@ const state = {
   clinics: null, // Map id → clinic (without members), seeded from demoClinics on first use
   memberOf: null, // Map pid → clinic id
   grantList: [], // hand grants with their price: { id, t, pid|null, clinicId|null, credits, priceEur, note }
-  staff: null, // Map clinic id → { [pid]: { role?, ex? } } (the owner's marks; the backend keys them by uid)
+  staff: null, // Map clinic id → { [pid]: { role?, profileRole?, ex? } } (the owner's marks; the backend keys them by uid)
+  specOf: null, // Map pid → the specialty in their profile (null = none)
+  specChanges: new Map(), // pid → a specialty set through __mock?spec= (applied again when the clinics are first loaded)
   statsOff: null, // Set of pids who objected to work statistics (kept with the account, not the clinic)
   profiles: null, // Map pid → demo work profile (demoWork.js)
   pastMembers: null, // Map clinic id → Set of pids taken out (their work stays in the clinic's statistics)
@@ -153,6 +159,22 @@ const offRevenue = (revenue) => ({
 
 const offSoniox = (soniox) => ({ ...soniox, status: 'off', reason: 'no_soniox_key', days: [], liveSessions: [], totals: { requests: 0, audioMs: 0, costUsd: 0 } });
 
+// The backend's dropStaffRoles (services/billing/clinics.js): the person's profile now gives `role`, so a role
+// the owner set for another one (or before the profile counted: no profileRole) leaves every clinic's marks.
+// A role he set for this one stays, and so does the shared-login mark
+function dropStaffRoles(pid, role) {
+  state.staff.forEach((marks) => {
+    const entry = marks[pid];
+    if (!entry || !entry.role) return;
+    if (Object.prototype.hasOwnProperty.call(entry, 'profileRole') && entry.profileRole === role) return;
+    const rest = { ...entry };
+    delete rest.role;
+    delete rest.profileRole;
+    if (Object.keys(rest).length > 0) marks[pid] = rest;
+    else delete marks[pid];
+  });
+}
+
 function handleControl(res, query) {
   if (query.get('reset') === '1') state.sticky = envDefaults();
   if (query.has('scenario')) state.sticky.scenario = query.get('scenario') === 'planned' ? 'planned' : 'today';
@@ -160,6 +182,21 @@ function handleControl(res, query) {
     if (query.has(key)) state.sticky[key] = query.get(key) || null;
   });
   if (EMAIL_MODES.includes(query.get('email'))) state.sticky.email = query.get('email');
+  // A person picks another specialty (or none): spec=<pid>:<specialty>
+  const specChange = query.get('spec');
+  if (specChange) {
+    const at = specChange.indexOf(':');
+    const pid = at > 0 ? specChange.slice(0, at) : '';
+    const value = at > 0 ? specChange.slice(at + 1).trim() : '';
+    if (PID_RE.test(pid)) {
+      const before = state.specOf ? profileRole(state.specOf.get(pid) ?? null) : undefined;
+      state.specChanges.set(pid, value || null);
+      if (state.specOf) state.specOf.set(pid, value || null);
+      // As the backend's profile save: a specialty of another role takes the owner's roles out
+      const now = profileRole(value || null);
+      if (state.staff && before !== undefined && now !== before) dropStaffRoles(pid, now);
+    }
+  }
   if (query.has('fallbackOn404')) state.sticky.fallbackOn404 = query.get('fallbackOn404') === '1';
   if (query.get('reset') === '1') {
     state.settings = null;
@@ -171,6 +208,8 @@ function handleControl(res, query) {
     state.statsOff = null;
     state.profiles = null;
     state.pastMembers = null;
+    state.specOf = null;
+    state.specChanges = new Map();
   }
   return send(res, 200, { success: true, mock: state.sticky });
 }
@@ -259,13 +298,16 @@ function clinicsState(api, nowMs) {
     state.profiles = new Map();
     state.pastMembers = new Map();
     state.specOf = new Map(api.doctors.doctors.map((d) => [d.pid, d.specialization ?? null]));
-    demoClinics(api, nowMs).forEach(({ pids, staff, statsOff, profiles, ...clinic }) => {
+    demoClinics(api, nowMs).forEach(({ pids, specs, staff, statsOff, profiles, ...clinic }) => {
       state.clinics.set(clinic.id, clinic);
       pids.forEach((pid) => state.memberOf.set(pid, clinic.id));
+      // The clinic's people have their own specialties (a nurse, none at all …), on /doctors too
+      Object.entries(specs ?? {}).forEach(([pid, spec]) => state.specOf.set(pid, spec));
       state.staff.set(clinic.id, { ...staff });
       statsOff.forEach((pid) => state.statsOff.add(pid));
       Object.entries(profiles).forEach(([pid, profile]) => state.profiles.set(pid, profile));
     });
+    state.specChanges.forEach((spec, pid) => state.specOf.set(pid, spec));
   }
   return state.clinics;
 }
@@ -275,11 +317,16 @@ const pastOf = (id) => {
   if (!state.pastMembers.has(id)) state.pastMembers.set(id, new Set());
   return state.pastMembers.get(id);
 };
-/** A worker's marks at a clinic as GET /clinics sends them (the role guessed from the specialty until set). */
+/** The specialty in a person's profile (null = none). */
+const specOfPid = (pid) => state.specOf?.get(pid) ?? null;
+/**
+ * A worker's marks at a clinic as GET /clinics sends them (backend routes/adminClinics.js staffApi): the role that
+ * counts and where it comes from, the role the profile gives now, the specialty (null = none) and the marks.
+ */
 const markOf = (clinicId, pid) => {
-  const entry = state.staff.get(clinicId)?.[pid] ?? {};
-  const spec = state.specOf?.get(pid) ?? null;
-  return { pid, role: entry.role ?? guessRole(spec), guessed: !entry.role, spec: spec ?? 'Kita', ex: entry.ex === true, statsOff: state.statsOff.has(pid) };
+  const entry = state.staff.get(clinicId)?.[pid] ?? null;
+  const spec = specOfPid(pid);
+  return { pid, ...roleOf(entry, spec), spec, ex: entry?.ex === true, statsOff: state.statsOff.has(pid) };
 };
 /** Like the backend: the members now, then the past members the owner marked there, each with its marks. */
 const staffOut = (clinicId) => {
@@ -403,9 +450,16 @@ async function handleClinics(req, res, route, query, api, nowMs) {
     const member = state.memberOf.get(pid) === id;
     if (!PID_RE.test(pid) || (!member && !pastOf(id).has(pid))) return fail(res, 404, 'NOT_FOUND', 'Not a worker of this clinic');
     const marks = { ...(state.staff.get(id)?.[pid] ?? {}) };
+    // Like the backend's setStaff: the role the profile gives at this moment is kept with the owner's role; once
+    // the profile gives another one, the owner's stops counting. Clearing the role clears both.
     if ('role' in b) {
-      if (b.role) marks.role = b.role;
-      else delete marks.role;
+      if (b.role) {
+        marks.role = b.role;
+        marks.profileRole = profileRole(specOfPid(pid));
+      } else {
+        delete marks.role;
+        delete marks.profileRole;
+      }
     }
     if ('ex' in b) {
       if (b.ex) marks.ex = true;
@@ -428,9 +482,12 @@ async function handleClinics(req, res, route, query, api, nowMs) {
     // E-mails only in the 'list' mode, as on /doctors
     const emailOf = (p) => api.doctors.doctors.find((d) => d.pid === p)?.email ?? null;
     const people = [...membersOf(id).map((p) => ({ pid: p, member: true })), ...[...pastOf(id)].map((p) => ({ pid: p, member: false }))].map(({ pid: p, member }) => {
+      // `profile` here is the demo work profile: the work answer has no profile role (only `from`). It calls a
+      // missing specialty 'Nenurodyta', as the backend's specialtyOf does
       const mark = markOf(id, p);
+      delete mark.profile;
       const profile = state.profiles.get(p) ?? {};
-      return { ...mark, email: emailOf(p), member, profile, oldApp: profile.oldApp === true };
+      return { ...mark, spec: mark.spec ?? 'Nenurodyta', email: emailOf(p), member, profile, oldApp: profile.oldApp === true };
     });
     // A prepaid clinic's price of a credit: what its priced purchases cost on average (none = it got them free)
     const priced = state.grantList.filter((g) => g.clinicId === id && Number.isFinite(g.priceEur) && g.priceEur > 0);
@@ -559,7 +616,7 @@ async function handle(req, res) {
       const doctors = api.doctors.doctors
         .map(withGrant)
         .map((d) => (marked.has(d.pid) && !d.internal ? { ...d, internal: true, internalSource: 'settings' } : d))
-        .map((d) => ({ ...d, clinicId: state.memberOf.get(d.pid) ?? null }));
+        .map((d) => ({ ...d, clinicId: state.memberOf.get(d.pid) ?? null, specialization: state.specOf.has(d.pid) ? state.specOf.get(d.pid) : d.specialization }));
       return ok(res, { ...api.doctors, doctors }, notes);
     }
     case route === '/doctors/emails':

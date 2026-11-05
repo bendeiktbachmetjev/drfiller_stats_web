@@ -2,7 +2,7 @@
 import { doctorLabel, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
 import { csvFilename } from '../../export/csv.js';
-import { hasWork, workTiles } from '../../data/clinics/work.js';
+import { hasWork, workTiles, workerFrom } from '../../data/clinics/work.js';
 import { doctorOf } from './ClinicDoctors.jsx';
 import { reasonOf } from './reason.js';
 
@@ -135,7 +135,7 @@ export function workExportTablesOf({ clinic, work, period, ds }) {
       label: t('clinics.export.workPeople'),
       filename: file('work_people'),
       columns: [
-        col('person', 'text'), col('email', 'text'), col('code', 'text'), col('role', 'text'), col('role_guessed', 'text'), col('specialty', 'text'),
+        col('person', 'text'), col('email', 'text'), col('code', 'text'), col('role', 'text'), col('role_guessed', 'text'), col('role_from', 'text'), col('specialty', 'text'),
         col('shared_login', 'text'), col('stats_off', 'text'), col('in_clinic_now', 'text'), col('days', 'int'), col('forms', 'int'), col('forms_automatic', 'int'),
         col('referrals', 'int'), col('prescriptions_made', 'int'), col('prescriptions_saved', 'int'), col('services', 'int'), col('saved_min'), col('value_eur'), col('paid_eur'),
       ],
@@ -148,6 +148,8 @@ export function workExportTablesOf({ clinic, work, period, ds }) {
             code: doctor.code ?? null,
             role: row.role,
             role_guessed: row.guessed ? 'yes' : 'no',
+            // owner | profile | guess; empty when not known (erased accounts)
+            role_from: workerFrom(row, clinic.staff),
             specialty: row.spec,
             shared_login: row.ex ? 'yes' : 'no',
             stats_off: row.statsOff ? 'yes' : 'no',

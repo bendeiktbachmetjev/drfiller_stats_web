@@ -223,6 +223,12 @@ export const CLINIC_ID_RE = /^c[0-9a-f]{16}$/;
 
 /** A clinic worker's role (backend services/stats/registry.js ROLES), in the order the pages list them. */
 export const STAFF_ROLES = Object.freeze(['doctor', 'nurse', 'other', 'admin']);
+/**
+ * Where a worker's role comes from (backend services/stats/roles.js roleOf `from`): the owner set it at the
+ * clinic, the worker's profile gives it (the specialty picked in the extension), or neither does and it is a
+ * guess (a doctor: hours only, no €).
+ */
+export const ROLE_FROM = Object.freeze(['owner', 'profile', 'guess']);
 /** A clinic's own value of an hour (clinics/{id}.hourEur[role]): above 0, at most this many €, 2 decimals. */
 export const HOUR_EUR_MAX = 500;
 
@@ -453,14 +459,20 @@ SCHEMAS.doctorEmail = obj({ pid: match(PID_RE), email: nullable(str) });
 /**
  * A clinic member with its work-statistics marks (spec v1 §3.3, §7.2). The list may also hold plain pids
  * (before the server knew roles); normalize/clinics.js reads both.
- *   role      what the owner set (null = not set: the server guesses it from the specialty, guessed = true)
- *   spec      the specialty label, or 'Kita' for anything outside the extension's list
+ *   role      the role that counts: the owner's while it applies, else the one the profile gives, else a guess
+ *   guessed   no role of the owner's and no specialty in the profile: a doctor as a guess (hours only, no €)
+ *   from      where the role comes from: 'owner' | 'profile' | 'guess' (an older server sends none: its guessed
+ *             role was guessed from the specialty, any other was the owner's)
+ *   profile   the role the worker's profile gives now ('doctor' | 'nurse' | 'admin'; null = no specialty).
+ *             The owner's role stays while the profile gives the role it gave when the owner set it; once the
+ *             worker picks a specialty of another role, the profile's role counts again.
+ *   spec      the specialty as the profile holds it (null = none)
  *   ex        a shared login: counted, but no time saved
  *   statsOff  the worker objected: no work statistics at all (billing unchanged)
  */
 SCHEMAS.clinicMember = obj({
-  pid: match(PID_RE), role: opt(nullable(oneOf(STAFF_ROLES))), guessed: opt(bool), spec: opt(nullable(str)),
-  ex: opt(bool), statsOff: opt(bool),
+  pid: match(PID_RE), role: opt(nullable(oneOf(STAFF_ROLES))), guessed: opt(bool), from: opt(oneOf(ROLE_FROM)),
+  profile: opt(nullable(oneOf(STAFF_ROLES))), spec: opt(nullable(str)), ex: opt(bool), statsOff: opt(bool),
 });
 /** One entry of a clinic's `staff` (the backend's list: the members, then the past members the owner marked). */
 SCHEMAS.staffMember = obj({ ...SCHEMAS.clinicMember.fields, member: opt(bool) });
@@ -483,7 +495,10 @@ SCHEMAS.clinic = obj({
 });
 SCHEMAS.clinics = obj({ clinics: arr(SCHEMAS.clinic) });
 
-/** PATCH /clinics/:id/staff/:pid — any of these (statsOff is the worker's own switch, kept with their account). */
+/**
+ * PATCH /clinics/:id/staff/:pid — any of these (statsOff is the worker's own switch, kept with their account).
+ * role null = none of the owner's: the profile's role counts again.
+ */
 SCHEMAS.staffPatch = obj({ role: opt(nullable(oneOf(STAFF_ROLES))), ex: opt(bool), statsOff: opt(bool) });
 /** Its answer: the worker's marks after the change. */
 SCHEMAS.staffAnswer = obj({ clinicId: match(CLINIC_ID_RE), staff: SCHEMAS.staffMember });
@@ -505,7 +520,7 @@ SCHEMAS.staffAnswer = obj({ clinicId: match(CLINIC_ID_RE), staff: SCHEMAS.staffM
  *   parts: Array<{ key: string, lt?: string, en?: string, side: 'hand'|'df', min: number }>,
  *   byRole: Array<{ role: string, workers: number, savedMin: number, perWorkerDayMin: number|null, rateEur: number|null, valueEur: number|null }>,
  *   bySpecialty: Array<{ spec: string, workers: number, savedMin: number, valueEur: number|null }>,
- *   byWorker: Array<{ pid: string, email?: string|null, role: string|null, guessed: boolean, spec: string|null, ex: boolean,
+ *   byWorker: Array<{ pid: string, email?: string|null, role: string|null, guessed: boolean, from?: 'owner'|'profile'|'guess'|null, spec: string|null, ex: boolean,
  *     statsOff: boolean, member: boolean, days: number, forms: number, formsAuto: number, referrals: number, rxNew: number,
  *     rxSaved: number, services: number, savedMin: number, valueEur: number|null, paidEur: number|null }>,
  *   byActivity: Array<{ key: string, lt?: string, en?: string, count: number, savedMin: number, perUnitMin: number|null }>,
@@ -552,7 +567,9 @@ SCHEMAS.clinicWork = obj({
   })),
   bySpecialty: arr(obj({ spec: str, workers: int, savedMin: num, perWorkerDayMin: opt(nullable(num)), valueEur: eurOrNull })),
   byWorker: arr(obj({
-    pid: pidOrSpecial, email: opt(nullable(str)), role: roleOrNull, guessed: bool, spec: nullable(str), ex: bool, statsOff: bool,
+    // where the role comes from (newer servers; null on an erased account's line, whose rows kept the role but not
+    // where it came from); without it the site reads it from the staff marks
+    pid: pidOrSpecial, email: opt(nullable(str)), role: roleOrNull, guessed: bool, from: opt(nullable(oneOf(ROLE_FROM))), spec: nullable(str), ex: bool, statsOff: bool,
     nt: opt(bool), member: bool, gone: opt(bool), days: int, credits: opt(num), forms: num, formsAuto: num, referrals: num, rxNew: num,
     rxSaved: num, services: num, savedMin: nullable(num), valueEur: eurOrNull, paidEur: eurOrNull,
   })),

@@ -98,21 +98,32 @@ site only checks and arranges the answer (`src/data/clinics/work.js`, pure, test
   `GET /clinics/:id/work?from&to&workers=pid,pid` (both days included, unlike `/usage`: the site sends the period's last
   day). The server keeps an answer up to 10 minutes: a change to the clinic (roles, shared logins, rates) makes a
   new one at once, a worker's objection (kept with their account) shows within those 10 minutes.
-- Staff editor (`StaffEditor.jsx`): each person's role (Doctor / Nurse / Other clinical / Registry & admin; until it
-  is set, the server guesses it from the specialty and it is marked "guessed": hours, no €), "Set for selected",
-  "Shared login: no time saved" and "Worker objected: stop work statistics" (kept with the worker's account).
-  `PATCH /clinics/:id/staff/:pid { role?, ex?, statsOff? }` → `{ clinicId, staff: { pid, role, guessed, spec, ex, statsOff,
-  member } }`; past members can be marked too. `GET /clinics` lists each clinic's `staff` the same way.
+- Staff editor (`StaffEditor.jsx`): each person's role (Doctor / Nurse / Other clinical / Registry & admin) and where
+  it comes from. The role comes from the person's profile (the specialty they picked in the extension: "From the
+  profile: <specialty>"); the owner can set another one ("Set by you"). His role stays while the profile gives the
+  role it gave when he set it; once the person picks a specialty of another role, the profile counts again. With no
+  specialty in the profile the role is a guess (Doctor, marked "guessed": hours, no €). The picker's first choice
+  "From the profile (Nurse)" sends `role: null`. Also "Set for selected" (with "From the profile" too), "Shared
+  login: no time saved" and "Worker objected: stop work statistics" (kept with the worker's account).
+  `PATCH /clinics/:id/staff/:pid { role?, ex?, statsOff? }` → `{ clinicId, staff: { pid, role, guessed, from, profile,
+  spec, ex, statsOff, member } }` (`from` = 'owner' | 'profile' | 'guess', `profile` = the role the profile gives now,
+  null without a specialty); past members can be marked too. `GET /clinics` lists each clinic's `staff` the same way.
+  An older answer without `from` reads as before: guessed = 'guess', any other role = 'owner'. The work answer's
+  `byWorker` may carry `from` too (null on an erased account's line); without it the site reads it from the staff
+  marks (`work.js` `workerFrom`). The people table marks "Set by you" and "guessed"; the CSV has `role_from`.
 - Settings (Edit, `ClinicForm.jsx`): "Value of an hour, €" per role (blank = the national average shown in the
   field, from the State Patient Fund's data) and "Show work statistics to the clinic" (`statsShown`: its own page
   gets the time tabs). `PUT /clinics/:id` sends `hourEur` (the whole map: a role left out = the national average)
   and `statsShown` only when they changed, so the form still saves against an older server.
-- The national rates and the role guess are mirrored in `src/data/clinics/staff.js`; `staff.test.mjs` compares
-  them with `../backend/services/stats/` when that repo sits next to this one. The work answer's own `rates` win.
+- The national rates and the role rule (`profileRole`, `roleOf`) are mirrored in `src/data/clinics/staff.js` (the mock
+  and the kit use them); `staff.test.mjs` compares them with `../backend/services/stats/` when that repo sits next to
+  this one. The work answer's own `rates` win.
 - Mock: `GET /clinics/:id/work` comes from `src/dev/demoWork.js` (an invented world: doctors, nurses, the
   registry, a shared login, a worker who objected, an old extension, and 18 days with the extension's counts), so
-  its numbers are not the Usage and invoice view's. `/_kit?demo` (dev only, no key) shows the view with an invented
-  clinic.
+  its numbers are not the Usage and invoice view's. The demo clinic's people (`src/dev/demoClinics.js`) have their
+  own specialties, so roles come from the profile, from the owner and from a guess.
+  `GET /api/admin/v2/__mock?spec=<pid>:<specialty>` changes a person's specialty (empty = none) to try how the
+  profile counts again. `/_kit?demo` (dev only, no key) shows the view with an invented clinic.
 
 ## Data files
 

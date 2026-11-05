@@ -7,7 +7,7 @@
 // after the day rules (a day over 30 minutes that does not look like the worker's usual day counts 30; the cut is
 // its own negative part), savedMin = max(0, netMin) ("≈ 0"). Every other figure keeps its sign.
 // Days: `from` and `to` of the answer are both included (the query sends the last day, not the day after).
-import { CLINIC_ID_RE, DAY_RE, PID_RE, STAFF_ROLES } from '../api/contract.js';
+import { CLINIC_ID_RE, DAY_RE, PID_RE, ROLE_FROM, STAFF_ROLES } from '../api/contract.js';
 import { hourEurOf } from '../normalize/clinics.js';
 import { addDays, bucketIndexer, buildBuckets } from '../period.js';
 
@@ -195,7 +195,7 @@ export function normalizeWork(api) {
       }))
       .sort((x, y) => (x.role === null) - (y.role === null) || STAFF_ROLES.indexOf(x.role) - STAFF_ROLES.indexOf(y.role)),
     bySpecialty: list(a.bySpecialty)
-      .map((r) => ({ spec: text(r.spec) ?? 'Kita', workers: num(r.workers), savedMin: num(r.savedMin), perWorkerDayMin: numIfSent(r, 'perWorkerDayMin'), valueEur: numOrNull(r.valueEur) }))
+      .map((r) => ({ spec: text(r.spec) ?? 'Nenurodyta', workers: num(r.workers), savedMin: num(r.savedMin), perWorkerDayMin: numIfSent(r, 'perWorkerDayMin'), valueEur: numOrNull(r.valueEur) }))
       .sort((x, y) => y.savedMin - x.savedMin || y.workers - x.workers || x.spec.localeCompare(y.spec)),
     byWorker: list(a.byWorker)
       .filter((w) => pidOrNull(w.pid))
@@ -204,6 +204,9 @@ export function normalizeWork(api) {
         email: text(w.email),
         role: roleOrNull(w.role),
         guessed: w.guessed === true,
+        // Where the role comes from, when the answer says it (a guess says it itself); null = ask the clinic's
+        // staff marks (workerFrom)
+        from: ROLE_FROM.includes(w.from) ? w.from : w.guessed === true ? 'guess' : null,
         spec: text(w.spec),
         ex: w.ex === true,
         statsOff: w.statsOff === true,
@@ -377,11 +380,30 @@ export const specialtyRows = (work) =>
   work.bySpecialty.map((r) => ({ ...r, key: r.spec, savedMin: r.perWorkerDayMin === null ? null : r.savedMin }));
 
 /**
- * People of the report who have a guessed role and minutes (their hours count, not their euros).
+ * People of the report who have a guessed role (no specialty in the profile) and minutes: their hours count,
+ * not their euros.
  * @param {WorkReport} work
  */
 export const guessedWorkers = (work) =>
   work.byWorker.filter((w) => w.guessed && !w.ex && !w.statsOff && !w.nt && w.pid !== 'deleted' && w.savedMin !== null);
+
+/**
+ * Where a person's role in the work answer comes from: the answer's own word (or its guess), else the clinic's
+ * staff marks (GET /clinics) when they hold the same role. A worker the marks do not list has no role of the
+ * owner's at this clinic, so the role is the profile's. null = not known (erased accounts, no marks at all, or
+ * marks that hold another role than the answer).
+ * @param {{ pid: string, role: string|null, guessed: boolean, from?: string|null }} worker a WorkReport byWorker row
+ * @param {Record<string, { role: string|null, from: string }>|null} [staff] the clinic's normalized staff marks
+ * @returns {'owner'|'profile'|'guess'|null}
+ */
+export function workerFrom(worker, staff = null) {
+  if (ROLE_FROM.includes(worker?.from)) return worker.from;
+  if (worker?.guessed) return 'guess';
+  if (!worker || worker.pid === 'deleted' || !isMap(staff) || !Object.keys(staff).length) return null;
+  const mark = staff[worker.pid];
+  if (!mark) return 'profile';
+  return mark.role === worker.role && mark.from !== 'guess' && ROLE_FROM.includes(mark.from) ? mark.from : null;
+}
 
 /**
  * The likely range's drivers, largest swing first, named by the model's constants.

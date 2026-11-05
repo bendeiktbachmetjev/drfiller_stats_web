@@ -6,7 +6,8 @@
 //   doctors write forms (some with Dr. Filler Express: renewals, services), nurses everyday statuses, the
 //   registry marks services and visits; a shared login is counted without time saved; a worker who objected
 //   has no work statistics (billing only); one person still runs an old extension (no counts at all); days
-//   before `firstWorkDay` (18 days ago) have counts only, like days before the extension sent them.
+//   before `firstWorkDay` (18 days ago) have counts only, like days before the extension sent them. Roles come
+//   from the profiles, some from the owner; a person without a specialty has a guessed role (hours, no €).
 // These numbers are not the Usage and invoice view's (that one comes from the demo requests), on purpose: the
 // mock only has to show every state of the page.
 
@@ -226,10 +227,12 @@ function personDay(person, day, { firstWorkDay, clinicId }) {
  * The work answer of a clinic for the days from … to, both included (as the backend counts them).
  * @param {{
  *   clinic: { id: string, name: string, billing: 'invoice'|'prepaid', markupPct?: number, statsShown?: boolean, hourEur?: object, createdAt?: number|null },
- *   people: Array<{ pid: string, email: string|null, role: string, guessed: boolean, spec: string|null, ex: boolean,
- *     statsOff: boolean, member: boolean, profile?: object, oldApp?: boolean }>,
+ *   people: Array<{ pid: string, email: string|null, role: string, guessed: boolean, from?: 'owner'|'profile'|'guess',
+ *     spec: string|null, ex: boolean, statsOff: boolean, member: boolean, profile?: object, oldApp?: boolean }>,
  *   from: string, to: string, workers?: string[]|null, nowMs: number, creditPriceEur?: number|null
- * }} input creditPriceEur: a prepaid clinic's average price of a paid credit (null = its credits came free)
+ * }} input creditPriceEur: a prepaid clinic's average price of a paid credit (null = its credits came free);
+ *   people[].profile is the demo work profile (how the person works), `from` where their role comes from (the
+ *   answer carries it when given: some servers send it, the site reads it from the staff marks otherwise)
  */
 export function demoWork({ clinic, people, from, to, workers = null, nowMs, creditPriceEur = null }) {
   const today = dayOf(nowMs);
@@ -254,7 +257,7 @@ export function demoWork({ clinic, people, from, to, workers = null, nowMs, cred
   const cardioOf = (p) => (p.profile?.cardio ? 'cardio' : null);
 
   shown.forEach((person) => {
-    const w = { pid: person.pid, email: person.email, role: person.role, guessed: person.guessed, spec: person.spec, ex: person.ex, statsOff: person.statsOff, nt: false, member: person.member, gone: false, days: 0, credits: 0, forms: 0, formsAuto: 0, referrals: 0, rxNew: 0, rxSaved: 0, services: 0, savedMin: 0, valueEur: null, paidEur: 0, workDays: 0 };
+    const w = { pid: person.pid, email: person.email, role: person.role, guessed: person.guessed, ...(person.from ? { from: person.from } : {}), spec: person.spec, ex: person.ex, statsOff: person.statsOff, nt: false, member: person.member, gone: false, days: 0, credits: 0, forms: 0, formsAuto: 0, referrals: 0, rxNew: 0, rxSaved: 0, services: 0, savedMin: 0, valueEur: null, paidEur: 0, workDays: 0 };
     let sentLast = null; // the last day this person's extension sent its counts
     const credits = { forms: 0, audioMin: 0 };
     for (let day = from; day < end; day = addDays(day, 1)) {
@@ -359,7 +362,7 @@ export function demoWork({ clinic, people, from, to, workers = null, nowMs, cred
     .filter((r) => byWorker.some((w) => w.role === r.role));
   const specs = new Map();
   byWorker.forEach((w) => {
-    const spec = w.spec ?? 'Kita';
+    const spec = w.spec ?? 'Nenurodyta';
     const row = specs.get(spec) ?? { spec, workers: 0, savedMin: 0, perWorkerDayMin: null, valueEur: null };
     if (w.days > 0) row.workers += 1;
     row.savedMin = round1(row.savedMin + (w.savedMin ?? 0));

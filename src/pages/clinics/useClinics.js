@@ -259,7 +259,8 @@ export function useClinicActions() {
    * @param {string} id clinic
    * @param {string} pid
    * @param {{ role?: string|null, ex?: boolean, statsOff?: boolean }} change
-   * @param {string|null} [specialization] the worker's specialty (a role set back to "not set" is guessed from it)
+   * @param {string|null} [specialization] the worker's specialty (a role set back to "From the profile" is the
+   *   role it gives, until the server's answer says otherwise)
    */
   const setStaff = useCallback(
     async (id, pid, change, specialization = null) => {

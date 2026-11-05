@@ -204,8 +204,17 @@ export const COPY = {
   'clinics.role.admin': 'Registry & admin',
   'clinics.role.none': 'No role',
   'clinics.role.guessed': 'guessed',
-  'clinics.role.guessedTitle': 'Guessed from the specialty: it groups the person, but their time is not valued in euros until you set the role.',
-  'clinics.role.notSet': 'Not set (guessed)',
+  'clinics.role.guessedTitle': 'No specialty in the profile, so the role is a guess. Hours count, euros do not, until you set the role.',
+  // The role picker: its first choice takes the role the person's profile gives
+  'clinics.role.notSet': 'From the profile',
+  'clinics.role.notSetAs': 'From the profile ({role})',
+  // Where the role comes from (under the picker)
+  'clinics.role.from.profile': 'From the profile',
+  'clinics.role.from.profileSpec': 'From the profile: {spec}',
+  'clinics.role.from.owner': 'Set by you',
+  'clinics.role.from.ownerOver': 'Set by you. The profile says {role}.',
+  'clinics.role.from.ownerNoSpec': 'Set by you. No specialty in the profile.',
+  'clinics.role.from.guess': 'No specialty in the profile — guessed, no € until you set it',
 
   // --- Settings in the clinic form: work statistics ---------------------------------------------------------
   'clinics.form.work.title': 'Work statistics',
@@ -247,6 +256,8 @@ export const COPY = {
   'clinics.staff.pickAria': 'Pick {name}',
   'clinics.staff.sharedAria': 'Shared login: {name}',
   'clinics.staff.objectedAria': 'Worker objected: {name}',
+  // The owner's role counts while the profile still says the role it said when he set it (staff.js roleOf)
+  'clinics.staff.rule': 'A role you set stays while the person’s profile says the same role as when you set it. If they switch to a specialty of another role (say, a nurse’s instead of a doctor’s), their profile counts again.',
   'clinics.staff.auto': 'My and test accounts and the store review account never get time saved.',
 
   // --- Work and time ----------------------------------------------------------------------------------------------
@@ -263,7 +274,7 @@ export const COPY = {
   'clinics.work.oldDays': 'Time saved is counted from {date}. Earlier days show counts only.',
   'clinics.work.notYet': '{n} person-days show counts only: those people’s extension does not send its counts yet.',
   'clinics.work.noEvents': 'No day of this period has the extension’s counts yet: only what the server counts itself is shown, and no time saved.',
-  'clinics.work.guessed': '{n} of the people shown have a guessed role: their hours count, their euros do not. Set the roles in the list below.',
+  'clinics.work.guessed': '{n} of the people shown have no specialty in their profile, so their role is a guess: their hours count, their euros do not. Set their roles in the list below.',
   'clinics.work.rates': 'An hour is valued at: {list}.',
   'clinics.work.rates.own': '{role} {eur} (the clinic’s own)',
   'clinics.work.rates.national': '{role} {eur}',
@@ -347,7 +358,7 @@ export const COPY = {
   'clinics.work.rate.own': 'the clinic’s own',
   'clinics.work.tag.shared': 'shared login — no time saved',
   'clinics.work.tag.noTime': 'my or test account — no time saved',
-  'clinics.work.role.guessedN': '{n} guessed',
+  'clinics.work.role.guessedN': '{n} with no specialty',
   'clinics.work.tag.off': 'Work statistics stopped at the worker’s request',
   'clinics.work.tag.left': 'left the clinic',
   'clinics.work.tag.deleted': 'Deleted accounts',
@@ -461,8 +472,9 @@ export const DEFS = {
     long: 'Ten wrong passwords lock the link for 15 minutes. One link per clinic: a new one stops the old one. Deleting the clinic stops it too.',
   },
   'clinics.staff': {
-    short: 'Set each person’s role: their time saved is valued at that role’s hour. Until you set it, the role is guessed from the specialty and shows hours only.',
-    long: 'A shared login is counted, but gets no time saved. A worker who objected gets no work statistics at all; their billing stays. My and test accounts and the store review account never get time saved.',
+    // "When the clinic tells you": the privacy policy tells workers a role is corrected on the institution's word
+    short: 'Each person’s role comes from their profile: the specialty they picked in the extension. Their time saved is valued at that role’s hour. When the clinic tells you a person’s role is different, set it here.',
+    long: 'A role you set stays while the person’s profile says the same role as when you set it. If they switch to a specialty of another role (say, a nurse’s instead of a doctor’s), their profile counts again. Example: you set Registry & admin while the profile says Doctor. If they move to another doctor’s specialty, your role stays. If they move to a nurse’s specialty, they count as a nurse. With no specialty in the profile, the person counts as a doctor, as a guess: hours only, no euros, until you set the role. A shared login is counted, but gets no time saved. A worker who objected gets no work statistics at all; their billing stays. My and test accounts and the store review account never get time saved.',
   },
   'clinics.work.tile.saved': {
     short: 'How long the same work would take by hand, minus how long it took with Dr. Filler: pressing, dictating, waiting, reading and fixing the text, watching Dr. Filler Express.',
@@ -470,7 +482,7 @@ export const DEFS = {
   },
   'clinics.work.tile.value': {
     short: 'The time saved, valued at what an employer pays on average for an hour of each role. It is the value of the time, not money saved.',
-    long: 'Only people whose role you set count in euros; guessed roles show hours only. A clinic’s own value of an hour wins over the national average.',
+    long: 'People with no specialty in their profile have a guessed role: they count in hours only, until you set their role. A clinic’s own value of an hour wins over the national average.',
   },
   'clinics.work.tile.paid': {
     short: 'What the clinic paid for the same people and days: an invoice at its amount, prepaid credits at the average price of the credits it bought.',

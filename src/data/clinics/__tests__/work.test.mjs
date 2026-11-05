@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COUNT_KEYS, COUNT_PARTS, QUALITY_KEYS, countItems, countingNotes, dailyRows, driverRows, filterWorkers, guessedWorkers, hasWork, healthOf, normalizeWork,
-  partsOf, queryFrom, roleRows, specialtyRows, workTiles, workersParam,
+  partsOf, queryFrom, roleRows, specialtyRows, workTiles, workerFrom, workersParam,
 } from '../work.js';
+import { normalizeClinics } from '../../normalize/clinics.js';
 import { has, t } from '../../../copy/index.js';
 import { resolvePeriod } from '../../period.js';
 
@@ -70,7 +71,7 @@ test('the answer is checked: bad rows and fields left out, lists sorted, labels 
   assert.deepEqual(work.clinic.hourEur, { nurse: 20 }, 'only valid own rates (above 0, at most 500)');
   assert.deepEqual(work.parts.map((p) => [p.key, p.label]), [['type', 'Typing the text'], ['fields', 'Formos laukai'], ['read', 'Reading and fixing'], ['press', 'press']]);
   assert.deepEqual(work.byRole.map((r) => r.role), ['doctor', 'nurse'], 'roles in the registry order');
-  assert.deepEqual(work.bySpecialty.map((r) => r.spec), ['Kita', 'Kardiologija'], 'no specialty = Kita; most saved first');
+  assert.deepEqual(work.bySpecialty.map((r) => r.spec), ['Nenurodyta', 'Kardiologija'], 'no specialty = Nenurodyta, as the backend sends it; most saved first');
   assert.deepEqual(work.byWorker.map((w) => w.pid), [A, B, C], 'most saved first; a bad pid is dropped');
   assert.equal(work.byWorker[1].formsAuto, 0, 'missing numbers are 0');
   assert.equal(work.byWorker[2].member, false);
@@ -222,6 +223,46 @@ test('what Dr. Filler did: drafts never written, „Kartoti“, the counts-only 
   ['referralsUnused', 'rxRep', 'abxShown', 'aiRef', 'anaCollect'].forEach((k) => assert.ok(has(`clinics.work.count.${k}`), k));
   assert.doesNotMatch(t('clinics.work.count.referralsProposed'), /not written/, 'every draft proposed, written or not');
   assert.match(t('clinics.work.count.referralsUnused'), /never written/);
+});
+
+test('where a person’s role comes from: the answer’s word, else its guess, else the clinic’s staff marks', () => {
+  // An answer without `from` (the clinic page's own code builds the people): only a guess says where it is from
+  const plain = normalizeWork(answer());
+  assert.deepEqual(plain.byWorker.map((w) => [w.pid, w.from]), [[A, 'guess'], [B, null], [C, null]]);
+  // An answer with it: kept; a value it does not know is left out
+  const said = normalizeWork(answer({
+    byWorker: [
+      { pid: A, role: 'nurse', guessed: false, from: 'owner', member: true, days: 1, forms: 1, savedMin: 3 },
+      { pid: B, role: 'nurse', guessed: false, from: 'clinic', member: true, days: 1, forms: 1, savedMin: 2 },
+      // an erased account's line: its rows kept the role, not where it came from
+      { pid: 'deleted', role: 'doctor', guessed: false, from: null, member: false, days: 1, forms: 1, savedMin: 1 },
+    ],
+  }));
+  assert.deepEqual(said.byWorker.map((w) => [w.pid, w.from]), [[A, 'owner'], [B, null], ['deleted', null]]);
+  assert.equal(workerFrom(said.byWorker[2], { [A]: { role: 'nurse', from: 'owner' } }), null);
+
+  // The clinic's marks (GET /clinics): B's nurse role is the owner's; D left and was never marked here
+  const D = 'dddddddddd';
+  const [clinic] = normalizeClinics({
+    clinics: [{
+      id: CLINIC, name: 'Testo klinika', billing: 'invoice', active: true, monthlyCapPerDoctor: 3000, note: '', credits: { available: 0, used: 0, total: 0 }, createdAt: 1, updatedAt: 1,
+      members: [A, B, C],
+      staff: [
+        { pid: A, role: 'doctor', guessed: true, from: 'guess', profile: null, spec: null, ex: false, statsOff: false, member: true },
+        { pid: B, role: 'nurse', guessed: false, from: 'owner', profile: 'doctor', spec: 'Kita', ex: false, statsOff: false, member: true },
+        { pid: C, role: 'nurse', guessed: false, from: 'profile', profile: 'nurse', spec: 'Bendrosios praktikos slaugytojas', ex: false, statsOff: false, member: true },
+      ],
+    }],
+  });
+  const [a, b, c] = [A, B, C].map((pid) => plain.byWorker.find((w) => w.pid === pid));
+  assert.equal(workerFrom(a, clinic.staff), 'guess');
+  assert.equal(workerFrom(b, clinic.staff), 'owner', 'the marks hold the same role');
+  assert.equal(workerFrom(c, clinic.staff), null, 'the marks hold another role than the answer: not known');
+  assert.equal(workerFrom({ pid: D, role: 'doctor', guessed: false, from: null }, clinic.staff), 'profile', 'no mark here: no role of the owner’s');
+  assert.equal(workerFrom({ pid: 'deleted', role: 'doctor', guessed: false, from: null }, clinic.staff), null, 'erased accounts');
+  assert.equal(workerFrom(b, {}), null, 'no marks at all (an older server)');
+  assert.equal(workerFrom(b), null);
+  assert.equal(workerFrom({ pid: B, role: 'nurse', guessed: false, from: 'profile' }, clinic.staff), 'profile', 'the answer’s own word wins');
 });
 
 test('health with a worker filter: only the picked members can be silent; objectors never', () => {

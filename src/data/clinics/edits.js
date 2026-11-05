@@ -109,13 +109,13 @@ export function withoutClinic(raw, id) {
 
 /**
  * A worker's work-statistics marks after the owner changed them (PATCH /clinics/:id/staff/:pid). The backend
- * sends them in the clinic's `staff` list ({ pid, role, guessed, spec, ex, statsOff, member }); they go there,
+ * sends them in the clinic's `staff` list ({ pid, role, guessed, from, profile, spec, ex, statsOff, member }); they go there,
  * onto a member object if the list holds objects, and into a pid-keyed map if that is what came. A worker the
  * list did not hold yet (a past member) is added to it, so the page and the work view see the change at once.
  * @param {object} raw RawBundle
  * @param {string} id clinic
  * @param {string} pid
- * @param {{ role?: string|null, guessed?: boolean, spec?: string|null, ex?: boolean, statsOff?: boolean }} marks
+ * @param {{ role?: string|null, guessed?: boolean, from?: string, profile?: string|null, spec?: string|null, ex?: boolean, statsOff?: boolean }} marks
  */
 export function withStaff(raw, id, pid, marks) {
   const clinics = clinicsOf(raw).map((c) => {

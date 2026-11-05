@@ -276,7 +276,7 @@ export default function WorkView({ clinic, ds, period, usageReport, state, worke
             </ChartCard>
             {/* The two widest tables get the whole width; the narrow ones share a row */}
             <RoleTable work={work} />
-            <PeopleTable work={work} ds={ds} />
+            <PeopleTable work={work} ds={ds} clinic={clinic} />
             <div className="grid gap-6 md:gap-8 xl:grid-cols-2">
               <SpecialtyTable work={work} />
               <ActivityTable work={work} />

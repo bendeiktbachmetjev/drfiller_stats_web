@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardHeader, DataTable, DoctorName } from '../../ui/index.js';
 import { doctorLabel, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
-import { COUNT_PARTS, countItems, roleRows, specialtyRows } from '../../data/clinics/work.js';
+import { COUNT_PARTS, countItems, roleRows, specialtyRows, workerFrom } from '../../data/clinics/work.js';
 import { doctorOf } from './ClinicDoctors.jsx';
 import { GUESSED_CHIP } from './StaffEditor.jsx';
 
@@ -21,16 +21,22 @@ export const signedMinutes = (min) => (Number.isFinite(min) ? keep(`${min > 0 ? 
 
 const roleText = (role) => (role ? t(`clinics.role.${role}`) : t('clinics.role.none'));
 
-/** A role with its "guessed" chip. */
-function RoleCell({ role, guessed }) {
+/**
+ * A role and where it comes from: a "guessed" chip (no specialty in the profile: hours, no €), "Set by you" under
+ * a role the owner set; the profile's role, the usual case, has no mark.
+ */
+function RoleCell({ role, guessed, from }) {
   return (
-    <span className="inline-flex flex-wrap items-center gap-1.5">
-      <span>{roleText(role)}</span>
-      {guessed && (
-        <span className={GUESSED_CHIP} title={t('clinics.role.guessedTitle')}>
-          {t('clinics.role.guessed')}
-        </span>
-      )}
+    <span className="block">
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        <span>{roleText(role)}</span>
+        {(guessed || from === 'guess') && (
+          <span className={GUESSED_CHIP} title={t('clinics.role.guessedTitle')}>
+            {t('clinics.role.guessed')}
+          </span>
+        )}
+      </span>
+      {from === 'owner' && <span className="block text-xs font-medium text-ink-mute">{t('clinics.role.from.owner')}</span>}
     </span>
   );
 }
@@ -100,11 +106,13 @@ export function SpecialtyTable({ work }) {
 }
 
 /**
- * "By person": the person with their role and tags, days, forms (automatic under it), referrals, prescriptions,
- * services, minutes saved, value and what the clinic paid. A worker who objected shows that line instead of
- * the work columns; the billing columns stay.
+ * "By person": the person with their role (and where it comes from) and tags, days, forms (automatic under it),
+ * referrals, prescriptions, services, minutes saved, value and what the clinic paid. A worker who objected shows
+ * that line instead of the work columns; the billing columns stay.
+ * @param {{ work: object, ds: object, clinic?: { staff?: Record<string, object> }|null }} props clinic: its staff
+ *   marks tell where a role comes from when the work answer does not say it
  */
-export function PeopleTable({ work, ds }) {
+export function PeopleTable({ work, ds, clinic = null }) {
   const nameOf = (row) => (row.pid === 'deleted' ? t('clinics.work.tag.deleted') : doctorLabel(doctorOf(ds, row.pid)));
   const off = (row, node) => (row.statsOff ? <span className="text-ink-mute">{fmt.empty}</span> : node);
   // Prescriptions: those made by renewing, as the clinic page's column; the saved ones under them, not
@@ -132,7 +140,7 @@ export function PeopleTable({ work, ds }) {
           </span>
         ),
     },
-    { key: 'role', header: t('clinics.work.col.role'), type: 'node', priority: 2, sortValue: (row) => row.role ?? '', render: (row) => (row.isTotal ? null : <RoleCell role={row.role} guessed={row.guessed} />) },
+    { key: 'role', header: t('clinics.work.col.role'), type: 'node', priority: 2, sortValue: (row) => row.role ?? '', render: (row) => (row.isTotal ? null : <RoleCell role={row.role} guessed={row.guessed} from={workerFrom(row, clinic?.staff)} />) },
     { key: 'spec', header: t('clinics.work.col.spec'), type: 'text', priority: 3 },
     { key: 'days', header: t('clinics.work.col.days'), type: 'int', priority: 3 },
     {

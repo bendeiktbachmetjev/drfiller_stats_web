@@ -1,6 +1,8 @@
 // Demo clinics for the mock server and ?demo (never in the build): one clinic that pays by invoice and one
 // with prepaid credits, made of demo doctors. A clinic's usage rows come from its doctors' demo requests, as
 // if they had always been in it (the real server counts only what happened while they were members).
+// Work statistics (src/dev/demoWork.js): each clinic also has its staff marks (the owner's roles, a shared
+// login), the people who objected, and invented work profiles (who writes forms, who uses Express …).
 import { CLINIC_ID_RE } from '../data/api/contract.js';
 
 const DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -9,15 +11,56 @@ const dayOf = (t) => DAY.format(new Date(t));
 export const DEMO_CLINIC_IDS = Object.freeze({ invoice: 'c1a2b3c4d5e6f7a8b', prepaid: 'c9f8e7d6c5b4a3f2e' });
 
 /**
- * The demo clinics: the first three doctors with a login (not the owner's) pay by invoice, the next two
- * share prepaid credits.
+ * The invented work people of the invoice clinic, in member order: role set by the owner (null = guessed from
+ * the specialty), a shared login, a worker who objected, an old extension, and how each one works.
+ */
+const INVOICE_PEOPLE = [
+  { role: 'doctor', profile: { forms: 20, express: 0.35, heavy: true } }, // a family doctor who runs Dr. Filler Express
+  { role: null, profile: { forms: 12 }, oldApp: true }, // role still guessed; an old extension sends no counts
+  { role: 'doctor', profile: { forms: 9, cardio: true } }, // a cardiologist: ŠKL and echo
+  { role: 'nurse', profile: {} },
+  { role: 'nurse', profile: { helper: true } },
+  { role: 'admin', profile: {} }, // the registry: services and visits with Express
+  { role: 'doctor', ex: true, profile: { forms: 16 } }, // a shared login of the ward
+  { role: 'other', statsOff: true, profile: {} }, // objected to work statistics
+];
+const PREPAID_PEOPLE = [
+  { role: 'doctor', profile: { forms: 15, f025: true } },
+  { role: null, profile: { forms: 8 } },
+  { role: 'other', profile: {} },
+];
+
+/** Staff marks, objections and work profiles of a clinic's demo people (by pid). */
+const peopleOf = (pids, people) => {
+  const staff = {};
+  const statsOff = [];
+  const profiles = {};
+  pids.forEach((pid, i) => {
+    const person = people[i];
+    if (!person) return;
+    const entry = {};
+    if (person.role) entry.role = person.role;
+    if (person.ex) entry.ex = true;
+    if (Object.keys(entry).length) staff[pid] = entry;
+    if (person.statsOff) statsOff.push(pid);
+    profiles[pid] = { ...person.profile, ...(person.oldApp ? { oldApp: true } : {}) };
+  });
+  return { staff, statsOff, profiles };
+};
+
+/**
+ * The demo clinics: the first eight doctors with a login (no account is the owner's in the demo) pay by
+ * invoice, the next three share prepaid credits.
  * @param {{ doctors: { doctors: object[] } }} api makeDemoApi output
  * @param {number} nowMs
- * @returns {Array<object>} ClinicApi without `members` (the mock adds them from the doctors' clinicId)
+ * @returns {Array<object>} ClinicApi without `members` (the mock adds them from the doctors' clinicId), plus
+ *   `pids` (its doctors), `staff` (pid → { role?, ex? }), `statsOff` (pids) and `profiles` (pid → work profile)
  */
 export function demoClinics(api, nowMs) {
   const doctors = api.doctors.doctors.filter((d) => d.exists?.auth && !d.internal);
   const created = nowMs - 20 * 86400000;
+  const invoicePids = doctors.slice(0, INVOICE_PEOPLE.length).map((d) => d.pid);
+  const prepaidPids = doctors.slice(INVOICE_PEOPLE.length, INVOICE_PEOPLE.length + PREPAID_PEOPLE.length).map((d) => d.pid);
   return [
     {
       id: DEMO_CLINIC_IDS.invoice,
@@ -30,7 +73,11 @@ export function demoClinics(api, nowMs) {
       credits: { available: 0, used: 0, total: 0 },
       createdAt: created,
       updatedAt: created,
-      pids: doctors.slice(0, 3).map((d) => d.pid),
+      // The clinic set its own nurse rate; it already sees its work statistics
+      hourEur: { nurse: 20 },
+      statsShown: true,
+      pids: invoicePids,
+      ...peopleOf(invoicePids, INVOICE_PEOPLE),
     },
     {
       id: DEMO_CLINIC_IDS.prepaid,
@@ -44,7 +91,10 @@ export function demoClinics(api, nowMs) {
       createdAt: created,
       updatedAt: created,
       share: { createdAt: created + 86400000, lastOpenedAt: nowMs - 5 * 3600000, opens: 4 },
-      pids: doctors.slice(3, 5).map((d) => d.pid),
+      hourEur: {},
+      statsShown: false,
+      pids: prepaidPids,
+      ...peopleOf(prepaidPids, PREPAID_PEOPLE),
     },
   ].filter((c) => CLINIC_ID_RE.test(c.id));
 }

@@ -512,5 +512,7 @@ export const RULES = {
     /\bKPI\b/,
     /\bpreview\b/i,
     /\bEEA\b/,
+    // The clinics' own systems are never named (work statistics, spec v1 §0.7): say "the clinic's system"
+    /\b(ELI|FOXUS|VARUTIS|ESIS)\b/i,
   ],
 };

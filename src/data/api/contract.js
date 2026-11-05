@@ -221,6 +221,11 @@ export const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** A clinic id (backend services/billing/payer.js): 'c' + 16 hex characters. */
 export const CLINIC_ID_RE = /^c[0-9a-f]{16}$/;
 
+/** A clinic worker's role (backend services/stats/registry.js ROLES), in the order the pages list them. */
+export const STAFF_ROLES = Object.freeze(['doctor', 'nurse', 'other', 'admin']);
+/** A clinic's own value of an hour (clinics/{id}.hourEur[role]): above 0, at most this many €, 2 decimals. */
+export const HOUR_EUR_MAX = 500;
+
 // ---------------------------------------------------------------------------
 // A tiny schema checker (no dependency). Unknown fields are allowed (forward compatible).
 // ---------------------------------------------------------------------------
@@ -238,6 +243,8 @@ const S = {
   rec: (inner) => ({ t: 'record', inner }),
   oneOf: (values) => ({ t: 'enum', values }),
   match: (re) => ({ t: 'match', re }),
+  // A value that may come in more than one shape (a clinic member: a pid, or a pid with its role)
+  either: (...options) => ({ t: 'either', options }),
 };
 
 function check(schema, value, path, errors) {
@@ -292,12 +299,23 @@ function check(schema, value, path, errors) {
       }
       Object.entries(schema.fields).forEach(([key, inner]) => check(inner, value[key], `${path}.${key}`, errors));
       return;
+    case 'either':
+      if (
+        !schema.options.some((option) => {
+          const found = [];
+          check(option, value, path, found);
+          return found.length === 0;
+        })
+      ) {
+        errors.push(`${path}: matches none of its shapes`);
+      }
+      return;
     default:
       errors.push(`${path}: unknown schema`);
   }
 }
 
-const { num, int, str, bool, any, nullable, opt, arr, obj, rec, oneOf, match } = S;
+const { num, int, str, bool, any, nullable, opt, arr, obj, rec, oneOf, match, either } = S;
 
 const pidOrSpecial = match(/^(d[a-z2-7]{9}|deleted|anonymous)$/);
 
@@ -432,16 +450,129 @@ SCHEMAS.settings = obj({ settings: SCHEMAS.settingsObject });
 
 SCHEMAS.doctorEmail = obj({ pid: match(PID_RE), email: nullable(str) });
 
+/**
+ * A clinic member with its work-statistics marks (spec v1 §3.3, §7.2). The list may also hold plain pids
+ * (before the server knew roles); normalize/clinics.js reads both.
+ *   role      what the owner set (null = not set: the server guesses it from the specialty, guessed = true)
+ *   spec      the specialty label, or 'Kita' for anything outside the extension's list
+ *   ex        a shared login: counted, but no time saved
+ *   statsOff  the worker objected: no work statistics at all (billing unchanged)
+ */
+SCHEMAS.clinicMember = obj({
+  pid: match(PID_RE), role: opt(nullable(oneOf(STAFF_ROLES))), guessed: opt(bool), spec: opt(nullable(str)),
+  ex: opt(bool), statsOff: opt(bool),
+});
+/** One entry of a clinic's `staff` (the backend's list: the members, then the past members the owner marked). */
+SCHEMAS.staffMember = obj({ ...SCHEMAS.clinicMember.fields, member: opt(bool) });
+
 SCHEMAS.clinic = obj({
   id: match(CLINIC_ID_RE), name: str, billing: oneOf(['invoice', 'prepaid']), active: bool,
   monthlyCapPerDoctor: int, pricePerCreditEur: opt(nullable(num)), markupPct: opt(num), note: str,
   credits: obj({ available: num, used: num, total: num }),
   createdAt: nullable(num), updatedAt: nullable(num),
-  members: arr(match(PID_RE)),
+  members: arr(either(match(PID_RE), SCHEMAS.clinicMember)),
   payments: opt(arr(obj({ month: match(MONTH_RE), amountEur: num, note: str, at: nullable(num) }))),
   share: opt(nullable(obj({ createdAt: nullable(num), lastOpenedAt: nullable(num), opens: num }))),
+  // Work statistics: the clinic's own €/h per role (absent = the national average), whether its own page shows
+  // them, and the staff marks (members and past members the owner marked)
+  hourEur: opt(nullable(rec(num))),
+  statsShown: opt(bool),
+  // the first day its own page shows them (set when they are first turned on, or by the owner)
+  statsFrom: opt(nullable(match(DAY_RE))),
+  staff: opt(arr(SCHEMAS.staffMember)),
 });
 SCHEMAS.clinics = obj({ clinics: arr(SCHEMAS.clinic) });
+
+/** PATCH /clinics/:id/staff/:pid — any of these (statsOff is the worker's own switch, kept with their account). */
+SCHEMAS.staffPatch = obj({ role: opt(nullable(oneOf(STAFF_ROLES))), ex: opt(bool), statsOff: opt(bool) });
+/** Its answer: the worker's marks after the change. */
+SCHEMAS.staffAnswer = obj({ clinicId: match(CLINIC_ID_RE), staff: SCHEMAS.staffMember });
+
+/**
+ * GET /clinics/:id/work?from&to&workers=pid,pid → ClinicWorkApi (spec v1 §7.2; backend routes/adminWork.js):
+ * computed by the server with the clinic page's own code (clinicView/page/report.js summary, range, checks),
+ * plus the owner-only parts (our cost, the range, Health). `from` and `to` are both included. Minutes may be
+ * below 0 (the parts and netMin keep their sign; totals.savedMin = max(0, netMin)). A person's savedMin is null
+ * when they get no time (a shared login, my and test accounts, an objection). Objects are open: new fields
+ * (byKind, groups, rateInfo …) are fine.
+ * @typedef {{
+ *   clinic: { id: string, name: string, billing: 'invoice'|'prepaid', statsShown: boolean, statsFrom?: string|null,
+ *     hourEur: Record<string, number>|null, markupPct?: number },
+ *   from: string, to: string, today: string, firstWorkDay: string|null, firstReportDay?: string|null,
+ *   model: { version: string, constants: Record<string, { v: number, lo?: number, hi?: number, unit?: string, src?: string, ref?: string, lt?: string, en?: string }> },
+ *   rates: Record<string, { eur: number, lo?: number, hi?: number, src?: string }>,
+ *   totals: Record<string, number|null> & { servicesByCode: Record<string, number> },
+ *   parts: Array<{ key: string, lt?: string, en?: string, side: 'hand'|'df', min: number }>,
+ *   byRole: Array<{ role: string, workers: number, savedMin: number, perWorkerDayMin: number|null, rateEur: number|null, valueEur: number|null }>,
+ *   bySpecialty: Array<{ spec: string, workers: number, savedMin: number, valueEur: number|null }>,
+ *   byWorker: Array<{ pid: string, email?: string|null, role: string|null, guessed: boolean, spec: string|null, ex: boolean,
+ *     statsOff: boolean, member: boolean, days: number, forms: number, formsAuto: number, referrals: number, rxNew: number,
+ *     rxSaved: number, services: number, savedMin: number, valueEur: number|null, paidEur: number|null }>,
+ *   byActivity: Array<{ key: string, lt?: string, en?: string, count: number, savedMin: number, perUnitMin: number|null }>,
+ *   daily: Array<{ day: string, savedMin: number, spentMin: number }>,
+ *   buttons: Array<{ id: string, lt?: string, en?: string, n: number }>,
+ *   range: { lowMin: number, highMin: number, drivers: Array<{ key: string, swingMin: number }> } | null,
+ *   health: { versions: Array<{ pid: string, app: string|null, lastDay: string|null }>,
+ *     quality: { dup: number, bad: number, later: number, skip: number, lost: number, capped: number },
+ *     checks: { formsVsBilling: Array<{ day: string, pid: string, gen: number, billed: number }>, insertsOverForms: number, daysCapped: number } }
+ * }} ClinicWorkApi
+ */
+const roleOrNull = nullable(oneOf(STAFF_ROLES));
+const eurOrNull = nullable(num);
+const labelled = { lt: opt(str), en: opt(str) };
+SCHEMAS.workTotals = obj({
+  savedMin: num, netMin: opt(num), spentMin: num, byHandMin: num, valueEur: eurOrNull, paidEur: eurOrNull, ourCostEur: eurOrNull,
+  forms: num, formsAuto: num, formsHelper: num, inserts: nullable(num), regenerated: num, referrals: num, referralsProposed: num,
+  rxNew: num, rxSaved: num, fillRuns: num, services: num, servicesByCode: rec(num), visitsDone: num, formsSaved: num,
+  docs: num, dx: num, skl: num, f025: num, echoPdf: num, anamnesis: num, audioMin: num, phone: num, presses: num,
+  // newer answers: the signed value, the drafts never written, „Kartoti“, the counts-only actions, and how many
+  // person-days had minutes or counts only
+  netValueEur: opt(eurOrNull), referralsUnused: opt(num), rxRep: opt(num), rxRepSearch: opt(num), anaCollect: opt(num),
+  abxShown: opt(num), abxTesiu: opt(num), abxKeiciu: opt(num), abxCancel: opt(num), aiRx: opt(num), aiRxHelper: opt(num), aiRef: opt(num),
+  workDays: opt(num), countsOnlyDays: opt(num), countsOnlyAfterFirst: opt(num),
+});
+SCHEMAS.clinicWork = obj({
+  clinic: obj({
+    id: match(CLINIC_ID_RE), name: str, billing: oneOf(['invoice', 'prepaid']), statsShown: bool,
+    statsFrom: opt(nullable(match(DAY_RE))), hourEur: nullable(rec(num)), markupPct: opt(num),
+  }),
+  from: match(DAY_RE), to: match(DAY_RE), today: match(DAY_RE), firstWorkDay: nullable(match(DAY_RE)),
+  firstReportDay: opt(nullable(match(DAY_RE))),
+  model: nullable(obj({
+    version: str,
+    since: opt(nullable(str)),
+    constants: rec(obj({ v: num, lo: opt(num), hi: opt(num), unit: opt(str), src: opt(str), also: opt(arr(str)), ref: opt(str), ...labelled })),
+  })),
+  rates: nullable(rec(obj({ eur: num, lo: opt(num), hi: opt(num), src: opt(str) }))),
+  totals: SCHEMAS.workTotals,
+  parts: arr(obj({ key: str, ...labelled, side: oneOf(['hand', 'df']), min: num })),
+  byRole: arr(obj({
+    role: oneOf(STAFF_ROLES), ...labelled, workers: int, guessed: opt(int), savedMin: num, perWorkerDayMin: nullable(num),
+    rateEur: nullable(num), rateOwn: opt(bool), valueEur: eurOrNull,
+  })),
+  bySpecialty: arr(obj({ spec: str, workers: int, savedMin: num, perWorkerDayMin: opt(nullable(num)), valueEur: eurOrNull })),
+  byWorker: arr(obj({
+    pid: pidOrSpecial, email: opt(nullable(str)), role: roleOrNull, guessed: bool, spec: nullable(str), ex: bool, statsOff: bool,
+    nt: opt(bool), member: bool, gone: opt(bool), days: int, credits: opt(num), forms: num, formsAuto: num, referrals: num, rxNew: num,
+    rxSaved: num, services: num, savedMin: nullable(num), valueEur: eurOrNull, paidEur: eurOrNull,
+  })),
+  byActivity: arr(obj({ key: str, ...labelled, count: nullable(num), savedMin: num, perUnitMin: nullable(num) })),
+  daily: arr(obj({ day: match(DAY_RE), savedMin: num, spentMin: num, byHandMin: opt(num), workers: opt(int) })),
+  buttons: arr(obj({ id: str, ...labelled, n: num })),
+  range: nullable(obj({
+    centralMin: opt(nullable(num)), lowMin: nullable(num), highMin: nullable(num),
+    drivers: arr(obj({ key: str, ...labelled, swingMin: num, atLoMin: opt(num), atHiMin: opt(num) })),
+  })),
+  health: obj({
+    versions: arr(obj({ pid: pidOrSpecial, app: nullable(str), lastDay: nullable(match(DAY_RE)) })),
+    quality: obj({ dup: num, bad: num, later: num, skip: num, lost: num, capped: num }),
+    checks: obj({
+      formsVsBilling: arr(obj({ day: match(DAY_RE), pid: pidOrSpecial, gen: num, billed: num })),
+      insertsOverForms: num,
+      daysCapped: num,
+    }),
+  }),
+});
 
 /** GET /grants: credits added by hand, to a doctor (pid) or a prepaid clinic, with what was paid (null = not recorded). */
 SCHEMAS.grant = obj({
@@ -481,6 +612,7 @@ export const ROUTE_SCHEMAS = Object.freeze({
   doctorEmail: 'doctorEmail',
   clinics: 'clinics',
   clinicUsage: 'clinicUsage',
+  clinicWork: 'clinicWork',
   grants: 'grants',
 });
 

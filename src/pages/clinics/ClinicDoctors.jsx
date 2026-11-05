@@ -11,6 +11,15 @@ const PILL = `relative inline-flex items-center gap-1 h-7 px-2.5 rounded-full bo
 /** The dataset's doctor of a pid, or a stand-in for a deleted account. */
 export const doctorOf = (ds, pid) => ds?.doctors?.get?.(pid) ?? { pid, code: pid === 'deleted' ? '—' : pid, email: null, noText: null, deletedAccount: true };
 
+/** The person's role and work-statistics marks in one quiet line (set in Work and time → Staff). */
+function StaffLine({ mark }) {
+  if (!mark?.role) return null;
+  const parts = [`${t(`clinics.role.${mark.role}`)}${mark.guessed ? ` (${t('clinics.role.guessed')})` : ''}`];
+  if (mark.ex) parts.push(t('clinics.staff.shared'));
+  if (mark.statsOff) parts.push(t('clinics.work.tag.off'));
+  return <span className="block text-xs font-medium text-ink-mute">{parts.join(' · ')}</span>;
+}
+
 /**
  * The clinic's doctors in the period: credits by kind, what an invoiced clinic pays for each, and "Take out".
  * @param {{ clinic: object, report: object, ds: object, onRemove: (pid: string) => Promise<unknown> }} props
@@ -49,6 +58,7 @@ export default function ClinicDoctors({ clinic, report, ds, onRemove }) {
             <span className="block min-w-[176px]">
               <DoctorName doctor={doctorOf(ds, row.pid)} stacked />
               {!row.member && <span className="block text-xs font-medium text-ink-mute">{t('clinics.doctors.formerly')}</span>}
+              <StaffLine mark={clinic.staff?.[row.pid]} />
             </span>
           ),
       },

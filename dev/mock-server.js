@@ -18,11 +18,17 @@
 // lifetime. Clinics (/clinics…) start from src/dev/demoClinics.js and keep their changes for the process
 // lifetime too; a clinic's usage = its current doctors' demo requests. No 409 anywhere (O3): unknown pids are dropped with the note UNKNOWN_PIDS_IGNORED, and the
 // marked pids come back as `internal: true, internalSource: 'settings'` on /doctors.
+// Work statistics (spec v1 §7.2): GET /clinics/:id/work?from&to&workers comes from src/dev/demoWork.js (its own
+// invented world, not the usage rows); PATCH /clinics/:id/staff/:pid { role?, ex?, statsOff? } and PUT /clinics/:id
+// { hourEur?, statsShown? } change it; each clinic of GET /clinics has `staff`: its members and the past members
+// the owner marked, as { pid, role, guessed, spec, ex, statsOff, member } (the backend's shape).
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { makeDemoApi } from '../src/dev/demoData.js';
 import { demoClinics, demoClinicUsage } from '../src/dev/demoClinics.js';
-import { CLINIC_ID_RE, DAY_RE, DEFAULT_PLANNING, DEFAULT_SETTINGS, envelope, errorBody, MONTH_COST_LIMITS, MONTH_RE, PID_RE, PLANNING_LIMITS, validate } from '../src/data/api/contract.js';
+import { demoWork } from '../src/dev/demoWork.js';
+import { guessRole } from '../src/data/clinics/staff.js';
+import { CLINIC_ID_RE, DAY_RE, DEFAULT_PLANNING, DEFAULT_SETTINGS, envelope, errorBody, HOUR_EUR_MAX, MONTH_COST_LIMITS, MONTH_RE, PID_RE, PLANNING_LIMITS, STAFF_ROLES, validate } from '../src/data/api/contract.js';
 
 const PORT = Number(process.env.MOCK_PORT) || 8323;
 const PREFIX = '/api/admin/v2';
@@ -52,6 +58,10 @@ const state = {
   clinics: null, // Map id → clinic (without members), seeded from demoClinics on first use
   memberOf: null, // Map pid → clinic id
   grantList: [], // hand grants with their price: { id, t, pid|null, clinicId|null, credits, priceEur, note }
+  staff: null, // Map clinic id → { [pid]: { role?, ex? } } (the owner's marks; the backend keys them by uid)
+  statsOff: null, // Set of pids who objected to work statistics (kept with the account, not the clinic)
+  profiles: null, // Map pid → demo work profile (demoWork.js)
+  pastMembers: null, // Map clinic id → Set of pids taken out (their work stays in the clinic's statistics)
 };
 
 const send = (res, status, body) => {
@@ -157,13 +167,20 @@ function handleControl(res, query) {
     state.clinics = null;
     state.memberOf = null;
     state.grantList = [];
+    state.staff = null;
+    state.statsOff = null;
+    state.profiles = null;
+    state.pastMembers = null;
   }
   return send(res, 200, { success: true, mock: state.sticky });
 }
 
 // --- clinics (like the backend's routes/adminClinics.js, without its rate limits and logs) ----------------
 
-const CLINIC_FIELDS = ['name', 'billing', 'active', 'monthlyCapPerDoctor', 'pricePerCreditEur', 'markupPct', 'note'];
+const CLINIC_FIELDS = ['name', 'billing', 'active', 'monthlyCapPerDoctor', 'pricePerCreditEur', 'markupPct', 'note', 'hourEur', 'statsShown', 'statsFrom'];
+
+/** A clinic's own €/h like the backend's hourEurOf: above 0, at most HOUR_EUR_MAX, 2 decimals; null otherwise. */
+const hourOf = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= HOUR_EUR_MAX && Math.abs(v * 100 - Math.round(v * 100)) < 1e-6 ? Math.round(v * 100) / 100 : null);
 
 /** The backend's validateClinic in short: field names of the errors, or the clean value. */
 function checkClinic(body, partial) {
@@ -203,6 +220,29 @@ function checkClinic(body, partial) {
     if (note === null || note.length > 500) errors.push('note');
     else value.note = note;
   }
+  if (has('hourEur')) {
+    // Like the backend: the whole map is replaced, a role left out or null = the national average
+    const h = b.hourEur;
+    if (h === null) value.hourEur = {};
+    else if (!h || typeof h !== 'object' || Array.isArray(h)) errors.push('hourEur');
+    else {
+      const rates = {};
+      Object.entries(h).forEach(([role, eur]) => {
+        if (!STAFF_ROLES.includes(role) || (eur !== null && hourOf(eur) === null)) errors.push(`hourEur.${role}`);
+        else if (eur !== null) rates[role] = hourOf(eur);
+      });
+      value.hourEur = rates;
+    }
+  }
+  if (has('statsShown')) (typeof b.statsShown === 'boolean' ? (value.statsShown = b.statsShown) : errors.push('statsShown'));
+  // The first day the clinic's page shows them (a real day from 2026 on)
+  if (has('statsFrom')) {
+    const day = b.statsFrom;
+    const at = typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) ? new Date(`${day}T00:00:00Z`) : null;
+    const real = Boolean(at) && !Number.isNaN(at.getTime()) && at.toISOString().slice(0, 10) === day;
+    if (real && day >= '2026-01-01') value.statsFrom = day;
+    else errors.push('statsFrom');
+  }
   Object.keys(b).forEach((key) => {
     if (!CLINIC_FIELDS.includes(key)) errors.push(key);
   });
@@ -214,19 +254,58 @@ function clinicsState(api, nowMs) {
   if (!state.clinics) {
     state.clinics = new Map();
     state.memberOf = new Map();
-    demoClinics(api, nowMs).forEach(({ pids, ...clinic }) => {
+    state.staff = new Map();
+    state.statsOff = new Set();
+    state.profiles = new Map();
+    state.pastMembers = new Map();
+    state.specOf = new Map(api.doctors.doctors.map((d) => [d.pid, d.specialization ?? null]));
+    demoClinics(api, nowMs).forEach(({ pids, staff, statsOff, profiles, ...clinic }) => {
       state.clinics.set(clinic.id, clinic);
       pids.forEach((pid) => state.memberOf.set(pid, clinic.id));
+      state.staff.set(clinic.id, { ...staff });
+      statsOff.forEach((pid) => state.statsOff.add(pid));
+      Object.entries(profiles).forEach(([pid, profile]) => state.profiles.set(pid, profile));
     });
   }
   return state.clinics;
 }
 
 const membersOf = (id) => [...state.memberOf.entries()].filter(([, clinicId]) => clinicId === id).map(([pid]) => pid).sort();
-const clinicOut = ({ deletedAt, ...clinic }) => ({ ...clinic, members: membersOf(clinic.id), payments: clinic.payments ?? [], share: clinic.share ?? null });
+const pastOf = (id) => {
+  if (!state.pastMembers.has(id)) state.pastMembers.set(id, new Set());
+  return state.pastMembers.get(id);
+};
+/** A worker's marks at a clinic as GET /clinics sends them (the role guessed from the specialty until set). */
+const markOf = (clinicId, pid) => {
+  const entry = state.staff.get(clinicId)?.[pid] ?? {};
+  const spec = state.specOf?.get(pid) ?? null;
+  return { pid, role: entry.role ?? guessRole(spec), guessed: !entry.role, spec: spec ?? 'Kita', ex: entry.ex === true, statsOff: state.statsOff.has(pid) };
+};
+/** Like the backend: the members now, then the past members the owner marked there, each with its marks. */
+const staffOut = (clinicId) => {
+  const members = membersOf(clinicId);
+  const marked = Object.keys(state.staff.get(clinicId) ?? {}).filter((pid) => !members.includes(pid));
+  return [...members.map((pid) => ({ ...markOf(clinicId, pid), member: true })), ...marked.map((pid) => ({ ...markOf(clinicId, pid), member: false }))].sort((a, b) => (a.pid < b.pid ? -1 : 1));
+};
+const clinicOut = ({ deletedAt, ...clinic }) => ({
+  ...clinic,
+  members: membersOf(clinic.id),
+  staff: staffOut(clinic.id),
+  payments: clinic.payments ?? [],
+  share: clinic.share ?? null,
+  hourEur: clinic.hourEur ?? {},
+  statsShown: clinic.statsShown === true,
+  statsFrom: clinic.statsFrom ?? null,
+});
+/** Like the backend: the first time they are turned on, shown from that day (unless the owner gave a day). */
+const withStatsFrom = (clinic, value, nowMs) => {
+  if (value.statsShown === true && !value.statsFrom && !clinic.statsFrom) value.statsFrom = vilniusDayOf(nowMs);
+  return value;
+};
 /** Euros typed by the owner (like the backend's eurOf): 0..1e6, at most 2 decimals; null otherwise. */
 const eurOf = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1e6 && Math.abs(v * 100 - Math.round(v * 100)) < 1e-6 ? Math.round(v * 100) / 100 : null);
 const vilniusMonthOf = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit' }).format(new Date(ms));
+const vilniusDayOf = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius' }).format(new Date(ms));
 
 async function handleClinics(req, res, route, query, api, nowMs) {
   const clinics = clinicsState(api, nowMs);
@@ -238,11 +317,11 @@ async function handleClinics(req, res, route, query, api, nowMs) {
     const { errors, value } = checkClinic(await readBody(req), false);
     if (errors.length) return fail(res, 400, 'INVALID_BODY', `Invalid fields: ${errors.join(', ')}`);
     const id = `c${randomBytes(8).toString('hex')}`;
-    const clinic = { id, active: true, monthlyCapPerDoctor: 3000, markupPct: 30, note: '', ...value, credits: { available: 0, used: 0, total: 0 }, createdAt: nowMs, updatedAt: nowMs };
+    const clinic = { id, active: true, monthlyCapPerDoctor: 3000, markupPct: 30, note: '', ...withStatsFrom({}, value, nowMs), credits: { available: 0, used: 0, total: 0 }, createdAt: nowMs, updatedAt: nowMs };
     clinics.set(id, clinic);
     return ok(res, { clinic: clinicOut(clinic) });
   }
-  const match = /^\/clinics\/([^/]+)(?:\/(members|credits|usage|payments|share)(?:\/([^/]+))?)?$/.exec(route);
+  const match = /^\/clinics\/([^/]+)(?:\/(members|credits|usage|payments|share|staff|work)(?:\/([^/]+))?)?$/.exec(route);
   if (!match) return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
   const id = decodeURIComponent(match[1]);
   const part = match[2] ?? null;
@@ -289,19 +368,75 @@ async function handleClinics(req, res, route, query, api, nowMs) {
   if (!part && req.method === 'PUT') {
     const { errors, value } = checkClinic(await readBody(req), true);
     if (errors.length) return fail(res, 400, 'INVALID_BODY', `Invalid fields: ${errors.join(', ')}`);
-    Object.assign(clinic, value, { updatedAt: nowMs });
+    Object.assign(clinic, withStatsFrom(clinic, value, nowMs), { updatedAt: nowMs });
     return ok(res, { clinic: clinicOut(clinic) });
   }
   if (part === 'members' && pid && (req.method === 'PUT' || req.method === 'DELETE')) {
     if (!doctorOk(pid)) return fail(res, 404, 'NOT_FOUND', 'Unknown doctor');
     const previous = state.memberOf.get(pid) ?? null;
     if (req.method === 'PUT') {
-      if (previous !== id) state.memberOf.set(pid, id);
+      if (previous !== id) {
+        state.memberOf.set(pid, id);
+        if (previous) pastOf(previous).add(pid);
+        pastOf(id).delete(pid);
+      }
       return ok(res, { pid, clinicId: id, previousClinicId: previous, changed: previous !== id });
     }
     const changed = previous === id;
-    if (changed) state.memberOf.delete(pid);
+    if (changed) {
+      state.memberOf.delete(pid);
+      pastOf(id).add(pid);
+    }
     return ok(res, { pid, clinicId: null, previousClinicId: previous, changed });
+  }
+  // Work statistics: the owner's marks on one worker (a member or a past member), like the backend's validateStaff
+  if (part === 'staff' && pid && req.method === 'PATCH') {
+    const body = await readBody(req);
+    const b = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+    const errors = Object.keys(b).filter((key) => !['role', 'ex', 'statsOff'].includes(key));
+    if ('role' in b && b.role !== null && !STAFF_ROLES.includes(b.role)) errors.push('role');
+    ['ex', 'statsOff'].forEach((flag) => {
+      if (flag in b && typeof b[flag] !== 'boolean') errors.push(flag);
+    });
+    if (!errors.length && !Object.keys(b).length) errors.push('nothing to change');
+    if (errors.length) return fail(res, 400, 'INVALID_BODY', `Invalid fields: ${errors.join(', ')}`);
+    const member = state.memberOf.get(pid) === id;
+    if (!PID_RE.test(pid) || (!member && !pastOf(id).has(pid))) return fail(res, 404, 'NOT_FOUND', 'Not a worker of this clinic');
+    const marks = { ...(state.staff.get(id)?.[pid] ?? {}) };
+    if ('role' in b) {
+      if (b.role) marks.role = b.role;
+      else delete marks.role;
+    }
+    if ('ex' in b) {
+      if (b.ex) marks.ex = true;
+      else delete marks.ex;
+    }
+    const staff = { ...(state.staff.get(id) ?? {}) };
+    if (Object.keys(marks).length) staff[pid] = marks;
+    else delete staff[pid];
+    state.staff.set(id, staff);
+    if ('statsOff' in b) (b.statsOff ? state.statsOff.add(pid) : state.statsOff.delete(pid));
+    return ok(res, { clinicId: id, staff: { ...markOf(id, pid), member } });
+  }
+  if (part === 'work' && !pid && req.method === 'GET') {
+    // Like the backend (routes/adminWork.js): both days included, from not after to nor after today
+    const from = query.get('from');
+    const to = query.get('to');
+    if (!DAY_RE.test(from ?? '') || !DAY_RE.test(to ?? '') || from > to) return fail(res, 400, 'BAD_RANGE', 'from and to must be days (YYYY-MM-DD), from not after to');
+    if (from > vilniusDayOf(nowMs)) return fail(res, 400, 'BAD_RANGE', 'from is after today');
+    const workers = (query.get('workers') ?? '').split(',').filter((p) => PID_RE.test(p));
+    // E-mails only in the 'list' mode, as on /doctors
+    const emailOf = (p) => api.doctors.doctors.find((d) => d.pid === p)?.email ?? null;
+    const people = [...membersOf(id).map((p) => ({ pid: p, member: true })), ...[...pastOf(id)].map((p) => ({ pid: p, member: false }))].map(({ pid: p, member }) => {
+      const mark = markOf(id, p);
+      const profile = state.profiles.get(p) ?? {};
+      return { ...mark, email: emailOf(p), member, profile, oldApp: profile.oldApp === true };
+    });
+    // A prepaid clinic's price of a credit: what its priced purchases cost on average (none = it got them free)
+    const priced = state.grantList.filter((g) => g.clinicId === id && Number.isFinite(g.priceEur) && g.priceEur > 0);
+    const paidCredits = priced.reduce((s, g) => s + g.credits, 0);
+    const creditPriceEur = paidCredits ? priced.reduce((s, g) => s + g.priceEur, 0) / paidCredits : null;
+    return ok(res, demoWork({ clinic, people, from, to, workers: workers.length ? workers : null, nowMs, creditPriceEur }));
   }
   if (part === 'credits' && req.method === 'POST') {
     const body = await readBody(req);

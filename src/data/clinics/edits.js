@@ -1,5 +1,6 @@
 // After a clinic change is saved, the loaded data takes it at once (AnalyticsContext rebuild), so the
 // Doctors and Clinics pages agree without a reload. Pure: each takes the RawBundle and returns a new one.
+import { memberPid } from '../normalize/clinics.js';
 
 const clinicsOf = (raw) => (Array.isArray(raw?.clinics?.clinics) ? raw.clinics.clinics : []);
 const doctorsOf = (raw) => (Array.isArray(raw?.doctors?.doctors) ? raw.doctors.doctors : []);
@@ -13,6 +14,8 @@ export function withClinic(raw, clinic) {
   const list = clinicsOf(raw);
   const before = list.find((c) => c.id === clinic.id);
   const next = { ...clinic, members: before?.members ?? clinic.members ?? [] };
+  // The staff marks travel with the members, not with the clinic's own fields
+  if (before?.staff !== undefined && clinic.staff === undefined) next.staff = before.staff;
   const clinics = before ? list.map((c) => (c.id === clinic.id ? next : c)) : [...list, next];
   return { ...raw, clinics: { ...(raw?.clinics ?? {}), clinics } };
 }
@@ -26,8 +29,10 @@ export function withClinic(raw, clinic) {
  */
 export function withMembership(raw, pid, clinicId) {
   const clinics = clinicsOf(raw).map((c) => {
-    const others = (c.members ?? []).filter((p) => p !== pid);
-    return { ...c, members: c.id === clinicId ? [...others, pid].sort() : others };
+    // A member may be a pid or { pid, role, … } (work statistics); a moved doctor arrives as a plain pid
+    const others = (c.members ?? []).filter((m) => memberPid(m) !== pid);
+    const joined = c.id === clinicId ? [...others, pid] : others;
+    return { ...c, members: joined.sort((a, b) => (memberPid(a) < memberPid(b) ? -1 : 1)) };
   });
   const doctors = doctorsOf(raw).map((d) => (d.pid === pid ? { ...d, clinicId } : d));
   return {
@@ -100,4 +105,39 @@ export function withClinicShare(raw, id, share) {
 /** A deleted clinic leaves the list. */
 export function withoutClinic(raw, id) {
   return { ...raw, clinics: { ...(raw?.clinics ?? {}), clinics: clinicsOf(raw).filter((c) => c.id !== id) } };
+}
+
+/**
+ * A worker's work-statistics marks after the owner changed them (PATCH /clinics/:id/staff/:pid). The backend
+ * sends them in the clinic's `staff` list ({ pid, role, guessed, spec, ex, statsOff, member }); they go there,
+ * onto a member object if the list holds objects, and into a pid-keyed map if that is what came. A worker the
+ * list did not hold yet (a past member) is added to it, so the page and the work view see the change at once.
+ * @param {object} raw RawBundle
+ * @param {string} id clinic
+ * @param {string} pid
+ * @param {{ role?: string|null, guessed?: boolean, spec?: string|null, ex?: boolean, statsOff?: boolean }} marks
+ */
+export function withStaff(raw, id, pid, marks) {
+  const clinics = clinicsOf(raw).map((c) => {
+    if (c.id !== id) return c;
+    let found = false;
+    const members = (c.members ?? []).map((m) => {
+      if (memberPid(m) !== pid || typeof m === 'string') return m;
+      found = true;
+      return { ...m, ...marks };
+    });
+    const next = { ...c, members };
+    if (c.staff && typeof c.staff === 'object' && !Array.isArray(c.staff)) {
+      found = true;
+      next.staff = { ...c.staff, [pid]: { ...(c.staff[pid] ?? {}), ...marks } };
+    } else {
+      const list = Array.isArray(c.staff) ? c.staff : [];
+      const listed = list.some((m) => memberPid(m) === pid);
+      const isMember = (c.members ?? []).some((m) => memberPid(m) === pid);
+      if (listed) next.staff = list.map((m) => (memberPid(m) === pid ? { ...m, ...marks } : m));
+      else if (!found) next.staff = [...list, { pid, member: isMember, ...marks }];
+    }
+    return next;
+  });
+  return { ...raw, clinics: { ...(raw?.clinics ?? {}), clinics } };
 }

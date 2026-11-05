@@ -54,6 +54,17 @@ test('ban list (OVERRIDES O1) holds for every COPY value and DEFS.short outside 
   });
 });
 
+test('no text names a clinic system (work statistics, spec v1 §0.7): labels, hints, long hints and templates', () => {
+  const SYSTEMS = /\b(ELI|FOXUS|VARUTIS|ESIS)\b/i;
+  Object.values(LANGS).forEach((table) => {
+    Object.entries(table.COPY).forEach(([key, text]) => assert.ok(!SYSTEMS.test(String(text)), `${key}: "${text}"`));
+    Object.entries(table.DEFS).forEach(([key, entry]) => {
+      const texts = typeof entry === 'string' ? [entry] : [entry?.short, entry?.long, entry?.template];
+      texts.filter(Boolean).forEach((text) => assert.ok(!SYSTEMS.test(text), `${key}: "${text}"`));
+    });
+  });
+});
+
 test('the fixed vocabulary of §3.11 (English column) is declared', () => {
   assert.deepEqual(LANGS.en.RULES.vocabulary, ['Paid by doctors', 'Income', 'Costs', 'Result', 'Kept, %', 'Form', 'Visit', 'Request', 'Credit']);
   ['common.row.paid', 'common.row.income', 'common.row.cost', 'common.row.result', 'common.row.left'].forEach((key, i) =>

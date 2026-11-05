@@ -23,8 +23,14 @@ export const costsMonthRoute = (month) => `/costs-monthly/${encodeURIComponent(m
 /** @param {string} pid @returns {string} '/doctors/:pid/credits' (POST { credits, note }) */
 export const doctorCreditsRoute = (pid) => `/doctors/${encodeURIComponent(pid)}/credits`;
 
-/** @param {string} id @returns {string} '/clinics/:id' (PUT { name?, billing?, active?, monthlyCapPerDoctor?, markupPct?, note? }) */
+/** @param {string} id @returns {string} '/clinics/:id' (PUT { name?, billing?, active?, monthlyCapPerDoctor?, markupPct?, note?, hourEur?, statsShown?, statsFrom? }) */
 export const clinicRoute = (id) => `/clinics/${encodeURIComponent(id)}`;
+
+/** @param {string} id @param {string} pid @returns {string} '/clinics/:id/staff/:pid' (PATCH { role?, ex?, statsOff? }) */
+export const clinicStaffRoute = (id, pid) => `/clinics/${encodeURIComponent(id)}/staff/${encodeURIComponent(pid)}`;
+
+/** @param {string} id @returns {string} '/clinics/:id/work' (GET ?from=YYYY-MM-DD&to=YYYY-MM-DD&workers=pid,pid; both days included, unlike /usage) */
+export const clinicWorkRoute = (id) => `/clinics/${encodeURIComponent(id)}/work`;
 
 /** @param {string} id @param {string} pid @returns {string} '/clinics/:id/members/:pid' (PUT adds, DELETE takes out) */
 export const clinicMemberRoute = (id, pid) => `/clinics/${encodeURIComponent(id)}/members/${encodeURIComponent(pid)}`;

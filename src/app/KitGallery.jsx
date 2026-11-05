@@ -14,6 +14,7 @@ import {
   SectionNav, SectionTitle, Segmented, ShareBar, SourceBadge, SourceBanner,
 } from '../ui/index.js';
 import useIsPhone from '../context/useIsPhone.js';
+import KitWork from './KitWork.jsx';
 
 const DAYS = ['2026-09-10', '2026-09-11', '2026-09-12', '2026-09-13', '2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18', '2026-09-19', '2026-09-20', '2026-09-21', '2026-09-22', '2026-09-23'];
 const FORMS = [212, 240, 18, 6, 231, 250, 244, 262, 238, 21, 9, 255, 270, 131];
@@ -168,6 +169,7 @@ export default function KitGallery() {
 
       <DataNotes notes={[{ key: 'common.note.openaiShareAssumed' }, 'A ready sentence also works.']} />
       <NotRecorded />
+      <KitWork />
     </div>
   );
 }

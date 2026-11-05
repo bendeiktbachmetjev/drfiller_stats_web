@@ -3,18 +3,19 @@ import { useSearchParams } from 'react-router-dom';
 import { Building2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useAnalytics, useClinicsMetric } from '../context/AnalyticsContext.jsx';
 import { useAdmin } from '../context/AdminContext.jsx';
-import { Card, CardHeader, DataTable, EmptyState, ErrorBanner, KpiTile, PageLayout } from '../ui/index.js';
+import { Card, CardHeader, DataTable, EmptyState, ErrorBanner, KpiTile, PageLayout, Segmented } from '../ui/index.js';
 import { t } from '../copy/index.js';
 import { fmt } from '../format/format.js';
 import { clinicReport } from '../data/clinics/report.js';
 import AddDoctors from './clinics/AddDoctors.jsx';
 import ClinicDoctors from './clinics/ClinicDoctors.jsx';
-import ClinicForm, { PRIMARY, SECONDARY } from './clinics/ClinicForm.jsx';
+import ClinicForm, { PRIMARY, SECONDARY, WORK_SETTINGS_ID } from './clinics/ClinicForm.jsx';
 import ClinicShare from './clinics/ClinicShare.jsx';
 import { ClinicMonths, ClinicTopups } from './clinics/ClinicMoney.jsx';
+import WorkView from './clinics/WorkView.jsx';
 import { invoiceMonths, wholeMonths } from '../data/clinics/money.js';
-import { answerItemsOf, exportTablesOf } from './clinics/text.js';
-import { useClinicActions, useClinicUsage } from './clinics/useClinics.js';
+import { answerItemsOf, exportTablesOf, workAnswerItemsOf, workExportTablesOf } from './clinics/text.js';
+import { useClinicActions, useClinicUsage, useClinicWork } from './clinics/useClinics.js';
 import { reasonOf } from './clinics/reason.js';
 
 const RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent';
@@ -45,6 +46,7 @@ function ClinicHead({ clinic, onEdit, onToggleActive, onDelete, busy }) {
           <h2 className="flex flex-wrap items-center gap-2 text-xl font-extrabold text-ink">
             <span className="min-w-0 break-words">{clinic.name}</span>
             <ModeChips clinic={clinic} />
+            {clinic.statsShown && <span className={`${CHIP} bg-brand/10 text-brand`}>{t('clinics.head.statsShown')}</span>}
           </h2>
           <p className="mt-1 text-sm font-medium text-ink-soft">{details.join(' · ')}</p>
           {clinic.note && <p className="mt-1 text-sm font-medium text-ink-mute break-words">{clinic.note}</p>}
@@ -157,10 +159,24 @@ export default function ClinicsPage() {
   const [mode, setMode] = useState(null); // null | 'new' | 'edit'
   const [busy, setBusy] = useState(false);
   const [headError, setHeadError] = useState(null);
+  const [picks, setPicks] = useState({}); // clinic id → the people picked in Work and time ([] = everyone)
 
   const clinics = useMemo(() => ds?.clinics ?? [], [ds]);
   const wanted = params.get('clinic');
   const clinic = clinics.find((c) => c.id === wanted) ?? (clinics.length === 1 ? clinics[0] : null);
+  // The clinic's view: usage and invoice (as before) or work and time; kept in the address like the clinic
+  const view = params.get('view') === 'work' ? 'work' : 'usage';
+  const setView = useCallback(
+    (next) =>
+      setParams((p) => {
+        const out = new URLSearchParams(p);
+        if (next === 'work') out.set('view', 'work');
+        else out.delete('view');
+        return out;
+      }, { replace: true }),
+    [setParams],
+  );
+  const workers = useMemo(() => (clinic ? picks[clinic.id] ?? [] : []), [clinic, picks]);
   const pick = useCallback(
     (id) => {
       setMode(null);
@@ -188,9 +204,29 @@ export default function ClinicsPage() {
   );
   const paidEur = clinic && monthReport ? invoiceMonths(monthReport.days, clinic).paidEur : 0;
 
-  const answerItems = useMemo(() => answerItemsOf({ clinics, clinic, report: usage.status === 'ready' ? report : null, period }), [clinics, clinic, report, usage.status, period]);
-  const exportTables = useMemo(() => exportTablesOf({ clinic, report, period, ds }), [clinic, report, period, ds]);
-  const scopeLine = t('clinics.scopeLine', { range: fmt.range(period.from, period.isFuture ? period.to : period.effTo), clinic: clinic?.name ?? t('clinics.title') });
+  // Work statistics load only while their view is open; new marks, rates or members load them again
+  const workVersion = useMemo(() => (clinic ? JSON.stringify([clinic.staff, clinic.hourEur, clinic.members]) : ''), [clinic]);
+  const workState = useClinicWork(view === 'work' ? clinic?.id ?? null : null, period.from, period.effTo, workers, workVersion);
+
+  const answerItems = useMemo(
+    () =>
+      view === 'work' && clinic && clinic.active
+        ? workAnswerItemsOf({ clinic, work: workState.work, status: workState.status, error: workState.error, period })
+        : answerItemsOf({ clinics, clinic, report: usage.status === 'ready' ? report : null, period }),
+    [view, clinics, clinic, report, usage.status, period, workState.work, workState.status, workState.error],
+  );
+  const exportTables = useMemo(
+    () => (view === 'work' ? workExportTablesOf({ clinic, work: workState.work, period, ds }) : exportTablesOf({ clinic, report, period, ds })),
+    [view, clinic, report, period, ds, workState.work],
+  );
+  const editSettings = useCallback(() => {
+    setMode('edit');
+    // The form opens at the top of the clinic: bring its work-statistics part into sight
+    setTimeout(() => document.getElementById(WORK_SETTINGS_ID)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60);
+  }, []);
+  // A period longer than the routes take (MAX_QUERY_DAYS) is read from its last 400 days: the line says so
+  const readFrom = (view === 'work' ? workState.clampedFrom : usage.clampedFrom) ?? period.from;
+  const scopeLine = t('clinics.scopeLine', { range: fmt.range(readFrom, period.isFuture ? period.to : period.effTo), clinic: clinic?.name ?? t('clinics.title') });
 
   const save = async (body) => {
     if (mode === 'new') {
@@ -280,27 +316,56 @@ export default function ClinicsPage() {
           <>
             <ClinicHead clinic={clinic} busy={busy} onEdit={() => setMode(mode === 'edit' ? null : 'edit')} onToggleActive={toggleActive} onDelete={remove} />
             {headError && <p role="status" className="-mt-3 text-sm font-semibold text-bad">{headError}</p>}
-            {mode === 'edit' && <ClinicForm key={clinic.id} clinic={clinic} onSave={save} onCancel={() => setMode(null)} />}
-            {usage.status === 'error' && (
-              <ErrorBanner error={usage.error} onRetry={usage.reload} />
-            )}
-            {report && <ClinicTiles clinic={clinic} report={report} paidEur={paidEur} firstLoad={usage.status === 'loading' && !usage.rows.length} />}
-            {report && <ClinicDoctors clinic={clinic} report={report} ds={ds} onRemove={(pid) => actions.removeMember(clinic.id, pid)} />}
-            <AddDoctors clinic={clinic} ds={ds} onAdd={(pid) => actions.addMember(clinic.id, pid)} />
-            {clinic.billing === 'prepaid' && (
-              <ClinicTopups clinic={clinic} report={report} grants={ds?.grants ?? []} period={period} onAdd={(n, priceEur, note) => actions.addCredits(clinic.id, n, priceEur, note)} />
-            )}
-            {clinic.billing === 'invoice' && monthReport && (
-              <ClinicMonths
-                clinic={clinic}
-                report={monthReport}
-                onSave={(month, eur, note) => actions.savePayment(clinic.id, month, eur, note)}
-                onRemove={(month) => actions.removePayment(clinic.id, month)}
+            {mode === 'edit' && <ClinicForm key={clinic.id} clinic={clinic} rates={workState.work?.rates} onSave={save} onCancel={() => setMode(null)} />}
+            <div className="print:hidden">
+              <Segmented
+                size="md"
+                ariaLabel={t('clinics.view.label')}
+                options={[
+                  { value: 'usage', label: t('clinics.view.usage') },
+                  { value: 'work', label: t('clinics.view.work') },
+                ]}
+                value={view}
+                onChange={setView}
               />
+            </div>
+            {view === 'work' ? (
+              <WorkView
+                key={clinic.id}
+                clinic={clinic}
+                ds={ds}
+                period={period}
+                usageReport={report}
+                state={workState}
+                workers={workers}
+                onWorkersChange={(pids) => setPicks((all) => ({ ...all, [clinic.id]: pids }))}
+                onEditSettings={editSettings}
+                onSetStaff={(pid, change, specialization) => actions.setStaff(clinic.id, pid, change, specialization)}
+              />
+            ) : (
+              <>
+                {usage.status === 'error' && (
+                  <ErrorBanner error={usage.error} onRetry={usage.reload} />
+                )}
+                {report && <ClinicTiles clinic={clinic} report={report} paidEur={paidEur} firstLoad={usage.status === 'loading' && !usage.rows.length} />}
+                {report && <ClinicDoctors clinic={clinic} report={report} ds={ds} onRemove={(pid) => actions.removeMember(clinic.id, pid)} />}
+                <AddDoctors clinic={clinic} ds={ds} onAdd={(pid) => actions.addMember(clinic.id, pid)} />
+                {clinic.billing === 'prepaid' && (
+                  <ClinicTopups clinic={clinic} report={report} grants={ds?.grants ?? []} period={period} onAdd={(n, priceEur, note) => actions.addCredits(clinic.id, n, priceEur, note)} />
+                )}
+                {clinic.billing === 'invoice' && monthReport && (
+                  <ClinicMonths
+                    clinic={clinic}
+                    report={monthReport}
+                    onSave={(month, eur, note) => actions.savePayment(clinic.id, month, eur, note)}
+                    onRemove={(month) => actions.removePayment(clinic.id, month)}
+                  />
+                )}
+                <ClinicShare key={clinic.id} clinic={clinic} onCreate={actions.shareClinic} onStop={actions.stopSharing} />
+                {report && <ClinicDays report={report} priced={clinic.billing === 'invoice'} />}
+                <p className="text-xs font-medium text-ink-mute">{t('clinics.footnote')}</p>
+              </>
             )}
-            <ClinicShare key={clinic.id} clinic={clinic} onCreate={actions.shareClinic} onStop={actions.stopSharing} />
-            {report && <ClinicDays report={report} priced={clinic.billing === 'invoice'} />}
-            <p className="text-xs font-medium text-ink-mute">{t('clinics.footnote')}</p>
           </>
         )}
       </div>

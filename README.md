@@ -83,6 +83,37 @@ doctors). How the server decides who pays and counts each credit: `../backend/se
 - Mock: `npm run dev:mock` serves two demo clinics (`src/dev/demoClinics.js`); changes last until the mock
   stops. `?demo` has no clinics.
 
+### Work statistics (a clinic's "Work and time")
+
+What Dr. Filler did for a clinic's staff and how much time it saved them (spec: work-stats spec v1 §7.2, §10).
+The server works every number out with the clinic page's own code (`../backend/clinicView/page/report.js`); the
+site only checks and arranges the answer (`src/data/clinics/work.js`, pure, tested).
+
+- A clinic has two views: **Usage and invoice** (as before) and **Work and time** (`?view=work` in the address).
+- Work and time (`src/pages/clinics/WorkView.jsx`): the period (the page's picker), "Staff" (pick people; none
+  picked = everyone), the "Early estimate" banner, tiles (time saved ≈, its value, what the clinic paid, our cost
+  per saved hour), the likely range with what moves it, the parts (by hand on the right of zero, with Dr. Filler
+  on the left), time per day / week / month, tables by role, specialty, person and activity, the counts, every
+  button (top 10, then "Show all"), Health (versions, data quality, checks) and the staff editor.
+  `GET /clinics/:id/work?from&to&workers=pid,pid` (both days included, unlike `/usage`: the site sends the period's last
+  day). The server keeps an answer up to 10 minutes: a change to the clinic (roles, shared logins, rates) makes a
+  new one at once, a worker's objection (kept with their account) shows within those 10 minutes.
+- Staff editor (`StaffEditor.jsx`): each person's role (Doctor / Nurse / Other clinical / Registry & admin; until it
+  is set, the server guesses it from the specialty and it is marked "guessed": hours, no €), "Set for selected",
+  "Shared login: no time saved" and "Worker objected: stop work statistics" (kept with the worker's account).
+  `PATCH /clinics/:id/staff/:pid { role?, ex?, statsOff? }` → `{ clinicId, staff: { pid, role, guessed, spec, ex, statsOff,
+  member } }`; past members can be marked too. `GET /clinics` lists each clinic's `staff` the same way.
+- Settings (Edit, `ClinicForm.jsx`): "Value of an hour, €" per role (blank = the national average shown in the
+  field, from the State Patient Fund's data) and "Show work statistics to the clinic" (`statsShown`: its own page
+  gets the time tabs). `PUT /clinics/:id` sends `hourEur` (the whole map: a role left out = the national average)
+  and `statsShown` only when they changed, so the form still saves against an older server.
+- The national rates and the role guess are mirrored in `src/data/clinics/staff.js`; `staff.test.mjs` compares
+  them with `../backend/services/stats/` when that repo sits next to this one. The work answer's own `rates` win.
+- Mock: `GET /clinics/:id/work` comes from `src/dev/demoWork.js` (an invented world: doctors, nurses, the
+  registry, a shared login, a worker who objected, an old extension, and 18 days with the extension's counts), so
+  its numbers are not the Usage and invoice view's. `/_kit?demo` (dev only, no key) shows the view with an invented
+  clinic.
+
 ## Data files
 
 - `npm run sync:prices` copies the price table and the error kinds from `../backend/services/analytics/`.

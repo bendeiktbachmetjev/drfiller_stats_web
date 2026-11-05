@@ -4,6 +4,8 @@ import { DoctorName, SignedMoney } from '../../ui/index.js';
 import { classLabel, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
 import { doctorName } from '../../format/items.js';
+import { personButtons, workCountsOf } from '../../data/normalize/workCounts.js';
+import ButtonsCell from './ButtonsCell.jsx';
 
 const DAY_MS = 86400000;
 const SPECIALTY_MAX = 22;
@@ -108,17 +110,74 @@ export function ClinicSelect({ pid, name, clinicId, clinics, busy, onChange }) {
   );
 }
 
+const MUTED = 'text-ink-mute';
+
+/**
+ * The Dr. Filler columns (GET /work-counts, matched by pid): the count each one shows, its phone priority, and
+ * whether it starts hidden ("Columns" ticks it on). Their header tooltip says what is counted.
+ */
+const workColumnList = () => [
+  { key: 'presses', header: t('doctors.col.presses'), title: t('doctors.col.presses.title'), priority: 1 },
+  { key: 'formsAuto', header: t('doctors.col.formsAuto'), title: t('doctors.col.formsAuto.title') },
+  { key: 'inserts', header: t('doctors.col.inserts'), title: t('doctors.col.inserts.title'), defaultHidden: true },
+  { key: 'referrals', header: t('doctors.col.referrals'), title: t('doctors.col.referrals.title'), defaultHidden: true },
+  { key: 'rxNew', header: t('doctors.col.rxNew'), title: t('doctors.col.rxNew.title') },
+  { key: 'rxRep', header: t('doctors.col.rxRep'), title: t('doctors.col.rxRep.title'), defaultHidden: true },
+  { key: 'rxSaved', header: t('doctors.col.rxSaved'), title: t('doctors.col.rxSaved.title') },
+  { key: 'fillRuns', header: t('doctors.col.fillRuns'), title: t('doctors.col.fillRuns.title') },
+  { key: 'services', header: t('doctors.col.services'), title: t('doctors.col.services.title') },
+  { key: 'servicesAuto', header: t('doctors.col.servicesAuto'), title: t('doctors.col.servicesAuto.title'), defaultHidden: true },
+  { key: 'visitsDone', header: t('doctors.col.visitsDone'), title: t('doctors.col.visitsDone.title'), defaultHidden: true },
+  { key: 'formsSaved', header: t('doctors.col.formsSaved'), title: t('doctors.col.formsSaved.title'), defaultHidden: true },
+  { key: 'docs', header: t('doctors.col.docs'), title: t('doctors.col.docs.title'), defaultHidden: true },
+  { key: 'dx', header: t('doctors.col.dx'), title: t('doctors.col.dx.title'), defaultHidden: true },
+  { key: 'workDays', count: 'days', header: t('doctors.col.workDays'), title: t('doctors.col.workDays.title'), defaultHidden: true },
+];
+
+/**
+ * The Dr. Filler columns, ready for the table: right-aligned numbers, sorted like the other numbers (no count
+ * sinks to the bottom). A cell shows "…" while the counts load and "—" without them (not loaded, or nothing
+ * counted for this person: the page's note says why). "Buttons" opens the person's list of buttons.
+ * @param {{ status: string, counts: import('../../data/normalize/workCounts.js').WorkCounts|null }|null} work useWorkCounts()
+ * @param {(row: object) => string} nameOf
+ */
+function workColumns(work, nameOf) {
+  const counts = work?.counts ?? null;
+  const loading = !counts && (!work || work.status === 'loading' || work.status === 'idle');
+  return workColumnList().map(({ key, count = key, header, title, priority = 2, defaultHidden = false }) => ({
+    key,
+    header,
+    title,
+    type: 'int',
+    priority,
+    group: 'work',
+    ...(defaultHidden ? { defaultHidden: true } : {}),
+    sortValue: (row) => workCountsOf(counts, row.pid)?.[count] ?? null,
+    render: (row) => {
+      if (loading) return <span className={MUTED}>…</span>;
+      const person = workCountsOf(counts, row.pid);
+      if (!person) return <span className={MUTED}>{fmt.empty}</span>;
+      if (key === 'presses') return <ButtonsCell total={person.presses} buttons={personButtons(counts, row.pid)} name={nameOf(row)} />;
+      return fmt.int(person[count]);
+    },
+  }));
+}
+
 /**
  * Columns of the Doctors table (§4.8) with their phone priorities: p1 = Doctor · Costs · Income · Result ·
- * Last active (the phone card lines); p2 and p3 sit behind "More details" on phones. On wider screens the
- * p3 columns show only with "More columns" (the density rule of §4.0).
+ * Last active · Buttons (the phone card lines); p2 and p3 sit behind "More details" on phones. Which columns
+ * show is the "Columns" choice (columnChoice.js); `defaultHidden` columns start unticked (the old p3 ones, and
+ * the rarer Dr. Filler counts). The Dr. Filler columns (`group: 'work'`) follow Forms.
  * @param {{ ds: object, rows: object[], emailMode: 'off'|'click'|'list', emails: Map<string, object>,
  *   onReveal: (pid: string) => void, busy: boolean, onToggle: (pid: string, on: boolean) => void,
  *   showMonth: boolean, allColumns: boolean, onAddCredits?: (pid: string) => void,
- *   clinic?: { list: object[], busy: boolean, onChange: (pid: string, clinicId: string|null) => void } | null }} context
+ *   clinic?: { list: object[], busy: boolean, onChange: (pid: string, clinicId: string|null) => void } | null,
+ *   work?: { status: string, counts: object|null } | null }} context
+ *   allColumns: every column (the picker filters them); false = only the ones shown by default
  *   clinic: the "Clinic" column (left out while the clinic list is not loaded)
+ *   work: the period's Dr. Filler counts (useWorkCounts); without it the Dr. Filler columns show "…"
  */
-export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onToggle, showMonth, allColumns, onAddCredits, clinic = null }) {
+export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onToggle, showMonth, allColumns, onAddCredits, clinic = null, work = null }) {
   const revealed = new Map([...emails].filter(([, state]) => state.email).map(([pid, state]) => [pid, state.email]));
   const nameOf = (row) => doctorName(ds, row.pid, revealed);
   const doctorOf = (row) => {
@@ -147,18 +206,20 @@ export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onT
       header: t('doctors.col.specialty'),
       type: 'text',
       priority: 3,
+      defaultHidden: true,
       render: (row) => (row.specialty ? <span title={row.specialty}>{shortText(row.specialty, SPECIALTY_MAX)}</span> : fmt.empty),
     },
     { key: 'forms', header: t('doctors.col.forms'), type: 'int', priority: 2 },
-    { key: 'recordingMin', header: t('doctors.col.recording'), type: 'minutes', priority: 3 },
-    { key: 'anamnesisRuns', header: t('doctors.col.runs'), type: 'int', priority: 3 },
+    ...workColumns(work, nameOf),
+    { key: 'recordingMin', header: t('doctors.col.recording'), type: 'minutes', priority: 3, defaultHidden: true },
+    { key: 'anamnesisRuns', header: t('doctors.col.runs'), type: 'int', priority: 3, defaultHidden: true },
     { key: 'costEur', header: t('doctors.col.cost'), type: 'eur', priority: 1 },
-    ...(showMonth ? [{ key: 'costPerMonthEur', header: t('doctors.col.costMonth'), type: 'eur', priority: 3 }] : []),
-    { key: 'costShare', header: t('doctors.col.costShare'), type: 'bar', format: 'pct', max: maxShare || 1, priority: 3 },
+    ...(showMonth ? [{ key: 'costPerMonthEur', header: t('doctors.col.costMonth'), type: 'eur', priority: 3, defaultHidden: true }] : []),
+    { key: 'costShare', header: t('doctors.col.costShare'), type: 'bar', format: 'pct', max: maxShare || 1, priority: 3, defaultHidden: true },
     { key: 'paidNetEur', header: t('doctors.col.income'), type: 'eur', priority: 1 },
     { key: 'resultEur', header: t('doctors.col.result'), type: 'eurSigned', priority: 1, render: (row) => <SignedMoney value={row.resultEur} /> },
-    { key: 'balance', header: t('doctors.col.balance'), type: 'int', priority: 3 },
-    { key: 'audioBankMin', header: t('doctors.col.counter'), type: 'minutes', priority: 3 },
+    { key: 'balance', header: t('doctors.col.balance'), type: 'int', priority: 3, defaultHidden: true },
+    { key: 'audioBankMin', header: t('doctors.col.counter'), type: 'minutes', priority: 3, defaultHidden: true },
     {
       key: 'lastActiveMs',
       header: t('doctors.col.last'),
@@ -168,7 +229,7 @@ export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onT
       sortValue: (row) => row.lastActiveMs,
       render: (row) => <LastActive ms={row.lastActiveMs} nowMs={ds?.nowMs} />,
     },
-    { key: 'signupAt', header: t('doctors.col.since'), type: 'date', align: 'right', priority: 3 },
+    { key: 'signupAt', header: t('doctors.col.since'), type: 'date', align: 'right', priority: 3, defaultHidden: true },
     {
       key: 'mine',
       header: t('doctors.col.mine'),
@@ -223,5 +284,5 @@ export function doctorColumns({ ds, rows, emailMode, emails, onReveal, busy, onT
         ),
     });
   }
-  return allColumns ? columns : columns.filter((column) => column.priority < 3);
+  return allColumns ? columns : columns.filter((column) => !column.defaultHidden);
 }

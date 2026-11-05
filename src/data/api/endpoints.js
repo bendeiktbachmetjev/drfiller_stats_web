@@ -11,6 +11,8 @@ export const ROUTES = Object.freeze({
   settings: '/settings',
   clinics: '/clinics',
   grants: '/grants',
+  // What every person did with Dr. Filler (counts by pid), for one period: GET ?from&to like /usage
+  workCounts: '/work-counts',
 });
 
 /** @param {string} pid @returns {string} '/doctors/:pid/email' (email mode click or list) */

@@ -53,6 +53,24 @@ export const COPY = {
     'Doctors hold {credits} gifted and free credits. If they spend them on forms, that is ≈ {costForms} of our costs.',
   'overview.era': '{model}, {where}',
 
+  // What Dr. Filler did (GET /work-counts): totals of the period and the buttons pressed most
+  'overview.work.title': 'What Dr. Filler did',
+  'overview.work.lead': '{people} {peopleWord} used Dr. Filler and pressed its buttons {presses} times.',
+  'overview.work.leadNoPresses': 'Dr. Filler counted work for {people} {peopleWord}.',
+  'overview.work.unit.person.one': 'person',
+  'overview.work.unit.person.other': 'people',
+  'overview.work.presses': 'Button presses',
+  'overview.work.formsAuto': 'Express forms',
+  'overview.work.rxNew': 'Prescriptions renewed',
+  'overview.work.rxSaved': 'Prescriptions saved',
+  'overview.work.fillRuns': '“Užpildyti visus” runs',
+  'overview.work.services': 'Services',
+  'overview.work.people': 'People with counts',
+  'overview.work.top': 'Buttons pressed most',
+  'overview.work.topNone': 'No button presses in this period.',
+  'overview.work.presses.unit': 'presses',
+  'overview.work.toDoctors': 'Each doctor',
+
   // Right now (the quiet line at the very bottom)
   'overview.now': 'Right now: {n} {conversations} running · last form {ago}.',
   'overview.now.noForm': 'Right now: {n} {conversations} running · no forms today yet.',
@@ -66,6 +84,8 @@ export const COPY = {
 
   // Export
   'overview.export.summary': 'Headline numbers',
+  'overview.export.work': 'What Dr. Filler did',
+  'overview.export.buttons': 'Dr. Filler buttons',
 };
 
 export const DEFS = {
@@ -93,6 +113,10 @@ export const DEFS = {
     short: 'Result per month now and on the plan.',
     template: 'Result per month now and on the plan: {visits} visits per doctor.',
     long: '“Now” is the real result of the period, converted to one month. The plan uses the price of a form and of a minute of recording over the last 30 days (current model setup) × the planned amount of work. It is a “what if” calculation, not a promise; the assumptions are in Settings. The full table is on the Money page.',
+  },
+  'overview.work': {
+    short: 'What the Dr. Filler extension and the server counted in this period, for everyone: in clinics and on their own.',
+    long: 'Express forms: forms Dr. Filler Express made by itself. Prescriptions renewed: made when renewing with Express. Prescriptions saved: saved with Dr. Filler. Services: one code is one service. Like the other numbers here, these follow “Without my and test accounts”. The Doctors page shows each person’s numbers and which buttons they pressed.',
   },
   'overview.now': {
     short: 'What is happening right now, all accounts.',

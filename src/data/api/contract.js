@@ -610,6 +610,53 @@ SCHEMAS.clinicUsage = obj({
   rows: arr(SCHEMAS.clinicUsageRow),
 });
 
+/**
+ * The counts of GET /work-counts, in the backend's order (services/stats/peopleCounts.js COUNTS):
+ *   forms         forms generated                      formsAuto     of them made by Dr. Filler Express
+ *   inserts       answers written into a form          referrals     referrals written into an E027
+ *   rxNew         prescriptions made when renewing     rxRep         repeated with „Kartoti“
+ *   rxSaved       prescriptions saved                  fillRuns      „Užpildyti visus“ runs
+ *   services      services entered (one code = one)    servicesAuto  of them by Express
+ *   visitsDone    visits marked „Atlikti“              formsSaved    forms saved with a Dr. Filler button
+ *   docs          documents added                      dx            TLK codes added
+ *   presses       Dr. Filler button presses
+ */
+export const WORK_COUNT_KEYS = Object.freeze([
+  'forms', 'formsAuto', 'inserts', 'referrals', 'rxNew', 'rxRep', 'rxSaved', 'fillRuns',
+  'services', 'servicesAuto', 'visitsDone', 'formsSaved', 'docs', 'dx', 'presses',
+]);
+
+/**
+ * GET /work-counts?from&to → WorkCountsApi (backend routes/adminV2.js + services/stats/peopleCounts.js): what every
+ * person did with Dr. Filler over the Vilnius days of the range (`to` exclusive, like /usage: toDay holds the
+ * instant just before it), from every clinic's rows and the personal ones. Counts only: no minutes, no money.
+ * A person outside the clinics is counted once their extension sends counts (the next store version), so older
+ * periods hold little or nothing. Erased accounts are counted in `deleted`, never as a person. 413 TOO_MANY_ROWS
+ * when the span holds too many rows.
+ * @typedef {Record<'forms'|'formsAuto'|'inserts'|'referrals'|'rxNew'|'rxRep'|'rxSaved'|'fillRuns'|'services'|
+ *   'servicesAuto'|'visitsDone'|'formsSaved'|'docs'|'dx'|'presses', number>} WorkCountValuesApi
+ * @typedef {{
+ *   range: { from: string, to: string, open: boolean }, fromDay: string, toDay: string, rows: number, firstDay: string|null,
+ *   people: Array<WorkCountValuesApi & { pid: string, days: number, buttons: Record<string, number> }>,
+ *   deleted: (WorkCountValuesApi & { days: number }) | null,
+ *   totals: WorkCountValuesApi & { people: number, days: number },
+ *   buttons: Array<{ id: string, lt: string, en: string, n: number }>
+ * }} WorkCountsApi
+ *   people        most presses first; `days` = days with any count; `buttons` = presses per button id
+ *   totals.days   person-days (a day at a clinic and on one's own is one), erased accounts' days included
+ *   buttons       every button pressed in the span, most first; lt/en = the registry's labels (the id when unknown)
+ */
+const workCountFields = Object.fromEntries(WORK_COUNT_KEYS.map((key) => [key, num]));
+SCHEMAS.workCountsPerson = obj({ pid: pidOrSpecial, days: int, ...workCountFields, buttons: rec(num) });
+SCHEMAS.workCounts = obj({
+  range: obj({ from: str, to: str, open: bool }),
+  fromDay: match(DAY_RE), toDay: match(DAY_RE), rows: int, firstDay: nullable(match(DAY_RE)),
+  people: arr(SCHEMAS.workCountsPerson),
+  deleted: nullable(obj({ days: int, ...workCountFields })),
+  totals: obj({ people: int, days: int, ...workCountFields }),
+  buttons: arr(obj({ id: str, ...labelled, n: num })),
+});
+
 SCHEMAS.envelope = obj({
   success: oneOf([true]), schemaVersion: oneOf([SCHEMA_VERSION]), generatedAt: str,
   cache: obj({ hit: bool, ageMs: num, ttlMs: num }), notes: arr(str), data: any,
@@ -631,6 +678,7 @@ export const ROUTE_SCHEMAS = Object.freeze({
   clinicUsage: 'clinicUsage',
   clinicWork: 'clinicWork',
   grants: 'grants',
+  workCounts: 'workCounts',
 });
 
 /**

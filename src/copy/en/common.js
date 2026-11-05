@@ -167,6 +167,17 @@ export const COPY = {
   'common.source.costsError': 'Invoices entered by hand could not be loaded.',
   'common.source.settingsError': 'Saved settings could not be loaded — using the defaults.',
 
+  // --- What Dr. Filler did (GET /work-counts: the Overview card and the Doctors columns) -------------------
+  'common.work.loading': 'Loading what Dr. Filler did…',
+  'common.work.failed': 'What Dr. Filler did could not be loaded. Press Refresh to try again.',
+  'common.work.tooMany': 'Too much to count for this period at once. Pick a shorter period.',
+  'common.work.badRange': 'The server did not take this period for these counts. Pick another period.',
+  'common.work.notYet': 'The server does not send these counts yet. They appear after its update.',
+  'common.work.none':
+    'Nothing counted in this period. Counting for people outside clinics starts when their extension updates to the next store version, so older periods show little or nothing.',
+  'common.work.partial':
+    'The first counts in this period are from {date}. Counting for people outside clinics starts when their extension updates to the next store version, so older periods show little or nothing.',
+
   // --- Export and print ----------------------------------------------------------------------------------
   'common.export.csvTitle': 'CSV from this page',
   'common.export.failed': 'Could not export',

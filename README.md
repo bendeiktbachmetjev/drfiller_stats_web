@@ -35,6 +35,7 @@ VITE_API_URL= npm run dev        # site on :5173; /api/admin goes to the mock
   account, ≈ €11 costs per 30 days) and `/overview?demo=planned` (100 paying doctors, ≈ 400 visits a month).
   `?demo=0` turns it off again.
 - Mock switches on any page URL (dev only): `?off=revenue|soniox`, `?stripe=test`, `?fail=<route>`,
+  `?fail=work413` / `?fail=work404` (the work counts too big / not on the server yet),
   `?scenario=planned`, `?email=off|click|list`. A sticky switch for the mock itself:
   `curl 'http://localhost:8323/api/admin/v2/__mock?off=revenue'` (`?reset=1` undoes it).
 - `/_kit` (dev only) shows every UI part with sample data.
@@ -124,6 +125,28 @@ site only checks and arranges the answer (`src/data/clinics/work.js`, pure, test
   own specialties, so roles come from the profile, from the owner and from a guess.
   `GET /api/admin/v2/__mock?spec=<pid>:<specialty>` changes a person's specialty (empty = none) to try how the
   profile counts again. `/_kit?demo` (dev only, no key) shows the view with an invented clinic.
+
+## What Dr. Filler did, per person (Doctors columns, Overview card)
+
+Who uses Dr. Filler how much — also outside clinics: button presses, Express forms, prescriptions, „Užpildyti
+visus“ runs, services … by person, from `GET /work-counts?from&to` (backend `services/stats/peopleCounts.js`).
+
+- The answer is summed over its days, so it is not in the dataset: it is loaded for the period on screen, after the
+  dataset (`context/useWorkCounts.js` → `data/load.js` `loadWorkCounts` → `data/normalize/workCounts.js`), kept while
+  the site is open and asked again on Refresh. A failed, 404 or 413 answer never breaks a page: the numbers show "—"
+  and one quiet line says why (`ui/workCountsText.js`).
+- Doctors table: Dr. Filler columns matched by pid (Buttons, Express forms, Rx renewed, Rx saved, Fill all, Services
+  shown; the rarer counts in "Columns"). A number under "Buttons" opens that person's buttons. "—" = nothing counted
+  for them in the period. "Active" lists doctors with a request; a line under the table names the ones who only used
+  Dr. Filler (Express) and offers "All". The CSV has every count, and "Buttons by doctor" lists each person's buttons.
+- "Columns" (`pages/doctors/ColumnPicker.jsx`, logic in `columnChoice.js`): a checkbox for every column, "Show
+  default", the Doctor column always shown. Kept on this device (`drfiller.admin.doctors.columns`: only the ticks
+  that differ from a default); blocked storage = the defaults. The old "More columns" switch becomes its columns once.
+- Overview: "What Dr. Filler did" — totals and the 8 buttons pressed most; it follows "Without my and test accounts".
+- People outside clinics are counted once their extension updates to the next store version (and the server's own
+  form counts from the server update), so older periods show little or nothing; the pages say so plainly.
+- Mock: `src/dev/demoWorkCounts.js` (the demo doctors' forms plus invented extension counts; clinic members from 18
+  days ago, the rest from their update a few days ago, one person with Express only).
 
 ## Data files
 

@@ -4,8 +4,11 @@
 //   x-admin-secret must be 'dev' (401 otherwise, the same body as the backend)
 //   per request (query on any /api/admin/v2 route, e.g. with curl):
 //     ?scenario=planned          the planned scenario
-//     ?fail=<route>              500 on that route (usage, doctors, revenue, soniox-usage, live-now, config, costs-monthly, settings);
-//                                ?fail=usage413 answers the full-history /usage with 413 TOO_MANY_ROWS (the 90-day retry works)
+//     ?fail=<route>              500 on that route (usage, doctors, revenue, soniox-usage, live-now, config, costs-monthly, settings,
+//                                work-counts);
+//                                ?fail=usage413 answers the full-history /usage with 413 TOO_MANY_ROWS (the 90-day retry works);
+//                                ?fail=work413 answers /work-counts with 413 TOO_MANY_ROWS, ?fail=work404 with 404 (a server
+//                                without the route yet)
 //     ?off=revenue|soniox        status 'off'
 //     ?stripe=test               revenue livemode false
 //     ?fresh=1                   a second fresh=1 on a route within 30 s adds the note FRESH_THROTTLED
@@ -26,11 +29,14 @@
 // the owner marked, as { pid, role, guessed, from, profile, spec, ex, statsOff, member } (the backend's shape).
 // Roles follow the backend's rule (src/data/clinics/staff.js roleOf): the owner's while the profile gives the
 // role it gave when the owner set it, else the profile's, else a guess.
+// GET /work-counts?from&to (what every person did with Dr. Filler, by pid) comes from src/dev/demoWorkCounts.js:
+// the demo doctors' forms plus invented extension counts; the clinics' members are counted for longer than the rest.
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { makeDemoApi } from '../src/dev/demoData.js';
 import { demoClinics, demoClinicUsage } from '../src/dev/demoClinics.js';
 import { demoWork } from '../src/dev/demoWork.js';
+import { demoWorkCounts } from '../src/dev/demoWorkCounts.js';
 import { profileRole, roleOf } from '../src/data/clinics/staff.js';
 import { CLINIC_ID_RE, DAY_RE, DEFAULT_PLANNING, DEFAULT_SETTINGS, envelope, errorBody, HOUR_EUR_MAX, MONTH_COST_LIMITS, MONTH_RE, PID_RE, PLANNING_LIMITS, STAFF_ROLES, validate } from '../src/data/api/contract.js';
 
@@ -609,6 +615,15 @@ async function handle(req, res) {
       if (failing === 'usage413' && range.fromMs < nowMs - 91 * 86400000) return fail(res, 413, 'TOO_MANY_ROWS', 'History too large (mock).');
       const rows = api.usage.rows.filter((row) => row.t >= range.fromMs && row.t < range.toMs);
       return ok(res, { range: { from: new Date(range.fromMs).toISOString(), to: new Date(Math.min(range.toMs, nowMs)).toISOString(), open: range.open }, counts: api.usage.counts, rows }, notes);
+    }
+    case route === '/work-counts': {
+      // Like the backend: the Vilnius days of [from, to) (to = now when left out), every clinic and the personal rows
+      const range = parseRange(query, nowMs);
+      if (range.error) return fail(res, 400, 'BAD_RANGE', range.error);
+      if (failing === 'work413') return fail(res, 413, 'TOO_MANY_ROWS', 'Too many work rows for one answer (mock).');
+      if (failing === 'work404') return fail(res, 404, 'NOT_FOUND', 'Unknown route.');
+      clinicsState(api, nowMs);
+      return ok(res, demoWorkCounts(api, { ...range, nowMs, clinicPids: [...state.memberOf.keys()] }), notes);
     }
     case route === '/doctors': {
       const marked = new Set(settingsNow().internalPids);

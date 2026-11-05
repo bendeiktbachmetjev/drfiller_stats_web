@@ -6,6 +6,7 @@ import { sectionFromPath } from '../app/nav.js';
 import { AdminProvider } from '../context/AdminContext.jsx';
 import { resetAnalyticsCache } from '../context/AnalyticsContext.jsx';
 import { resetLiveCache } from '../context/useLive.js';
+import { resetWorkCountsCache } from '../context/useWorkCounts.js';
 import { STORAGE } from '../data/constants.js';
 import { createClient } from '../data/api/client.js';
 import { ROUTES } from '../data/api/endpoints.js';
@@ -30,6 +31,7 @@ const extraQuery = import.meta.env.DEV ? mockSwitches : null;
 const forgetData = () => {
   resetAnalyticsCache();
   resetLiveCache();
+  resetWorkCountsCache();
 };
 
 // A deep link opened before signing in is remembered so the index redirect can return to it.

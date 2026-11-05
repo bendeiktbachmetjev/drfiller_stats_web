@@ -4,6 +4,7 @@ import { classLabel, t } from '../../copy/index.js';
 import { csvFilename } from '../../export/csv.js';
 import { fmt } from '../../format/format.js';
 import { doctorName, itemText as sharedItemText } from '../../format/items.js';
+import { personButtons, workCountsOf } from '../../data/normalize/workCounts.js';
 
 /**
  * Text of one metric item (answer, note, takeaway); ['doctor', pid] values become the doctor's name.
@@ -35,15 +36,45 @@ export function answerItemsOf(data, period, ds) {
 
 const col = (key, type = 'num') => ({ key, header: key, type });
 
+/** CSV column → the Dr. Filler count it holds (GET /work-counts; empty when nothing was counted or it did not load). */
+const WORK_CSV = [
+  ['button_presses', 'presses'], ['express_forms', 'formsAuto'], ['written_into_forms', 'inserts'], ['referrals_written', 'referrals'],
+  ['rx_renewed', 'rxNew'], ['rx_repeated', 'rxRep'], ['rx_saved', 'rxSaved'], ['fill_all_runs', 'fillRuns'], ['services', 'services'],
+  ['express_services', 'servicesAuto'], ['visits_done', 'visitsDone'], ['forms_saved', 'formsSaved'], ['documents_added', 'docs'],
+  ['tlk_codes_added', 'dx'], ['work_days', 'days'],
+];
+
 /**
- * The page's CSV files (ExportMenu): the doctors of the current view, costs by account type, the path.
+ * The page's CSV files (ExportMenu): the doctors of the current view (with what Dr. Filler did for each), which
+ * buttons each of them pressed (once the counts are here), costs by account type, the path.
  * @param {object|null} data AreaResult of computeDoctors
  * @param {object} period
  * @param {object|null} ds
+ * @param {{ counts: import('../../data/normalize/workCounts.js').WorkCounts|null }|null} [work] useWorkCounts()
  */
-export function exportTablesOf(data, period, ds) {
+export function exportTablesOf(data, period, ds, work = null) {
   if (!data) return [];
   const file = (name) => () => csvFilename('doctors', name, period);
+  const counts = work?.counts ?? null;
+  const workValues = (pid) => {
+    const person = workCountsOf(counts, pid);
+    return Object.fromEntries(WORK_CSV.map(([header, key]) => [header, person ? person[key] : null]));
+  };
+  const buttonsTable = counts && {
+    label: t('doctors.export.buttons'),
+    filename: file('buttons_by_doctor'),
+    columns: [col('doctor', 'text'), col('code', 'text'), col('button_id', 'text'), col('button', 'text'), col('presses', 'int')],
+    getRows: () =>
+      data.tables.doctors.flatMap((row) =>
+        personButtons(counts, row.pid).map((button) => ({
+          doctor: doctorName(ds, row.pid),
+          code: row.code,
+          button_id: button.id,
+          button: button.label,
+          presses: button.n,
+        })),
+      ),
+  };
   return [
     {
       label: t('doctors.export.table'),
@@ -53,9 +84,11 @@ export function exportTablesOf(data, period, ds) {
         col('forms', 'int'), col('recording_min'), col('history_summaries', 'int'), col('costs_eur'), col('costs_per_month_eur'),
         col('cost_share_pct', 'pct'), col('income_eur'), col('result_eur'), col('credits_left', 'int'), col('recording_counter_min'),
         col('last_active', 'datetime'), col('signed_up', 'date'),
+        ...WORK_CSV.map(([header]) => col(header, 'int')),
       ],
       getRows: () =>
         data.tables.doctors.map((row) => ({
+          ...workValues(row.pid),
           doctor: doctorName(ds, row.pid),
           email: ds?.doctors?.get?.(row.pid)?.email ?? null,
           code: row.code,
@@ -75,6 +108,7 @@ export function exportTablesOf(data, period, ds) {
           signed_up: row.signupAt,
         })),
     },
+    ...(buttonsTable ? [buttonsTable] : []),
     {
       label: t('doctors.export.byClass'),
       filename: file('costs_by_account_type'),

@@ -1,8 +1,11 @@
 import React, { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { useAnalytics, useDoctors } from '../context/AnalyticsContext.jsx';
+import { useWorkCounts } from '../context/useWorkCounts.js';
 import { Card, DataNotes, EmptyState, NotRecorded, PageLayout } from '../ui/index.js';
 import { STATS_START } from '../data/constants.js';
 import { matchesSearch } from '../data/metrics/doctors.js';
+import { scopedDoctors } from '../data/core/scope.js';
+import { hasWorkCounts } from '../data/normalize/workCounts.js';
 import { doctorLabel, t } from '../copy/index.js';
 import { fmt } from '../format/format.js';
 import TopUpCard from './doctors/TopUpCard.jsx';
@@ -53,11 +56,24 @@ function useClinicColumn(ds) {
 }
 
 /**
+ * How many doctors of the scope have Dr. Filler counts in the period but are not in the "Active" view (no request
+ * in it, e.g. Dr. Filler Express only): the table says so and offers "All".
+ */
+function moreWithCountsOf(work, data, ds, scope, view) {
+  if (view !== 'active' || !work?.counts || !data) return 0;
+  const listed = new Set(data.tables.doctors.map((row) => row.pid));
+  const inScope = new Set(scopedDoctors(ds, scope).map((doctor) => doctor.pid));
+  return work.counts.people.filter((person) => inScope.has(person.pid) && !listed.has(person.pid) && hasWorkCounts(person)).length;
+}
+
+/**
  * Doctors (§4.8): who uses Dr.Filler, who pays and what each doctor costs. PageLayout fixes the top
  * (header, filter row, answer, hidden-accounts note, source banners); then "Is this your account?" (it changes
  * every average, so it comes first) → tiles → costs by account type next to the doctor's path → the doctors
  * table → notes → footnote. The search filters the table on the page, so typing never recomputes the metric.
- * Business page: every number follows "Without my and test accounts".
+ * Business page: every number follows "Without my and test accounts". The table's Dr. Filler columns (what each
+ * person did: button presses, Express forms, prescriptions …) come from the period's work counts, loaded beside
+ * the dataset (useWorkCounts); a failed load leaves them "—" with a note, never the page.
  */
 export default function DoctorsPage() {
   const [view, setView] = useState('active');
@@ -73,14 +89,16 @@ export default function DoctorsPage() {
     setCreditPid(pid);
     creditsCard.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   }, []);
-  const { data, period } = metric;
+  const work = useWorkCounts();
+  const { data, period, scope } = metric;
   const tableRows = useMemo(
     () => (data?.tables.doctors ?? []).filter((row) => matchesSearch(row, deferredSearch, ds)),
     [data, deferredSearch, ds],
   );
+  const moreWithCounts = useMemo(() => moreWithCountsOf(work, data, ds, scope, view), [work, data, ds, scope, view]);
 
   const answerItems = useMemo(() => answerItemsOf(data, period, ds), [data, period, ds]);
-  const exportTables = useMemo(() => exportTablesOf(data, period, ds), [data, period, ds]);
+  const exportTables = useMemo(() => exportTablesOf(data, period, ds, work), [data, period, ds, work]);
   const notes = useMemo(() => (data?.notes ?? []).map((note) => itemText(note, ds)), [data, ds]);
 
   return (
@@ -107,7 +125,21 @@ export default function DoctorsPage() {
               </div>
             </div>
             <TopUpCard ref={creditsCard} pid={creditPid} onPick={setCreditPid} />
-            <DoctorsTable data={data} rows={tableRows} ds={ds} view={view} onView={setView} search={search} onSearch={setSearch} toggle={toggle} onAddCredits={addCreditsFor} clinic={clinicColumn} />
+            <DoctorsTable
+              data={data}
+              rows={tableRows}
+              ds={ds}
+              view={view}
+              onView={setView}
+              search={search}
+              onSearch={setSearch}
+              toggle={toggle}
+              onAddCredits={addCreditsFor}
+              clinic={clinicColumn}
+              work={work}
+              period={period}
+              moreWithCounts={moreWithCounts}
+            />
           </>
         )}
       </div>

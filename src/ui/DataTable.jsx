@@ -145,7 +145,7 @@ function PhoneCards({ columns, rows, sort, setSort, defaultSort, emptyText, capt
             <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px]">
               {primary.map((column) => (
                 <React.Fragment key={column.key}>
-                  <dt className="font-medium text-ink-soft">{column.header}</dt>
+                  <dt className="font-medium text-ink-soft" title={column.title}>{column.header}</dt>
                   <dd className="text-right font-semibold text-ink tabular-nums sf-wrap-any">{renderCell(column, row)}</dd>
                 </React.Fragment>
               ))}
@@ -159,7 +159,7 @@ function PhoneCards({ columns, rows, sort, setSort, defaultSort, emptyText, capt
                 <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px]">
                   {secondary.map((column) => (
                     <React.Fragment key={column.key}>
-                      <dt className="font-medium text-ink-soft">{column.header}</dt>
+                      <dt className="font-medium text-ink-soft" title={column.title}>{column.header}</dt>
                       <dd className="text-right font-semibold text-ink tabular-nums sf-wrap-any">{renderCell(column, row)}</dd>
                     </React.Fragment>
                   ))}
@@ -175,7 +175,8 @@ function PhoneCards({ columns, rows, sort, setSort, defaultSort, emptyText, capt
 
 // The table twin of a chart, and the plain tables of the pages.
 //   columns     [{ key, header, type: 'text'|'int'|'pct'|'eur'|…|'bar'|'signedBar'|'node', align?, sortable = true,
-//                  format?, render?(row), sortValue?(row), max? (bar scale), printHide?, priority: 1 | 2 | 3 }]
+//                  format?, render?(row), sortValue?(row), max? (bar scale), printHide?, title? (the header's tooltip),
+//                  priority: 1 | 2 | 3 }]
 //               priority (§3.2): below 640 px each row becomes a card — title = first column, priority-1 columns as
 //               "Header: value" lines, priority 2–3 behind "More details". Tables with ≤ 4 columns scroll sideways
 //               with a sticky first column instead. Every page table declares `priority` for every column.
@@ -263,6 +264,7 @@ export default function DataTable({
                     scope="col"
                     aria-sort={canSort(column) ? ARIA_SORT[dir] : undefined}
                     data-print={column.printHide ? 'hide' : undefined}
+                    title={column.title}
                     className={`${isRight(column) ? TH_RIGHT : TH}${sticky}`}
                   >
                     {canSort(column) ? (

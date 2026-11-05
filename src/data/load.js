@@ -1,10 +1,12 @@
 // Loads everything the dataset needs (§5.3.7). Required: /usage + /doctors (all-or-nothing). Optional:
 // /config, /revenue, /soniox-usage, /costs-monthly, /settings, /clinics, /grants (each may fail alone → its source is 'error').
 // A clinic's usage is not here: the Clinics page loads it for the period on screen (pages/clinics/useClinics.js).
+// Nor are the work counts (/work-counts): loadWorkCounts below, for the period on screen (context/useWorkCounts.js).
 import { LIMITED_HISTORY_DAYS } from './constants.js';
 import { STATS_ORIGIN_MS } from './eras.js';
 import { DataError, isRetryable, toDataError } from './errors.js';
 import { ROUTES } from './api/endpoints.js';
+import { normalizeWorkCounts, workCountsQuery } from './normalize/workCounts.js';
 
 const DAY_MS = 86400000;
 
@@ -139,6 +141,33 @@ export async function loadAll({ client, signal, demo = null, nowMs }) {
       grants: grants.envelope ? sourceOf(grants.envelope, nowMs) : failed(grants),
     },
   };
+}
+
+/**
+ * What every person did with Dr. Filler in one period (GET /work-counts?from&to). Not part of loadAll: the answer
+ * is summed over its days, so it is loaded for the period on screen (context/useWorkCounts.js). Network trouble
+ * and 5xx are retried once, like every load; 413 (too many rows) and 400 (a refused period) are not.
+ * @param {{ client?: import('./api/client.js').ApiClient, period: import('./period.js').Period, signal?: AbortSignal,
+ *   demo?: object|null, nowMs: number }} options demo = a ready answer (src/dev/demoWorkCounts.js), dev only
+ * @returns {Promise<{ counts: import('./normalize/workCounts.js').WorkCounts, fetchedAt: number, cacheAgeMs: number|null }>}
+ * @throws {DataError} BAD_RANGE when the period has no day that has begun, SCHEMA when the answer is not usable,
+ *   or what the request threw (AUTH, TOO_MANY_ROWS, NETWORK …)
+ */
+export async function loadWorkCounts({ client, period, signal, demo = null, nowMs }) {
+  const route = ROUTES.workCounts;
+  const shape = (data) => {
+    const counts = normalizeWorkCounts(data);
+    if (!counts) throw new DataError('SCHEMA', 'Unexpected /work-counts answer.', { route });
+    return counts;
+  };
+  if (demo) return { counts: shape(demo), fetchedAt: nowMs, cacheAgeMs: 0 };
+  if (!client) throw new DataError('SERVER', 'No API client.', { route });
+  const query = workCountsQuery(period, nowMs);
+  if (!query) throw new DataError('BAD_RANGE', 'The period has no day that has begun.', { route });
+  const envelope = await withRetry(() => client.getEnvelope(route, query, { signal }));
+  if (signal?.aborted) throw new DataError('ABORTED', null, { route });
+  const { fetchedAt, cacheAgeMs } = sourceOf(envelope, nowMs);
+  return { counts: shape(envelope.data), fetchedAt, cacheAgeMs };
 }
 
 /**

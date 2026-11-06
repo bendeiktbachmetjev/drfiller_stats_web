@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { Card, CardHeader, DataTable, InfoHint, Segmented, planChipsText, scenarioLabel } from '../../ui/index.js';
 import { workCountsText } from '../../ui/workCountsText.js';
+import { usePrintMode } from '../../context/usePrintMode.js';
 import { def, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
 import { workCountsOf, workCountsStatus } from '../../data/normalize/workCounts.js';
@@ -82,6 +83,7 @@ function PlanLine({ data }) {
 export default function DoctorsTable({ data, rows, ds, view, onView, search, onSearch, toggle, onAddCredits, clinic = null, work = null, period = null, moreWithCounts = 0 }) {
   const { choice, kept, change } = useColumnChoice();
   const { emails, reveal } = useEmailReveal();
+  const { printing } = usePrintMode();
   const emailMode = ds?.emailMode ?? 'off';
 
   // Every column the table has now; "Columns" decides which of them show
@@ -111,7 +113,8 @@ export default function DoctorsTable({ data, rows, ds, view, onView, search, onS
   ];
 
   return (
-    <Card padding="none" className="min-w-0 p-4 sm:p-6 lg:p-8">
+    // Wide screens: the card reaches nearly the window's edges (sf-bleed, app/admin.css); a print keeps the page width
+    <Card padding="none" className={`min-w-0 p-4 sm:p-6 lg:p-8${printing ? '' : ' sf-bleed'}`}>
       <CardHeader title={t('doctors.table.title')} hintKey="doctors.table" />
       <PlanLine data={data} />
       <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
@@ -140,6 +143,7 @@ export default function DoctorsTable({ data, rows, ds, view, onView, search, onS
         defaultSort={{ key: 'costEur', dir: 'desc' }}
         emptyText={emptyText}
         caption={t('doctors.table.title')}
+        wrapHeaders
       />
       {view === 'active' && !query && moreWithCounts > 0 && (
         <p className={NOTE}>

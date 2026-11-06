@@ -1,13 +1,14 @@
-// Which columns the Doctors table shows ("Columns"): the owner's ticks on top of each column's default, kept on
-// this device. Only the ticks that differ from a default are stored, so a column added later still starts as its
-// default says. Pure: the storage is passed in (window.localStorage on the page), and every read and write is
-// wrapped, so blocked storage only means the choice lasts for this visit and the table falls back to the defaults.
+// Which columns the Doctors table shows ("Columns"): the owner's ticks on top of each column's default, kept on this
+// device. Only the ticks that differ from a default are stored, so a column added later still starts as its default
+// says. Pure: the storage is passed in (window.localStorage on the page), and every read and write is wrapped, so
+// blocked storage only means the choice lasts for this visit and the table falls back to the defaults.
 
 export const COLUMNS_KEY = 'drfiller.admin.doctors.columns';
-/** The old "More columns" switch (before the picker): '1' = every column was shown. Read once, then dropped. */
-export const LEGACY_ALL_KEY = 'drfiller.admin.doctors.allColumns';
-/** The columns "More columns" used to add (the hidden ones of that time): its '1' turns them on. */
-export const LEGACY_MORE_COLUMNS = Object.freeze(['specialty', 'recordingMin', 'anamnesisRuns', 'costPerMonthEur', 'costShare', 'balance', 'audioBankMin', 'signupAt']);
+/**
+ * The stored choice's version. A choice of another version is not read, so a new default reaches everyone once:
+ * 2 = the order and defaults of 06.11.2026 (With us since, Credits left, Recording, History summaries shown).
+ */
+export const CHOICE_VERSION = 2;
 /** Always shown, never in the choice: the column that names the doctor. */
 export const LOCKED_COLUMNS = Object.freeze(['doctor']);
 
@@ -21,9 +22,9 @@ const MAX_KEY = 40;
 const keyList = (v) => (Array.isArray(v) ? [...new Set(v.filter((key) => typeof key === 'string' && key && key.length <= MAX_KEY && !LOCKED_COLUMNS.includes(key)))] : []);
 
 /**
- * A stored choice, checked: `{ v: 1, on: [...], off: [...] }`; a key in both lists counts as on.
+ * A stored choice, checked: `{ v: CHOICE_VERSION, on: [...], off: [...] }`; a key in both lists counts as on.
  * @param {string|null|undefined} textValue
- * @returns {ColumnChoice|null} null when there is nothing usable
+ * @returns {ColumnChoice|null} null when there is nothing usable (also a choice of an older version)
  */
 export function parseChoice(textValue) {
   if (typeof textValue !== 'string' || !textValue) return null;
@@ -33,7 +34,7 @@ export function parseChoice(textValue) {
   } catch {
     return null;
   }
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Array.isArray(raw.on) || !Array.isArray(raw.off)) return null;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || raw.v !== CHOICE_VERSION || !Array.isArray(raw.on) || !Array.isArray(raw.off)) return null;
   const on = keyList(raw.on);
   return { on, off: keyList(raw.off).filter((key) => !on.includes(key)) };
 }
@@ -91,24 +92,21 @@ export function pageStorage() {
 }
 
 /**
- * The stored choice. Without one, the old "More columns" switch ('1') becomes its columns ticked on, so the table
- * looks as it did; anything unreadable is the defaults.
+ * The stored choice; anything unreadable, or kept by an older version, is the defaults.
  * @param {Storage|null} storage
  * @returns {ColumnChoice}
  */
 export function readColumnChoice(storage) {
   try {
-    const stored = parseChoice(storage?.getItem(COLUMNS_KEY));
-    if (stored) return stored;
-    if (storage?.getItem(LEGACY_ALL_KEY) === '1') return { on: [...LEGACY_MORE_COLUMNS], off: [] };
+    return parseChoice(storage?.getItem(COLUMNS_KEY)) ?? EMPTY_CHOICE;
   } catch {
     // Blocked storage: the defaults
+    return EMPTY_CHOICE;
   }
-  return EMPTY_CHOICE;
 }
 
 /**
- * Keeps the choice on this device (and drops the old "More columns" switch, which it replaces).
+ * Keeps the choice on this device.
  * @param {Storage|null} storage
  * @param {ColumnChoice} choice
  * @returns {boolean} false when it could not be kept (the choice then lasts for this visit)
@@ -116,14 +114,9 @@ export function readColumnChoice(storage) {
 export function writeColumnChoice(storage, choice) {
   if (!storage) return false;
   try {
-    storage.setItem(COLUMNS_KEY, JSON.stringify({ v: 1, on: keyList(choice?.on), off: keyList(choice?.off) }));
+    storage.setItem(COLUMNS_KEY, JSON.stringify({ v: CHOICE_VERSION, on: keyList(choice?.on), off: keyList(choice?.off) }));
+    return true;
   } catch {
     return false;
   }
-  try {
-    storage.removeItem(LEGACY_ALL_KEY);
-  } catch {
-    // Kept anyway: the new key is read first
-  }
-  return true;
 }

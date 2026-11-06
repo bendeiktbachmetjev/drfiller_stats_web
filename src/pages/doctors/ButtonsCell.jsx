@@ -22,6 +22,8 @@ export default function ButtonsCell({ total, buttons, name }) {
   if (!buttons.length) return <span>{fmt.int(total)}</span>;
   return (
     <>
+      {/* A print hides every button (app/admin.css): the number stays on paper */}
+      <span className="hidden print:inline">{fmt.int(total)}</span>
       <button
         ref={triggerRef}
         type="button"

@@ -67,6 +67,7 @@ export const COPY = {
   'doctors.columns.always': 'always shown',
   'doctors.columns.group.main': 'The doctor and money',
   'doctors.columns.group.work': 'What Dr. Filler did',
+  'doctors.columns.group.account': 'Account',
   'doctors.columns.notKept': 'This browser does not keep the choice: it lasts until you leave the page.',
   'doctors.col.doctor': 'Doctor',
   'doctors.col.type': 'Type',
@@ -161,9 +162,7 @@ export const COPY = {
   'doctors.credits.error': 'Not added: {reason} Please try again.',
   'doctors.credits.bad': 'Enter a whole number from 1 to {max}.',
   'doctors.credits.demo': 'Demo data: nothing is saved.',
-  'doctors.credits.rowButton': 'Add',
-  'doctors.credits.rowAria': 'Add credits to {name}',
-  'doctors.col.add': 'Credits',
+  'doctors.credits.rowAria': 'Add credits for {name}',
   'doctors.col.clinic': 'Clinic',
   'doctors.topup.title': 'Top up',
   'doctors.topup.tab.doctor': 'Doctor',
@@ -226,7 +225,7 @@ export const DEFS = {
   'doctors.table': {
     short: 'Each doctor: what they did, what they brought in and what they cost.',
     long:
-      'Doctors are shown by email; without one, as “Doctor NN”, numbered by signup date. The code next to it (D-XXXX) never changes. “Income” is what the doctor’s payments brought in after the Stripe fee, refunds and VAT. “Result” is income minus costs; server costs are not split between doctors. “Recording counter” is recorded minutes not charged yet: every full 10 minutes costs 1 credit. The Dr. Filler columns (Buttons, Express forms, Rx renewed …) show what the extension and the server counted for each person, in a clinic or not. Press a number under “Buttons” to see which buttons they pressed. “Columns” picks what the table shows.',
+      'Doctors are shown by email; without one, as “Doctor NN”, numbered by signup date. The code next to it (D-XXXX) never changes. “Income” is what the doctor’s payments brought in after the Stripe fee, refunds and VAT. “Result” is income minus costs; server costs are not split between doctors. “Recording counter” is recorded minutes not charged yet: every full 10 minutes costs 1 credit. The Dr. Filler columns (Buttons, Express forms, Rx renewed …) show what the extension and the server counted for each person, in a clinic or not. Press a number under “Buttons” to see which buttons they pressed. The “+” next to “Credits left” adds credits by hand. “Columns” picks what the table shows.',
   },
   'doctors.costPerMonth': {
     short: 'A doctor’s costs, recalculated to one month.',

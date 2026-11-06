@@ -38,6 +38,13 @@
 /* Long ids break anywhere instead of widening the page. */
 .sf-wrap-any { overflow-wrap: anywhere; }
 
+/* A wide section (the Doctors table): past the centred page width (max-w-7xl = 80rem) to the window's edges,
+   minus the page's own side gutter (2rem from lg up). Below 80rem the page is as wide as the window already, so
+   phones and tablets do not change; a print keeps the page's width. */
+@media screen and (min-width: 80rem) {
+  .sf-admin .sf-bleed { margin-inline: calc((100% - 100vw) / 2 + 2rem); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sf-rise, .sf-fade, .sf-pop, .sf-sheet { animation: none; }
   .sf-progress { animation: none; width: 100%; opacity: .5; }

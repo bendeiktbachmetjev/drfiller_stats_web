@@ -36,10 +36,13 @@ export function answerItemsOf(data, period, ds) {
 
 const col = (key, type = 'num') => ({ key, header: key, type });
 
-/** CSV column → the Dr. Filler count it holds (GET /work-counts; empty when nothing was counted or it did not load). */
+/**
+ * CSV column → the Dr. Filler count it holds (GET /work-counts; empty when nothing was counted or it did not load),
+ * in the table's order: the six shown by default, then the nine rarer ones.
+ */
 const WORK_CSV = [
-  ['button_presses', 'presses'], ['express_forms', 'formsAuto'], ['written_into_forms', 'inserts'], ['referrals_written', 'referrals'],
-  ['rx_renewed', 'rxNew'], ['rx_repeated', 'rxRep'], ['rx_saved', 'rxSaved'], ['fill_all_runs', 'fillRuns'], ['services', 'services'],
+  ['button_presses', 'presses'], ['express_forms', 'formsAuto'], ['rx_renewed', 'rxNew'], ['rx_saved', 'rxSaved'], ['fill_all_runs', 'fillRuns'],
+  ['services', 'services'], ['written_into_forms', 'inserts'], ['referrals_written', 'referrals'], ['rx_repeated', 'rxRep'],
   ['express_services', 'servicesAuto'], ['visits_done', 'visitsDone'], ['forms_saved', 'formsSaved'], ['documents_added', 'docs'],
   ['tlk_codes_added', 'dx'], ['work_days', 'days'],
 ];
@@ -75,16 +78,22 @@ export function exportTablesOf(data, period, ds, work = null) {
         })),
       ),
   };
+  const clinicOf = (pid) => {
+    const id = ds?.doctors?.get?.(pid)?.clinicId;
+    return id ? ds?.clinicById?.get?.(id)?.name ?? id : null;
+  };
   return [
     {
       label: t('doctors.export.table'),
       filename: file('doctors'),
+      // The table's order (columns.jsx): the doctor, money, what Dr. Filler did, then the account marks
       columns: [
         col('doctor', 'text'), col('email', 'text'), col('code', 'text'), col('type', 'text'), col('specialty', 'text'),
-        col('forms', 'int'), col('recording_min'), col('history_summaries', 'int'), col('costs_eur'), col('costs_per_month_eur'),
-        col('cost_share_pct', 'pct'), col('income_eur'), col('result_eur'), col('credits_left', 'int'), col('recording_counter_min'),
-        col('last_active', 'datetime'), col('signed_up', 'date'),
+        col('signed_up', 'date'), col('last_active', 'datetime'), col('forms', 'int'), col('credits_left', 'int'), col('recording_min'),
+        col('recording_counter_min'), col('history_summaries', 'int'), col('costs_eur'), col('costs_per_month_eur'),
+        col('cost_share_pct', 'pct'), col('income_eur'), col('result_eur'),
         ...WORK_CSV.map(([header]) => col(header, 'int')),
+        col('mine_or_test', 'text'), col('clinic', 'text'),
       ],
       getRows: () =>
         data.tables.doctors.map((row) => ({
@@ -94,18 +103,20 @@ export function exportTablesOf(data, period, ds, work = null) {
           code: row.code,
           type: classLabel(row.class),
           specialty: row.specialty,
+          signed_up: row.signupAt,
+          last_active: row.lastActiveMs,
           forms: row.forms,
+          credits_left: row.balance,
           recording_min: row.recordingMin,
+          recording_counter_min: row.audioBankMin,
           history_summaries: row.anamnesisRuns,
           costs_eur: row.costEur,
           costs_per_month_eur: row.costPerMonthEur,
           cost_share_pct: row.costShare === null ? null : row.costShare * 100,
           income_eur: row.paidNetEur,
           result_eur: row.resultEur,
-          credits_left: row.balance,
-          recording_counter_min: row.audioBankMin,
-          last_active: row.lastActiveMs,
-          signed_up: row.signupAt,
+          mine_or_test: row.internal,
+          clinic: clinicOf(row.pid),
         })),
     },
     ...(buttonsTable ? [buttonsTable] : []),

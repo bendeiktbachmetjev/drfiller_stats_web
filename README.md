@@ -139,9 +139,15 @@ visus“ runs, services … by person, from `GET /work-counts?from&to` (backend 
   shown; the rarer counts in "Columns"). A number under "Buttons" opens that person's buttons. "—" = nothing counted
   for them in the period. "Active" lists doctors with a request; a line under the table names the ones who only used
   Dr. Filler (Express) and offers "All". The CSV has every count, and "Buttons by doctor" lists each person's buttons.
-- "Columns" (`pages/doctors/ColumnPicker.jsx`, logic in `columnChoice.js`): a checkbox for every column, "Show
-  default", the Doctor column always shown. Kept on this device (`drfiller.admin.doctors.columns`: only the ticks
-  that differ from a default); blocked storage = the defaults. The old "More columns" switch becomes its columns once.
+- "Columns" (`pages/doctors/ColumnPicker.jsx`, logic in `columnChoice.js`): a checkbox for every column in the
+  table's order, "Show default", the Doctor column always shown. Kept on this device (`drfiller.admin.doctors.columns`,
+  `v: 2`: only the ticks that differ from a default; a choice of another version is not read, so a new default
+  reaches everyone once); blocked storage = the defaults.
+- The table (owner's order, 06.11): Doctor · Type · With us since · Last active · Forms · Credits left · Recording ·
+  History summaries · Costs · Income · Result · Buttons … Services · Mine / test · Clinic (hidden ones sit next to
+  their kin). The "+" in "Credits left" opens "Top up" for that doctor. On wide screens the card reaches nearly the
+  window's edges (`.sf-bleed`, `app/admin.css`), headers wrap in two lines and the Doctor column stays pinned while
+  the table scrolls sideways (DataTable `wrapHeaders` and `sticky: true` on a first column; both optional).
 - Overview: "What Dr. Filler did" — totals and the 8 buttons pressed most; it follows "Without my and test accounts".
 - People outside clinics are counted once their extension updates to the next store version (and the server's own
   form counts from the server update), so older periods show little or nothing; the pages say so plainly.

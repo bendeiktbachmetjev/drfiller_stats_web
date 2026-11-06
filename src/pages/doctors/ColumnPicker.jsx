@@ -11,11 +11,34 @@ const TEXT_BUTTON = `relative inline-flex items-center gap-1.5 h-9 px-3.5 rounde
 const DONE_BUTTON = `inline-flex items-center h-9 px-4 rounded-full bg-brand text-[13px] font-bold text-white hover:bg-brand-strong transition-colors ${RING}`;
 const OPTION = 'flex items-start gap-2.5 rounded-[10px] px-2 py-1.5';
 
+/** Titles of the parts of the list (a column's `group`; none = the doctor and money). */
+const GROUP_TITLES = () => ({
+  main: t('doctors.columns.group.main'),
+  work: t('doctors.columns.group.work'),
+  account: t('doctors.columns.group.account'),
+});
+
 /**
- * "Columns" above the Doctors table: a checkbox for every column the table has now, in two groups (the doctor and
- * money; what Dr. Filler did), plus "Show default". The Doctor column is always shown (its box is ticked and
- * locked). A popover under the button on wider screens, a bottom sheet with "Done" on phones; it closes on
- * Escape, a press outside, or Tab past its end.
+ * The columns in the table's order, cut into parts where their group changes, so the list reads like the table.
+ * @param {Array<{ key: string, group?: string }>} columns
+ */
+function groupsOf(columns) {
+  const titles = GROUP_TITLES();
+  const groups = [];
+  columns.forEach((column) => {
+    const group = column.group ?? 'main';
+    const last = groups.at(-1);
+    if (last && last.group === group) last.columns.push(column);
+    else groups.push({ key: `${group}-${groups.length}`, group, title: titles[group] ?? titles.main, columns: [column] });
+  });
+  return groups;
+}
+
+/**
+ * "Columns" above the Doctors table: a checkbox for every column the table has now, in the table's order and in
+ * its parts (the doctor and money; what Dr. Filler did; the account), plus "Show default". The Doctor column is
+ * always shown (its box is ticked and locked). A popover under the button on wider screens (two columns that read
+ * top to bottom), a bottom sheet with "Done" on phones; it closes on Escape, a press outside, or Tab past its end.
  * @param {{ columns: Array<{ key: string, header: string, title?: string, group?: string, defaultHidden?: boolean }>,
  *   choice: import('./columnChoice.js').ColumnChoice, onChange: (choice: import('./columnChoice.js').ColumnChoice) => void,
  *   kept?: boolean, className?: string }} props kept = false: this browser does not keep the choice (blocked storage)
@@ -26,10 +49,7 @@ export default function ColumnPicker({ columns, choice, onChange, kept = true, c
   const triggerRef = useRef(null);
   const panelId = useId();
   const shown = new Set(shownKeys(columns, choice));
-  const groups = [
-    { key: 'main', title: t('doctors.columns.group.main'), columns: columns.filter((column) => column.group !== 'work') },
-    { key: 'work', title: t('doctors.columns.group.work'), columns: columns.filter((column) => column.group === 'work') },
-  ].filter((group) => group.columns.length > 0);
+  const groups = groupsOf(columns);
   const count = t('doctors.columns.count', { n: fmt.int(shown.size), total: fmt.int(columns.length) });
   const firstFree = columns.find((column) => !LOCKED_COLUMNS.includes(column.key))?.key;
   // "Show default" turns itself off (nothing left to reset): focus moves to the first box, not out of the panel
@@ -74,9 +94,10 @@ export default function ColumnPicker({ columns, choice, onChange, kept = true, c
               {t('doctors.columns.default')}
             </button>
           </div>
-          <div className="mt-3 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+          {/* Two columns that fill top to bottom, so the list keeps the table's order; a part never splits */}
+          <div className="mt-3 sm:columns-2 sm:gap-x-6">
             {groups.map((group) => (
-              <fieldset key={group.key} className="min-w-0">
+              <fieldset key={group.key} className="mb-4 min-w-0 break-inside-avoid last:mb-0">
                 <legend className="mb-1 px-2 text-xs font-bold text-ink-soft">{group.title}</legend>
                 <ul role="list" className="flex flex-col">
                   {group.columns.map((column) => {

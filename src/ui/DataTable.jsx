@@ -9,17 +9,32 @@ const RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 
 const SCROLLER = 'sf-table-scroll -mx-3 overflow-x-auto rounded-[16px]';
 const TABLE = 'w-full border-separate border-spacing-0 text-sm';
+// `wrapHeaders`: every column as wide as its content needs (one line per value, the header in up to two lines)
+// and the table scrolls sideways instead of squeezing columns; it still fills the card when it is narrower. A print
+// fits the page as before.
+const TABLE_WIDE = 'w-max min-w-full print:w-full border-separate border-spacing-0 text-sm';
 
 // Headers: sentence case, 12 px, semibold, ink-soft (§5.3.4).
 const TH = 'group sticky top-0 z-[1] bg-surface px-3 py-2.5 text-left text-xs font-semibold text-ink-soft border-b border-line/60 whitespace-nowrap';
 const TH_RIGHT = 'group sticky top-0 z-[1] bg-surface px-3 py-2.5 text-right text-xs font-semibold text-ink-soft border-b border-line/60 whitespace-nowrap';
 const STICKY_FIRST = 'sticky left-0 z-[2] bg-surface';
 const SORT_BUTTON = 'inline-flex items-center gap-1 rounded-[6px] hover:text-ink text-xs font-semibold print:hidden';
+// `wrapHeaders`: a header takes up to two balanced lines at a compact width, so a column is no wider than its numbers
+const SORT_BUTTON_WRAP = 'inline-flex items-end gap-1 rounded-[6px] hover:text-ink text-xs font-semibold print:hidden';
+const HEAD_WRAP = 'inline-block max-w-[4.5rem] whitespace-normal text-balance leading-tight';
 
-const TD = 'px-3 py-3 border-b border-line/40 font-medium text-ink-soft group-hover:bg-line/10';
-const TD_FIRST = 'px-3 py-3 border-b border-line/40 font-semibold text-ink text-left group-hover:bg-line/10';
-const TD_MUTED = 'px-3 py-3 border-b border-line/40 font-medium text-ink-soft group-hover:bg-line/10';
+const ROW_HOVER = 'group-hover:bg-line/10';
+const TD_BASE = 'px-3 py-3 border-b border-line/40 font-medium text-ink-soft';
+const TD_FIRST_BASE = 'px-3 py-3 border-b border-line/40 font-semibold text-ink text-left';
+const TD = `${TD_BASE} ${ROW_HOVER}`;
+const TD_FIRST = `${TD_FIRST_BASE} ${ROW_HOVER}`;
+const TD_MUTED = `${TD_BASE} ${ROW_HOVER}`;
 const TD_TOTAL = 'px-3 py-3 font-extrabold text-ink border-t border-line';
+// A pinned first column (`sticky: true`, wider screens): it stays on the left while the table scrolls sideways,
+// opaque like its row (the hover tint mixed into white, so nothing shows through), with a soft edge once scrolled
+const PIN_HEAD = 'left-0 z-[3]';
+const PIN_CELL = 'sticky left-0 z-[2] bg-surface group-hover:bg-[color-mix(in_oklab,var(--color-line)_10%,var(--color-surface))]';
+const PIN_EDGE = 'shadow-[8px_0_10px_-8px_rgba(65,65,65,0.28)]';
 
 const CARD = 'rounded-[16px] border border-line/60 bg-surface p-4';
 const SHOW_ALL = `mt-3 inline-flex items-center h-9 px-3.5 rounded-full border border-line bg-surface text-[13px] font-semibold text-ink-soft hover:bg-line/20 transition-colors print:hidden ${RING}`;
@@ -180,6 +195,8 @@ function PhoneCards({ columns, rows, sort, setSort, defaultSort, emptyText, capt
 //               priority (§3.2): below 640 px each row becomes a card — title = first column, priority-1 columns as
 //               "Header: value" lines, priority 2–3 behind "More details". Tables with ≤ 4 columns scroll sideways
 //               with a sticky first column instead. Every page table declares `priority` for every column.
+//               sticky: true on the FIRST column pins it on the left while the table scrolls sideways (wider screens;
+//               opaque like its row, a soft edge once scrolled). Phone cards do not change.
 //   rows        objects keyed by column.key; `row.key` or `row.id` identifies a row, `row.muted` greys it
 //   defaultSort { key, dir: 'asc' | 'desc' } | null — null keeps the given order
 //   limit       rows shown before "Show all N", counted after sorting (default 10; 0 = all); a print shows all
@@ -187,6 +204,8 @@ function PhoneCards({ columns, rows, sort, setSort, defaultSort, emptyText, capt
 //   caption     accessible name of the table
 //   phone       force (true/false) the phone card mode; defaults to the screen width
 //   phoneRows   the same for the phone cards (defaults to `limit`)
+//   wrapHeaders wide tables of numbers: headers take up to two balanced lines at a compact width, each value keeps one
+//               line and the table scrolls sideways instead of squeezing columns; default: one-line headers, w-full
 // A header click sorts descending, then ascending, then returns to the default order.
 export default function DataTable({
   columns = [],
@@ -198,10 +217,13 @@ export default function DataTable({
   caption,
   phone,
   phoneRows,
+  wrapHeaders = false,
   className = '',
 }) {
   const [userSort, setUserSort] = useState(null);
   const [showAll, setShowAll] = useState(false);
+  // Scrolled sideways: the pinned column shows its edge
+  const [scrolled, setScrolled] = useState(false);
   const sort = userSort ?? defaultSort;
   const sortedRows = useSortedRows(rows, columns, sort);
   const isPhone = useIsPhone();
@@ -242,6 +264,12 @@ export default function DataTable({
     setUserSort(next === 'none' ? null : { key: column.key, dir: next });
   };
   const stickyFirst = phoneMode ? ` ${STICKY_FIRST}` : '';
+  // The first column pinned (column.sticky) on wider screens; the phone's sticky first column stays as it was
+  const pinned = !phoneMode && Boolean(columns[0]?.sticky);
+  const edge = pinned && scrolled ? ` ${PIN_EDGE}` : '';
+  const onScroll = pinned ? (event) => setScrolled(event.currentTarget.scrollLeft > 0) : undefined;
+  // A button centres its text: a wrapped header keeps its column's side (numbers right, words left)
+  const headerLabel = (column) => (wrapHeaders ? <span className={`${HEAD_WRAP} ${isRight(column) ? 'text-right' : 'text-left'}`}>{column.header}</span> : column.header);
 
   return (
     <div className={className || undefined}>
@@ -250,14 +278,16 @@ export default function DataTable({
         role="region"
         aria-label={caption ?? t('common.table.caption')}
         tabIndex={0}
+        onScroll={onScroll}
       >
-        <table className={TABLE}>
+        <table className={wrapHeaders ? TABLE_WIDE : TABLE}>
           {caption && <caption className="sr-only">{caption}</caption>}
           <thead>
             <tr>
               {columns.map((column, columnIndex) => {
                 const dir = dirOf(column);
-                const sticky = columnIndex === 0 ? stickyFirst : '';
+                let sticky = columnIndex === 0 ? stickyFirst : '';
+                if (pinned && columnIndex === 0) sticky = ` ${PIN_HEAD}${edge}`;
                 return (
                   <th
                     key={column.key}
@@ -265,19 +295,19 @@ export default function DataTable({
                     aria-sort={canSort(column) ? ARIA_SORT[dir] : undefined}
                     data-print={column.printHide ? 'hide' : undefined}
                     title={column.title}
-                    className={`${isRight(column) ? TH_RIGHT : TH}${sticky}`}
+                    className={`${isRight(column) ? TH_RIGHT : TH}${wrapHeaders ? ' align-bottom' : ''}${sticky}`}
                   >
                     {canSort(column) ? (
                       <>
-                        <button type="button" onClick={() => toggleSort(column)} className={`${SORT_BUTTON} ${RING}`}>
-                          {column.header}
-                          {dir === 'asc' && <ArrowUp className="w-3 h-3 text-brand" aria-hidden="true" />}
-                          {dir === 'desc' && <ArrowDown className="w-3 h-3 text-brand" aria-hidden="true" />}
+                        <button type="button" onClick={() => toggleSort(column)} className={`${wrapHeaders ? SORT_BUTTON_WRAP : SORT_BUTTON} ${RING}`}>
+                          {headerLabel(column)}
+                          {dir === 'asc' && <ArrowUp className="w-3 h-3 shrink-0 text-brand" aria-hidden="true" />}
+                          {dir === 'desc' && <ArrowDown className="w-3 h-3 shrink-0 text-brand" aria-hidden="true" />}
                         </button>
                         <span className="hidden print:inline">{column.header}</span>
                       </>
                     ) : (
-                      column.header
+                      headerLabel(column)
                     )}
                   </th>
                 );
@@ -299,8 +329,12 @@ export default function DataTable({
                   const align = isRight(column) ? ' text-right tabular-nums' : '';
                   const hidden = column.printHide ? 'hide' : undefined;
                   if (columnIndex === 0) {
+                    // Pinned: its own opaque hover instead of the row's see-through tint
+                    const cell = pinned
+                      ? `${row.muted ? `${TD_BASE} text-left` : TD_FIRST_BASE} ${PIN_CELL}${edge}`
+                      : `${row.muted ? `${TD_MUTED} text-left` : TD_FIRST}${stickyFirst}`;
                     return (
-                      <th key={column.key} scope="row" data-print={hidden} className={`${row.muted ? `${TD_MUTED} text-left` : TD_FIRST}${stickyFirst}`}>
+                      <th key={column.key} scope="row" data-print={hidden} className={cell}>
                         {renderCell(column, row)}
                       </th>
                     );
@@ -321,8 +355,9 @@ export default function DataTable({
                 {columns.map((column, columnIndex) => {
                   const align = isRight(column) ? ' text-right tabular-nums' : ' text-left';
                   const Cell = columnIndex === 0 ? 'th' : 'td';
+                  const pin = pinned && columnIndex === 0 ? ` sticky left-0 z-[2] bg-surface${edge}` : '';
                   return (
-                    <Cell key={column.key} scope={columnIndex === 0 ? 'row' : undefined} data-print={column.printHide ? 'hide' : undefined} className={`${TD_TOTAL}${align}`}>
+                    <Cell key={column.key} scope={columnIndex === 0 ? 'row' : undefined} data-print={column.printHide ? 'hide' : undefined} className={`${TD_TOTAL}${align}${pin}`}>
                       {footerRow[column.key] == null ? '' : renderCell(column, footerRow)}
                     </Cell>
                   );

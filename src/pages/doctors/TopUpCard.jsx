@@ -129,7 +129,7 @@ const TopUpCard = forwardRef(function TopUpCard({ pid, onPick }, ref) {
   const [query, setQuery] = useState('');
   const [clinicId, setClinicId] = useState('');
 
-  // A table row's "Add" opens the doctor tab
+  // A table row's "+" (in "Credits left") opens the doctor tab
   useEffect(() => {
     if (pid) setTab('doctor');
   }, [pid]);

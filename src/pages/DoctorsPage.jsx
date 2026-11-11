@@ -76,7 +76,8 @@ function moreWithCountsOf(work, data, ds, scope, view) {
  * the dataset (useWorkCounts); a failed load leaves them "—" with a note, never the page.
  */
 export default function DoctorsPage() {
-  const [view, setView] = useState('active');
+  // Every registered account first (the owner, 2026-11-11); "Used in this period" narrows it
+  const [view, setView] = useState('all');
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
   const metric = useDoctors({ view });

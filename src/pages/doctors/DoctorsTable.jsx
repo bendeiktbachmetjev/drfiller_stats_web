@@ -108,8 +108,8 @@ export default function DoctorsTable({ data, rows, ds, view, onView, search, onS
   const query = search.trim();
   const emptyText = query ? t('doctors.table.emptySearch', { q: query }) : view === 'active' ? t('doctors.table.emptyActive') : t('common.list.empty');
   const viewOptions = [
-    { value: 'active', label: t('doctors.view.active') },
     { value: 'all', label: t('doctors.view.all', { n: fmt.int(data.headline.doctorsAll) }) },
+    { value: 'active', label: t('doctors.view.active') },
   ];
 
   return (

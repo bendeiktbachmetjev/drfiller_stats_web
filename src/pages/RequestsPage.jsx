@@ -6,18 +6,19 @@ import { fmt } from '../format/format.js';
 import { t } from '../copy/index.js';
 import AnamnesisSection from './requests/AnamnesisSection.jsx';
 import ByTypeCard from './requests/ByTypeCard.jsx';
+import CountSection from './requests/CountSection.jsx';
 import SizeSection from './requests/SizeSection.jsx';
 import { exportTables } from './requests/tables.jsx';
 
-const NAV = ['bytype', 'size', 'anamnesis'];
+const NAV = ['count', 'bytype', 'size', 'anamnesis'];
 
 // The last day inside the period (periods end on an exclusive day).
 const lastDay = (period) => fmt.date(addDays(period.effTo, -1));
 
 /**
- * Requests (§4.4): which requests are big, which are small, and what each one costs. Business page: the
- * account switch applies. Order: answer → section chips → price per request → form size → medical history
- * summary → notes.
+ * Requests (§4.4): how many requests there are, which are big, which are small, and what each one costs. Business
+ * page: the account switch applies. Order: answer → section chips → requests per day (the chart) → price per
+ * request → form size → medical history summary → notes.
  */
 export default function RequestsPage() {
   const [segment, setSegment] = useState('specialty');
@@ -47,6 +48,7 @@ export default function RequestsPage() {
       ) : (
         <>
           <SectionNav items={NAV.map((id) => ({ id, label: t(`requests.nav.${id}`) }))} />
+          <CountSection metric={metric} />
           <section aria-label={t('requests.section.bytype')}>
             <SectionTitle id="bytype" title={t('requests.section.bytype')} />
             <ByTypeCard rows={tables.byType} />

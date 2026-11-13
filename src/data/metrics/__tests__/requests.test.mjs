@@ -181,6 +181,32 @@ test('anamnesis runs: calls of one doctor with breaks under 10 min are one run; 
   assert.deepEqual(result.tables.anamSteps.map((step) => [step.key, step.calls]), [['extractFast', 3], ['extractStrong', 1], ['narrative', 1], ['summary', 2]]);
 });
 
+test('series: requests per day by kind add up to the core counts, with and without my and test accounts', () => {
+  const { ds } = makeScenario();
+  const dayOf = (result, key) => result.series.find((row) => row.key === key);
+  const results = [true, false].map((excludeInternal) => {
+    const scope = scopeOf(ds, excludeInternal);
+    const { counts } = summarize(ds, last30, scope);
+    const result = computeRequests(ds, last30, scope);
+    const total = (field) => result.series.reduce((acc, row) => acc + (row[field] ?? 0), 0);
+    assert.equal(result.series.length, 30, 'one row per day of the period');
+    assert.equal(total('forms'), counts.forms);
+    assert.equal(total('conversations'), counts.liveConversations);
+    assert.equal(total('dictations'), counts.dictations);
+    assert.equal(total('summaries'), counts.anamnesisRuns);
+    assert.equal(total('total'), counts.forms + counts.liveConversations + counts.dictations + counts.anamnesisRuns);
+    assert.deepEqual(result.tables.requestCounts.map((row) => row.count), ['forms', 'conversations', 'dictations', 'summaries'].map(total));
+    return result;
+  });
+  const [hidden, all] = results;
+  // 23 Sep: the conversation and the form made from it; 15 Sep: two model calls 3 min apart are one summary.
+  assert.deepEqual([dayOf(all, '2026-09-23').forms, dayOf(all, '2026-09-23').conversations, dayOf(all, '2026-09-23').total], [1, 1, 2]);
+  assert.equal(dayOf(all, '2026-09-15').summaries, 1);
+  // 22 Sep: the Soniox dictation and the two forms of the internal account, which leave with the switch.
+  assert.deepEqual([dayOf(all, '2026-09-22').forms, dayOf(all, '2026-09-22').dictations], [2, 1]);
+  assert.deepEqual([dayOf(hidden, '2026-09-22').forms, dayOf(hidden, '2026-09-22').dictations], [0, 1]);
+});
+
 test('scope and privacy: internal accounts drop out; no email, uid or @ in the result', () => {
   const { ds } = makeScenario();
   const hidden = computeRequests(ds, last30, scopeOf(ds, true));

@@ -7,7 +7,7 @@ The owner's statistics site. It answers ten questions, one per page:
 | Overview | Is everything OK, and are we making money? |
 | Money | How much comes in, how much we keep, and will it pay off at 100–300 doctors? |
 | Costs | How much do we spend, on what, and why is it growing? |
-| Requests | Which requests are big, which are small, and what does each one cost? |
+| Requests | How many requests are there, which are big or small, and what does each one cost? |
 | Recording | How much do we record, what does it cost, and does 1 credit per 10 minutes cover it? |
 | Models | Which model answers, and is it fast and without failures? |
 | Prices | What would other models and Google Cloud (Vertex) cost, and how fast are they? |
@@ -153,6 +153,19 @@ visus“ runs, services … by person, from `GET /work-counts?from&to` (backend 
   form counts from the server update), so older periods show little or nothing; the pages say so plainly.
 - Mock: `src/dev/demoWorkCounts.js` (the demo doctors' forms plus invented extension counts; clinic members from 18
   days ago, the rest from their update a few days ago, one person with Express only).
+
+## Requests per day (Requests, "How many requests")
+
+The first section of Requests: stacked columns of the period's requests by kind — forms, conversations, dictations
+and medical history summaries (one per summary, not per model call). The bucket follows the period like every
+chart: by day for "7 days", "30 days" and "Month", by month for "Year" and "All time"; custom dates by day up to
+31 days, by week up to 120, then by month (phones: at most 14 columns).
+
+- The numbers: `requestSeries()` in `src/data/metrics/requests.js` (the rows `summarize()` counts, so each kind
+  adds up to the counts shown elsewhere; it follows "Without my and test accounts"). The card:
+  `src/pages/requests/CountSection.jsx`, with its table twin and the "Requests over time" CSV.
+- These are plain counts, so the chart is drawn however few requests there are; the "too little data" sentences
+  stay for trends and averages.
 
 ## Data files
 

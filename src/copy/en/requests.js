@@ -4,7 +4,7 @@
 
 export const COPY = {
   'requests.title': 'Requests',
-  'requests.question': 'Which requests are big, which are small, and what does each one cost?',
+  'requests.question': 'How many requests are there, which are big or small, and what does each one cost?',
 
   // --- Answer --------------------------------------------------------------------------------------
   'requests.answer.byType':
@@ -19,12 +19,33 @@ export const COPY = {
   'requests.answer.empty': 'No requests from {from} to {to}.',
 
   // --- Sections ------------------------------------------------------------------------------------
+  'requests.nav.count': 'How many',
   'requests.nav.bytype': 'What one request costs',
   'requests.nav.size': 'Size of forms',
   'requests.nav.anamnesis': 'Medical history',
+  'requests.section.count': 'How many requests',
   'requests.section.bytype': 'What one request costs',
   'requests.section.size': 'How big the forms are',
   'requests.section.anamnesis': 'Medical history summary',
+
+  // --- How many requests ---------------------------------------------------------------------------
+  // The line under the section title: the period's total, then the kinds that have any ({period} is common.period.*)
+  'requests.count.lead': '{n} {requests} {period}: {parts}.',
+  'requests.count.leadOne': '{part} {period}.',
+  'requests.count.part': '{n} {unit}',
+  'requests.overTime.title.day': 'Requests per day',
+  'requests.overTime.title.week': 'Requests per week',
+  'requests.overTime.title.month': 'Requests per month',
+  'requests.series.forms': 'Forms',
+  'requests.series.conversations': 'Conversations',
+  'requests.series.dictations': 'Dictations',
+  'requests.series.summaries': 'Medical history summaries',
+  'requests.col.day': 'Day',
+  'requests.col.week': 'Week',
+  'requests.col.month': 'Month',
+  'requests.col.total': 'Total',
+  'requests.unit.historySummary.one': 'medical history summary',
+  'requests.unit.historySummary.other': 'medical history summaries',
 
   // --- What one request costs ----------------------------------------------------------------------
   'requests.byType.title': 'Price of one request',
@@ -129,6 +150,7 @@ export const COPY = {
   // --- Notes and export ----------------------------------------------------------------------------
   'requests.note.testDay': '{n} forms from 1 Sep 2026 (a day of model tests) count as neither the main nor the backup model.',
   'requests.note.capped': "Forms that hit the 3,000-character limit for the doctor's text: {n}.",
+  'requests.export.overTime': 'Requests over time',
   'requests.export.byType': 'Price of one request',
   'requests.export.sizeBuckets': 'Big and small forms',
   'requests.export.priciest': 'The most expensive forms',
@@ -136,6 +158,10 @@ export const COPY = {
 };
 
 export const DEFS = {
+  'requests.overTime': {
+    short: 'How many requests came in on each day, week or month of the period, by kind.',
+    long: 'A form is one press of “Generuoti” with a finished result. A conversation is one recorded visit, a dictation is one voice note, and a medical history summary is one summary, however many calls to the model it took. Only successful requests are counted. A short period is drawn by day, a longer one by week or month; the striped bar is the day, week or month still running.',
+  },
   'requests.byType': {
     short: 'The average price of one request of each kind in this period.',
     long: 'Forms and medical history summaries: from the real requests of the period. Dictation and conversation: the price of a minute × a usual length. While there are fewer than 20 conversations, the conversation price is a forecast: 15 minutes of Soniox plus the conversation text that goes into the form.',

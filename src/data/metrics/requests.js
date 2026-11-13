@@ -1,5 +1,6 @@
-// Requests page metric (§4.4): what one request of each kind costs, how big the forms are and what
-// makes them big, and the medical history summary runs. Business scope (follows the account switch).
+// Requests page metric (§4.4): how many requests came in over time, what one request of each kind costs,
+// how big the forms are and what makes them big, and the medical history summary runs. Business scope
+// (follows the account switch).
 // Shared numbers are picked from the F0 core (§2 rule 2): form count, cost per form, run count.
 import { CHARS_PER_PAGE, CHARS_PER_TOKEN } from '../constants.js';
 import { datasetRuns } from '../core/anamnesis.js';
@@ -8,7 +9,7 @@ import { unitCosts } from '../core/projection.js';
 import { hidesInternal, isInternal, scopedRows } from '../core/scope.js';
 import { summarize } from '../core/summary.js';
 import { unitEconomics } from '../core/unitEconomics.js';
-import { EMPTY_RESULT, inPeriod, median, rowsIn, share, sum } from './shared.js';
+import { EMPTY_RESULT, addTo, inPeriod, makeSeries, median, rowsIn, share, sum } from './shared.js';
 
 /** A form request above this many tokens counts as big (≈ 30 pages). */
 export const BIG_REQUEST_TOKENS = 20000;
@@ -30,8 +31,12 @@ export const ANAMNESIS_SINCE = '2026-09-02';
 /** Upper bounds of the size buckets in tokens; a bucket is (previous edge, edge], the last one is open. */
 export const SIZE_EDGES = Object.freeze([8000, 10000, 12000, 15000, 20000, 30000]);
 export const SEGMENTS = Object.freeze(['specialty', 'detail']);
+/** Kinds of the "Requests per day" chart, bottom to top (identity order, never rank). */
+export const REQUEST_SERIES = Object.freeze(['forms', 'conversations', 'dictations', 'summaries']);
 
 const OTHER = 'other';
+/** Usage row kind → its series; a medical history summary is counted by run, not by model call. */
+const SERIES_OF_KIND = { form: 'forms', live: 'conversations', dictation: 'dictations' };
 
 /** Printed pages of text for a token count (≈ 1,800 characters a page). */
 export const pagesOf = (tokens) => (Number.isFinite(tokens) ? (tokens * CHARS_PER_TOKEN) / CHARS_PER_PAGE : null);
@@ -156,6 +161,33 @@ export function segmentRows(forms, ds, segment) {
   const rows = standing.map(toRow).sort((a, b) => b.meanEur - a.meanEur);
   if (other.forms > 0) rows.push(toRow(other));
   return { rows, groups: standing.length };
+}
+
+/**
+ * Requests per bucket of the period (day, week or month, as on every chart): forms, conversations, dictations and
+ * medical history summaries (one per run, in the bucket where it started), and their `total`. Only successful
+ * requests, in the scope: the rows summarize() counts, so every kind adds up to its `summary.counts`.
+ * @param {import('../buildDataset.js').Dataset} ds
+ * @param {import('../period.js').Period} period
+ * @param {import('../core/scope.js').Scope} scope
+ * @returns {import('./shared.js').SeriesRow[]}
+ */
+export function requestSeries(ds, period, scope) {
+  const { rows, indexOf } = makeSeries(period, [...REQUEST_SERIES, 'total']);
+  const hide = hidesInternal(ds, scope);
+  const count = (pid, t, field) => {
+    if (hide && isInternal(pid, ds)) return;
+    const bucket = rows[indexOf(t)];
+    if (!bucket) return;
+    addTo(bucket, field, 1);
+    addTo(bucket, 'total', 1);
+  };
+  (ds.rows ?? []).forEach((row) => {
+    const field = SERIES_OF_KIND[row.kind];
+    if (field) count(row.pid, row.t, field);
+  });
+  datasetRuns(ds).forEach((run) => count(run.pid, run.startMs, 'summaries'));
+  return rows;
 }
 
 const stepOf = (row) => {
@@ -300,7 +332,8 @@ function answerOf({ summary, byType, promptMean, baseShare, wordsMean }) {
  *   headline: promptMean, outputMean, baseTokens, baseShare, bigShare, bigCostShare (tokens, shares 0..1),
  *     anamRuns (=== summary.counts.anamnesisRuns), anamCostPerRun (€, median of the new-way runs, else of all),
  *     anamCreditsPerRun, anamNetPerRun (€ the credits bring, plan packs), anamLeft (share kept).
- *   tables: byType, sizeBuckets, bySegment (+ segmentGroups), priciest, anamSteps, anamRuns.
+ *   series: requests per bucket by kind (requestSeries); tables.requestCounts: the same kinds for the whole period.
+ *   tables: requestCounts, byType, sizeBuckets, bySegment (+ segmentGroups), priciest, anamSteps, anamRuns.
  */
 export function computeRequests(ds, period, scope, opts = {}) {
   if (!ds || !period) return EMPTY_RESULT;
@@ -376,8 +409,15 @@ export function computeRequests(ds, period, scope, opts = {}) {
       anamLeft: Number.isFinite(anamLeft) ? 'model' : 'missing',
     },
     answer: answerOf({ summary, byType, promptMean, baseShare, wordsMean }),
-    series: [],
+    series: requestSeries(ds, period, scope),
     tables: {
+      // The period's requests by kind, in the chart's order: what the series adds up to
+      requestCounts: [
+        { key: 'forms', count: counts.forms },
+        { key: 'conversations', count: counts.liveConversations },
+        { key: 'dictations', count: counts.dictations },
+        { key: 'summaries', count: counts.anamnesisRuns },
+      ],
       byType,
       sizeBuckets: forms.length ? sizeBuckets(forms) : [],
       bySegment: bySegment.rows,

@@ -58,6 +58,25 @@ export function exportTables({ data, period, doctors }) {
   const doctorText = (pid) => doctorLabel(doctorOf(doctors, pid));
   return [
     {
+      label: t('requests.export.overTime'),
+      filename: file('over_time'),
+      columns: [
+        { key: 'bucket_start', header: 'bucket_start', type: 'date' },
+        { key: 'total', header: 'total', type: 'int' },
+        { key: 'forms', header: 'forms', type: 'int' },
+        { key: 'conversations', header: 'conversations', type: 'int' },
+        { key: 'dictations', header: 'dictations', type: 'int' },
+        { key: 'medical_history_summaries', header: 'medical_history_summaries', type: 'int' },
+      ],
+      getRows: () =>
+        (data?.series ?? [])
+          .filter((row) => !row.isFuture)
+          .map((row) => ({
+            bucket_start: row.from, total: row.total, forms: row.forms, conversations: row.conversations, dictations: row.dictations,
+            medical_history_summaries: row.summaries,
+          })),
+    },
+    {
       label: t('requests.export.byType'),
       filename: file('price_per_request'),
       columns: [

@@ -66,7 +66,7 @@ export default function WorkCard({ work, period, totals, className = '' }) {
 
   return (
     <Card padding="lg" className={['min-w-0', className].filter(Boolean).join(' ')}>
-      <CardHeader title={t('overview.work.title')} hintKey="overview.work" right={toDoctors} className="mb-4" />
+      <CardHeader title={t('overview.work.title')} hintKey="overview.workCard" right={toDoctors} className="mb-4" />
       {lead && <p className="mb-4 text-sm font-semibold text-ink">{lead}</p>}
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7" aria-busy={loading || undefined}>
         {stats.map((stat, index) => (

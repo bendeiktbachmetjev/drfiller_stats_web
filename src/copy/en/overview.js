@@ -114,7 +114,8 @@ export const DEFS = {
     template: 'Result per month now and on the plan: {visits} visits per doctor.',
     long: '“Now” is the real result of the period, converted to one month. The plan uses the price of a form and of a minute of recording over the last 30 days (current model setup) × the planned amount of work. It is a “what if” calculation, not a promise; the assumptions are in Settings. The full table is on the Money page.',
   },
-  'overview.work': {
+  // The "What Dr. Filler did" card. Its own key: under 'overview.work' it replaced the forms tile's text above.
+  'overview.workCard': {
     short: 'What the Dr. Filler extension and the server counted in this period, for everyone: in clinics and on their own.',
     long: 'Express forms: forms Dr. Filler Express made by itself. Prescriptions renewed: made when renewing with Express. Prescriptions saved: saved with Dr. Filler. Services: one code is one service. Like the other numbers here, these follow “Without my and test accounts”. The Doctors page shows each person’s numbers and which buttons they pressed.',
   },

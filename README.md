@@ -135,8 +135,11 @@ visus“ runs, services … by person, from `GET /work-counts?from&to` (backend 
   dataset (`context/useWorkCounts.js` → `data/load.js` `loadWorkCounts` → `data/normalize/workCounts.js`), kept while
   the site is open and asked again on Refresh. A failed, 404 or 413 answer never breaks a page: the numbers show "—"
   and one quiet line says why (`ui/workCountsText.js`).
-- Doctors table: Dr. Filler columns matched by pid (Buttons, Express forms, Rx renewed, Rx saved, Fill all, Services
-  shown; the rarer counts in "Columns"). A number under "Buttons" opens that person's buttons. "—" = nothing counted
+- Doctors table: Dr. Filler columns matched by pid (Buttons, Main buttons, Express forms, Rx renewed, Rx saved, Fill
+  all, Services shown; the rarer counts in "Columns"). A number under "Buttons" opens that person's buttons; under
+  "Main buttons" only the buttons that do the work for the doctor (the server marks them `main`: backend
+  `services/stats/registry.js` MAIN_BUTTONS, 14.11.2026; an older server marks none, so the column shows "—"). The
+  Clinics Work view has the same "Main buttons" table above "Every Dr. Filler button". "—" = nothing counted
   for them in the period. "Active" lists doctors with a request; a line under the table names the ones who only used
   Dr. Filler (Express) and offers "All". The CSV has every count, and "Buttons by doctor" lists each person's buttons.
 - "Columns" (`pages/doctors/ColumnPicker.jsx`, logic in `columnChoice.js`): a checkbox for every column in the
@@ -144,7 +147,7 @@ visus“ runs, services … by person, from `GET /work-counts?from&to` (backend 
   `v: 2`: only the ticks that differ from a default; a choice of another version is not read, so a new default
   reaches everyone once); blocked storage = the defaults.
 - The table (owner's order, 06.11): Doctor · Type · With us since · Last active · Forms · Credits left · Recording ·
-  History summaries · Costs · Income · Result · Buttons … Services · Mine / test · Clinic (hidden ones sit next to
+  History summaries · Costs · Income · Result · Buttons · Main buttons … Services · Mine / test · Clinic (hidden ones sit next to
   their kin). The "+" in "Credits left" opens "Top up" for that doctor. On wide screens the card reaches nearly the
   window's edges (`.sf-bleed`, `app/admin.css`), headers wrap in two lines and the Doctor column stays pinned while
   the table scrolls sideways (DataTable `wrapHeaders` and `sticky: true` on a first column; both optional).

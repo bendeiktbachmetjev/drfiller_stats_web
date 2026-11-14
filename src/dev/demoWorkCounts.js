@@ -65,6 +65,15 @@ export const DEMO_BUTTONS = Object.freeze({
   x_days: ['Gydymo trukmė (receptų sąraše)', 'Treatment days badge'],
 });
 
+/** The main buttons (backend services/stats/registry.js MAIN_BUTTONS): the server marks them `main`. */
+export const DEMO_MAIN_BUTTONS = Object.freeze(new Set([
+  'tlk_chip', 'x_rx', 'x_ref', 'x_fill', 'x_cal', 'x_svc1', 'x_svc3665', 'x_svc3', 'x_svc4', 'x_e027', 'x_new',
+  'rx_shift', 'rx_dlg', 'rx_comp', 'abx_close', 'abx_tesiu', 'abx_keiciu', 'abx_dx', 'abx_hide',
+  'ana_start', 'ana_zip', 'echo_send', 'skl_fill', 'skl_replace', 'skl_ekg_norm', 'skl_ekg_lvh', 'skl_plan_new', 'skl_plan1',
+  'skl_plan2', 'skl_e025_new', 'skl_e025_res', 'skl_e027_new', 'skl_025_card', 'skl_025_btn', 'skl_025_svc', 'skl_kartoti',
+  'f025_search', 'f025_start', 'f025_answer',
+]));
+
 const COUNT_KEYS = ['forms', 'formsAuto', 'inserts', 'referrals', 'rxNew', 'rxRep', 'rxSaved', 'fillRuns', 'services', 'servicesAuto', 'visitsDone', 'formsSaved', 'docs', 'dx', 'presses'];
 const zero = () => Object.fromEntries(COUNT_KEYS.map((key) => [key, 0]));
 const add = (into, values) => {
@@ -228,7 +237,7 @@ export function demoWorkCounts(api, { fromMs, toMs, open = false, nowMs, clinicP
   add(totals, deleted);
   const buttons = Object.entries(allButtons)
     .filter(([, n]) => n > 0)
-    .map(([id, n]) => ({ id, lt: DEMO_BUTTONS[id]?.[0] ?? id, en: DEMO_BUTTONS[id]?.[1] ?? id, n }))
+    .map(([id, n]) => ({ id, lt: DEMO_BUTTONS[id]?.[0] ?? id, en: DEMO_BUTTONS[id]?.[1] ?? id, n, main: DEMO_MAIN_BUTTONS.has(id) }))
     .sort((a, b) => b.n - a.n || (a.id < b.id ? -1 : 1));
 
   return {

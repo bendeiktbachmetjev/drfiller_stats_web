@@ -240,7 +240,8 @@ export function normalizeWork(api) {
     daily: [...daily.values()].sort((x, y) => (x.day < y.day ? -1 : 1)),
     buttons: list(a.buttons)
       .filter((b) => text(b.id) && num(b.n) > 0)
-      .map((b) => ({ id: b.id, label: labelOf(b, b.id), n: num(b.n) }))
+      // main: one of the main buttons (backend registry MAIN_BUTTONS); false from a server that does not mark them
+      .map((b) => ({ id: b.id, label: labelOf(b, b.id), n: num(b.n), main: b.main === true }))
       .sort((x, y) => y.n - x.n || x.label.localeCompare(y.label)),
     range,
     health: {

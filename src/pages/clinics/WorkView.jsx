@@ -126,7 +126,7 @@ function RatesLine({ work, clinic, onEditSettings }) {
 /**
  * The Work and time view of a clinic (spec v1 §10): the period and the staff to show, the early-estimate
  * banner, the tiles, the likely range, the parts, the chart, the tables (role, specialty, person, activity),
- * what Dr. Filler did, every button, Health, and the staff editor (roles and marks).
+ * what Dr. Filler did, the main buttons, every button, Health, and the staff editor (roles and marks).
  * @param {{ clinic: object, ds: object, period: object, usageReport: object|null,
  *   state: { status: string, work: object|null, error: Error|null, reload: () => void },
  *   workers: string[], onWorkersChange: (pids: string[]) => void, onEditSettings: () => void,
@@ -282,6 +282,7 @@ export default function WorkView({ clinic, ds, period, usageReport, state, worke
               <ActivityTable work={work} />
             </div>
             <CountsCard work={work} />
+            <ButtonsTable work={work} main />
             <ButtonsTable work={work} />
             <WorkHealth work={work} clinic={clinic} ds={ds} workers={workers} />
           </>

@@ -575,7 +575,8 @@ SCHEMAS.clinicWork = obj({
   })),
   byActivity: arr(obj({ key: str, ...labelled, count: nullable(num), savedMin: num, perUnitMin: nullable(num) })),
   daily: arr(obj({ day: match(DAY_RE), savedMin: num, spentMin: num, byHandMin: opt(num), workers: opt(int) })),
-  buttons: arr(obj({ id: str, ...labelled, n: num })),
+  // main: one of the main buttons (backend registry MAIN_BUTTONS; newer servers)
+  buttons: arr(obj({ id: str, ...labelled, n: num, main: opt(bool) })),
   range: nullable(obj({
     centralMin: opt(nullable(num)), lowMin: nullable(num), highMin: nullable(num),
     drivers: arr(obj({ key: str, ...labelled, swingMin: num, atLoMin: opt(num), atHiMin: opt(num) })),
@@ -640,11 +641,13 @@ export const WORK_COUNT_KEYS = Object.freeze([
  *   people: Array<WorkCountValuesApi & { pid: string, days: number, buttons: Record<string, number> }>,
  *   deleted: (WorkCountValuesApi & { days: number }) | null,
  *   totals: WorkCountValuesApi & { people: number, days: number },
- *   buttons: Array<{ id: string, lt: string, en: string, n: number }>
+ *   buttons: Array<{ id: string, lt: string, en: string, n: number, main?: boolean }>
  * }} WorkCountsApi
  *   people        most presses first; `days` = days with any count; `buttons` = presses per button id
  *   totals.days   person-days (a day at a clinic and on one's own is one), erased accounts' days included
- *   buttons       every button pressed in the span, most first; lt/en = the registry's labels (the id when unknown)
+ *   buttons       every button pressed in the span, most first; lt/en = the registry's labels (the id when unknown);
+ *                 main = one of the main buttons, the ones that do the work for the doctor (registry MAIN_BUTTONS;
+ *                 servers from 14.11.2026 on)
  */
 const workCountFields = Object.fromEntries(WORK_COUNT_KEYS.map((key) => [key, num]));
 SCHEMAS.workCountsPerson = obj({ pid: pidOrSpecial, days: int, ...workCountFields, buttons: rec(num) });
@@ -654,7 +657,7 @@ SCHEMAS.workCounts = obj({
   people: arr(SCHEMAS.workCountsPerson),
   deleted: nullable(obj({ days: int, ...workCountFields })),
   totals: obj({ people: int, days: int, ...workCountFields }),
-  buttons: arr(obj({ id: str, ...labelled, n: num })),
+  buttons: arr(obj({ id: str, ...labelled, n: num, main: opt(bool) })),
 });
 
 SCHEMAS.envelope = obj({

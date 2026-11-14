@@ -6,7 +6,8 @@ import { WORK_COUNT_KEYS, envelope, errorBody, validate } from '../api/contract.
 import { loadWorkCounts } from '../load.js';
 import { resolvePeriod } from '../period.js';
 import {
-  buttonLabel, hasWorkCounts, normalizeWorkCounts, personButtons, scopedWorkTotals, workCountsOf, workCountsQuery, workCountsStatus,
+  buttonLabel, hasWorkCounts, normalizeWorkCounts, personButtons, personMainButtons, scopedWorkTotals, workCountsOf, workCountsQuery,
+  workCountsStatus,
 } from '../normalize/workCounts.js';
 import { has } from '../../copy/index.js';
 import { WORK_NOTE_KEYS, workCountsText } from '../../ui/workCountsText.js';
@@ -102,6 +103,40 @@ test('normalize: broken entries are dropped, a pid twice is one person, and an u
   assert.deepEqual(personButtons(counts, 'deleted'), [], 'erased accounts have no button list');
   assert.deepEqual(personButtons(counts, C), []);
   [null, undefined, 'x', [], {}, { people: 'none' }].forEach((bad) => assert.equal(normalizeWorkCounts(bad), null, JSON.stringify(bad)));
+});
+
+test('main buttons: the server marks them; each person’s presses of them; an older server’s answer has none', () => {
+  const marked = answer({
+    people: [
+      { pid: B, days: 1, ...zeros(), presses: 1, buttons: { gen: 1 } },
+      { pid: A, days: 1, ...zeros(), presses: 9, buttons: { gen: 5, x_fill: 3, tlk_chip: 1 } },
+    ],
+    buttons: [
+      { id: 'gen', lt: 'Generuoti formas', en: 'Generate forms', n: 6, main: false },
+      { id: 'x_fill', lt: 'Express: Užpildyti visus', en: 'Express: fill all prescriptions', n: 3, main: true },
+      { id: 'tlk_chip', lt: 'TLK pasiūlymas (pridėti diagnozę)', en: 'TLK suggestion chip (add a diagnosis)', n: 1, main: true },
+    ],
+  });
+  assert.ok(validate('workCounts', marked).ok);
+  assert.equal(validate('workCounts', answer({ buttons: [{ id: 'gen', n: 1, main: 'yes' }] })).ok, false, 'main is true or false');
+  const counts = normalizeWorkCounts(marked);
+  assert.deepEqual([...counts.main].sort(), ['tlk_chip', 'x_fill']);
+  assert.deepEqual([counts.byPid.get(A).mainPresses, counts.byPid.get(B).mainPresses], [4, 0]);
+  assert.deepEqual(
+    personMainButtons(counts, A),
+    [{ id: 'x_fill', label: 'Express: fill all prescriptions', n: 3 }, { id: 'tlk_chip', label: 'TLK suggestion chip (add a diagnosis)', n: 1 }],
+    'only the main ones, most first',
+  );
+  assert.deepEqual(personMainButtons(counts, 'deleted'), [], 'erased accounts have no button list');
+  assert.deepEqual(counts.buttons.map((b) => [b.id, b.main]), [['gen', false], ['x_fill', true], ['tlk_chip', true]]);
+  // An older server marks no button: nobody's count of the main ones is known ("—")
+  const old = normalizeWorkCounts(answer());
+  assert.equal(old.main, null);
+  assert.equal(old.byPid.get(A).mainPresses, null);
+  assert.deepEqual(personMainButtons(old, A), []);
+  // Nothing pressed in the period: nothing to mark, so 0
+  const none = normalizeWorkCounts(answer({ people: [{ pid: A, days: 1, ...zeros(), forms: 2, buttons: {} }], buttons: [] }));
+  assert.equal(none.byPid.get(A).mainPresses, 0);
 });
 
 test('the query: the period’s Vilnius days as instants, `to` exclusive; a running period up to now; nothing before it begins', () => {

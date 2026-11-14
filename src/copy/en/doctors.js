@@ -88,6 +88,8 @@ export const COPY = {
   // What Dr. Filler did, per doctor (GET /work-counts); `.title` = the header's tooltip and the line under it in "Columns"
   'doctors.col.presses': 'Buttons',
   'doctors.col.presses.title': 'Dr. Filler button presses',
+  'doctors.col.mainPresses': 'Main buttons',
+  'doctors.col.mainPresses.title': 'Only the buttons that do the work for the doctor: Express, “Užpildyti visus”, services, TLK codes, ŠKL, F025, warnings',
   'doctors.col.formsAuto': 'Express forms',
   'doctors.col.formsAuto.title': 'Forms Dr. Filler Express made by itself',
   'doctors.col.inserts': 'Written into forms',
@@ -120,6 +122,10 @@ export const COPY = {
   'doctors.buttons.aria': 'Buttons {name} pressed',
   'doctors.buttons.heading': 'Buttons pressed',
   'doctors.buttons.total': '{n} presses in this period',
+  'doctors.mainButtons.open': '{n} presses: show which main buttons {name} pressed',
+  'doctors.mainButtons.aria': 'Main buttons {name} pressed',
+  'doctors.mainButtons.heading': 'Main buttons pressed',
+  'doctors.mainButtons.total': '{n} presses in this period',
   'doctors.work.dash':
     '“—” in a Dr. Filler column: nothing was counted for that doctor in this period. Counting for people outside clinics starts when their extension updates to the next store version, so older periods show little or nothing.',
   'doctors.work.hidden.one': '1 more doctor used Dr. Filler in this period without making a request.',
@@ -225,7 +231,7 @@ export const DEFS = {
   'doctors.table': {
     short: 'Each doctor: what they did, what they brought in and what they cost.',
     long:
-      'Doctors are shown by email; without one, as “Doctor NN”, numbered by signup date. The code next to it (D-XXXX) never changes. “Income” is what the doctor’s payments brought in after the Stripe fee, refunds and VAT. “Result” is income minus costs; server costs are not split between doctors. “Recording counter” is recorded minutes not charged yet: every full 10 minutes costs 1 credit. The Dr. Filler columns (Buttons, Express forms, Rx renewed …) show what the extension and the server counted for each person, in a clinic or not. Press a number under “Buttons” to see which buttons they pressed. The “+” next to “Credits left” adds credits by hand. “Columns” picks what the table shows.',
+      'Doctors are shown by email; without one, as “Doctor NN”, numbered by signup date. The code next to it (D-XXXX) never changes. “Income” is what the doctor’s payments brought in after the Stripe fee, refunds and VAT. “Result” is income minus costs; server costs are not split between doctors. “Recording counter” is recorded minutes not charged yet: every full 10 minutes costs 1 credit. The Dr. Filler columns (Buttons, Express forms, Rx renewed …) show what the extension and the server counted for each person, in a clinic or not. Press a number under “Buttons” to see which buttons they pressed. “Main buttons” counts only the ones that do the work for the doctor: Dr. Filler Express (prescriptions, “Užpildyti visus”, services, the calendar, referrals, “Išsaugoti + naujas”), TLK codes, the ŠKL and F025 tools, the echo PDF sent to the card, the anamnesis’ documents, and the answers to Dr. Filler’s warnings (prescription dates, a medical aid without compensation, antibiotics). Generate, fill, dictation, switches, settings and the patient’s sex are not in it. The “+” next to “Credits left” adds credits by hand. “Columns” picks what the table shows.',
   },
   'doctors.costPerMonth': {
     short: 'A doctor’s costs, recalculated to one month.',

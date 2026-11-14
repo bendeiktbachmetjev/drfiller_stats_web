@@ -406,6 +406,8 @@ export const COPY = {
   'clinics.work.col.button': 'Button',
   'clinics.work.col.presses': 'Presses',
   'clinics.work.buttons.empty': 'No presses in this period.',
+  'clinics.work.mainButtons.title': 'Main buttons',
+  'clinics.work.mainButtons.empty': 'No main button pressed in this period.',
 
   // Health
   'clinics.work.health.title': 'Health',
@@ -506,6 +508,9 @@ export const DEFS = {
   },
   'clinics.work.buttons': {
     short: 'Every real click on a Dr. Filler button. Clicks our own code makes are not counted.',
+  },
+  'clinics.work.mainButtons': {
+    short: 'Only the buttons that do the work for the person in the clinic’s system: Express, “Užpildyti visus”, services, TLK codes, ŠKL, F025, and the answers to Dr. Filler’s warnings. The clinic’s page shows the same list without the antibiotic guard.',
   },
   'clinics.work.health': {
     short: 'Whether the counting works: extension versions, what the server refused, and checks against the credits. Only you see this.',

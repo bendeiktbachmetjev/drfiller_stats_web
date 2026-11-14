@@ -11,6 +11,8 @@
 // These numbers are not the Usage and invoice view's (that one comes from the demo requests), on purpose: the
 // mock only has to show every state of the page.
 
+import { DEMO_MAIN_BUTTONS } from './demoWorkCounts.js';
+
 const DAY_MS = 86400000;
 const DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' });
 const dayOf = (t) => DAY.format(new Date(t));
@@ -421,7 +423,7 @@ export function demoWork({ clinic, people, from, to, workers = null, nowMs, cred
       return { key, lt, en, count: counted ? a.count : null, savedMin: round1(a.savedMin), perUnitMin: counted && a.count ? round2(a.savedMin / a.count) : null };
     }),
     daily: days,
-    buttons: BUTTONS.filter(([id]) => buttons.has(id)).map(([id, lt, en]) => ({ id, lt, en, n: buttons.get(id) })).sort((a, b) => b.n - a.n),
+    buttons: BUTTONS.filter(([id]) => buttons.has(id)).map(([id, lt, en]) => ({ id, lt, en, n: buttons.get(id), main: DEMO_MAIN_BUTTONS.has(id) })).sort((a, b) => b.n - a.n),
     range: anyEvents
       ? { centralMin: netMin, lowMin: round1(Math.max(0, savedMin - spread)), highMin: round1(savedMin + 0.6 * spread), drivers: swings }
       : { centralMin: null, lowMin: null, highMin: null, drivers: [] },

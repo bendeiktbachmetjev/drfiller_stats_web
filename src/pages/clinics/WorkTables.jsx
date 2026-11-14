@@ -286,9 +286,14 @@ export function CountsCard({ work }) {
   );
 }
 
-/** "Every Dr. Filler button": the ten pressed most, then "Show all". */
-export function ButtonsTable({ work }) {
-  const max = work.buttons[0]?.n ?? 0;
+/**
+ * "Every Dr. Filler button": the ten pressed most, then "Show all". With `main`, "Main buttons": only the buttons
+ * that do the work for the person (the server marks them), the same way.
+ */
+export function ButtonsTable({ work, main = false }) {
+  const list = main ? work.buttons.filter((button) => button.main) : work.buttons;
+  const copy = main ? 'clinics.work.mainButtons' : 'clinics.work.buttons';
+  const max = list[0]?.n ?? 0;
   const columns = [
     {
       key: 'label',
@@ -307,8 +312,8 @@ export function ButtonsTable({ work }) {
   ];
   return (
     <Card padding="none" className={CARD}>
-      <CardHeader title={t('clinics.work.buttons.title')} hintKey="clinics.work.buttons" />
-      <DataTable columns={columns} rows={work.buttons.map((row) => ({ ...row, key: row.id }))} limit={10} defaultSort={{ key: 'n', dir: 'desc' }} emptyText={t('clinics.work.buttons.empty')} caption={t('clinics.work.buttons.title')} />
+      <CardHeader title={t(`${copy}.title`)} hintKey={copy} />
+      <DataTable columns={columns} rows={list.map((row) => ({ ...row, key: row.id }))} limit={10} defaultSort={{ key: 'n', dir: 'desc' }} emptyText={t(`${copy}.empty`)} caption={t(`${copy}.title`)} />
     </Card>
   );
 }

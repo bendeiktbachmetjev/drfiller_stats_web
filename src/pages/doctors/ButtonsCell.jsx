@@ -12,10 +12,12 @@ const ROW = 'flex items-baseline justify-between gap-3 rounded-[10px] px-2 py-1.
  * The "Buttons" cell of the Doctors table: the person's presses in the period. Pressing the number opens a small
  * panel with every button they pressed, most first (the server's English label; an id it does not know is shown
  * as the id). It closes on Escape, a press outside, or Tab past its end, and focus returns to the number.
- * @param {{ total: number, buttons: Array<{ id: string, label: string, n: number }>, name: string }} props
+ * "Main buttons" uses the same cell with its own texts and only the main buttons.
+ * @param {{ total: number, buttons: Array<{ id: string, label: string, n: number }>, name: string, copy?: string }} props
  *   name: how the doctor is shown (the panel's title and the button's accessible name)
+ *   copy: the texts' key prefix ('doctors.buttons', or 'doctors.mainButtons' for the main buttons)
  */
-export default function ButtonsCell({ total, buttons, name }) {
+export default function ButtonsCell({ total, buttons, name, copy = 'doctors.buttons' }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef(null);
   const panelId = useId();
@@ -30,21 +32,21 @@ export default function ButtonsCell({ total, buttons, name }) {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        aria-label={t('doctors.buttons.open', { n: fmt.int(total), name })}
+        aria-label={t(`${copy}.open`, { n: fmt.int(total), name })}
         onClick={() => setOpen((value) => !value)}
         className={TRIGGER}
       >
         {fmt.int(total)}
         <ChevronDown className={`w-3.5 h-3.5 transition-transform print:hidden ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
-      <MenuPanel open={open} anchorRef={triggerRef} onClose={() => setOpen(false)} width="w-80" id={panelId} ariaLabel={t('doctors.buttons.aria', { name })}>
+      <MenuPanel open={open} anchorRef={triggerRef} onClose={() => setOpen(false)} width="w-80" id={panelId} ariaLabel={t(`${copy}.aria`, { name })}>
         <div className="px-2 pt-1.5 pb-2">
-          <p className="text-xs font-bold text-ink-soft">{t('doctors.buttons.heading')}</p>
+          <p className="text-xs font-bold text-ink-soft">{t(`${copy}.heading`)}</p>
           <p className="mt-0.5 text-sm font-bold text-ink sf-wrap-any">{name}</p>
-          <p className="text-xs font-medium text-ink-soft">{t('doctors.buttons.total', { n: fmt.int(total) })}</p>
+          <p className="text-xs font-medium text-ink-soft">{t(`${copy}.total`, { n: fmt.int(total) })}</p>
         </div>
         {/* Focusable, so the keyboard lands on the list (and scrolls it) and Tab past it closes the panel */}
-        <ol tabIndex={0} aria-label={t('doctors.buttons.aria', { name })} className={`flex flex-col rounded-[12px] ${RING}`}>
+        <ol tabIndex={0} aria-label={t(`${copy}.aria`, { name })} className={`flex flex-col rounded-[12px] ${RING}`}>
           {buttons.map((button) => (
             <li key={button.id} className={`${ROW} hover:bg-line/20`}>
               <span className="min-w-0 font-medium text-ink sf-wrap-any">{button.label}</span>

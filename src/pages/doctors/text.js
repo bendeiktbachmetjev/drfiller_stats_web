@@ -38,10 +38,10 @@ const col = (key, type = 'num') => ({ key, header: key, type });
 
 /**
  * CSV column → the Dr. Filler count it holds (GET /work-counts; empty when nothing was counted or it did not load),
- * in the table's order: the six shown by default, then the nine rarer ones.
+ * in the table's order: the seven shown by default, then the nine rarer ones.
  */
 const WORK_CSV = [
-  ['button_presses', 'presses'], ['express_forms', 'formsAuto'], ['rx_renewed', 'rxNew'], ['rx_saved', 'rxSaved'], ['fill_all_runs', 'fillRuns'],
+  ['button_presses', 'presses'], ['main_button_presses', 'mainPresses'], ['express_forms', 'formsAuto'], ['rx_renewed', 'rxNew'], ['rx_saved', 'rxSaved'], ['fill_all_runs', 'fillRuns'],
   ['services', 'services'], ['written_into_forms', 'inserts'], ['referrals_written', 'referrals'], ['rx_repeated', 'rxRep'],
   ['express_services', 'servicesAuto'], ['visits_done', 'visitsDone'], ['forms_saved', 'formsSaved'], ['documents_added', 'docs'],
   ['tlk_codes_added', 'dx'], ['work_days', 'days'],
@@ -61,12 +61,12 @@ export function exportTablesOf(data, period, ds, work = null) {
   const counts = work?.counts ?? null;
   const workValues = (pid) => {
     const person = workCountsOf(counts, pid);
-    return Object.fromEntries(WORK_CSV.map(([header, key]) => [header, person ? person[key] : null]));
+    return Object.fromEntries(WORK_CSV.map(([header, key]) => [header, person ? person[key] ?? null : null]));
   };
   const buttonsTable = counts && {
     label: t('doctors.export.buttons'),
     filename: file('buttons_by_doctor'),
-    columns: [col('doctor', 'text'), col('code', 'text'), col('button_id', 'text'), col('button', 'text'), col('presses', 'int')],
+    columns: [col('doctor', 'text'), col('code', 'text'), col('button_id', 'text'), col('button', 'text'), col('main_button', 'text'), col('presses', 'int')],
     getRows: () =>
       data.tables.doctors.flatMap((row) =>
         personButtons(counts, row.pid).map((button) => ({
@@ -74,6 +74,8 @@ export function exportTablesOf(data, period, ds, work = null) {
           code: row.code,
           button_id: button.id,
           button: button.label,
+          // empty when the server does not mark the main buttons
+          main_button: counts.main ? counts.main.has(button.id) : null,
           presses: button.n,
         })),
       ),

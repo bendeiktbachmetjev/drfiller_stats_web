@@ -4,7 +4,7 @@ import { DoctorName, SignedMoney } from '../../ui/index.js';
 import { classLabel, t } from '../../copy/index.js';
 import { fmt } from '../../format/format.js';
 import { doctorName } from '../../format/items.js';
-import { personButtons, workCountsOf } from '../../data/normalize/workCounts.js';
+import { personButtons, personMainButtons, workCountsOf } from '../../data/normalize/workCounts.js';
 import ButtonsCell from './ButtonsCell.jsx';
 
 const DAY_MS = 86400000;
@@ -148,6 +148,8 @@ const MUTED = 'text-ink-mute';
  */
 const workColumnList = () => [
   { key: 'presses', header: t('doctors.col.presses'), title: t('doctors.col.presses.title'), priority: 1 },
+  // Only the buttons that do the work for the doctor (the owner, 14.11.2026): the server marks them
+  { key: 'mainPresses', header: t('doctors.col.mainPresses'), title: t('doctors.col.mainPresses.title'), priority: 1 },
   { key: 'formsAuto', header: t('doctors.col.formsAuto'), title: t('doctors.col.formsAuto.title') },
   { key: 'rxNew', header: t('doctors.col.rxNew'), title: t('doctors.col.rxNew.title') },
   { key: 'rxSaved', header: t('doctors.col.rxSaved'), title: t('doctors.col.rxSaved.title') },
@@ -168,7 +170,8 @@ const workColumnList = () => [
 /**
  * The Dr. Filler columns, ready for the table: right-aligned numbers, sorted like the other numbers (no count
  * sinks to the bottom). A cell shows "…" while the counts load and "—" without them (not loaded, or nothing
- * counted for this person: the page's note says why). "Buttons" opens the person's list of buttons.
+ * counted for this person: the page's note says why). "Buttons" opens the person's list of buttons, "Main buttons"
+ * the list of their main ones ("—" also for the erased accounts' line and from a server that does not mark them).
  * @param {{ status: string, counts: import('../../data/normalize/workCounts.js').WorkCounts|null }|null} work useWorkCounts()
  * @param {(row: object) => string} nameOf
  */
@@ -189,6 +192,10 @@ function workColumns(work, nameOf) {
       const person = workCountsOf(counts, row.pid);
       if (!person) return <span className={MUTED}>{fmt.empty}</span>;
       if (key === 'presses') return <ButtonsCell total={person.presses} buttons={personButtons(counts, row.pid)} name={nameOf(row)} />;
+      if (key === 'mainPresses') {
+        if (!Number.isFinite(person.mainPresses)) return <span className={MUTED}>{fmt.empty}</span>;
+        return <ButtonsCell total={person.mainPresses} buttons={personMainButtons(counts, row.pid)} name={nameOf(row)} copy="doctors.mainButtons" />;
+      }
       return fmt.int(person[count]);
     },
   }));
@@ -197,10 +204,10 @@ function workColumns(work, nameOf) {
 /**
  * Columns of the Doctors table (§4.8), in the owner's order (06.11.2026): Doctor · Type · (Specialty) · With us
  * since · Last active · Forms · Credits left (with its "+") · Recording · (Recording counter) · History summaries ·
- * Costs · (Costs per month · Share of costs) · Income · Result · the Dr. Filler counts (Buttons … Services, then the
- * nine rarer ones) · Mine / test · Clinic. Brackets = `defaultHidden` (unticked in "Columns" until chosen). "Columns"
+ * Costs · (Costs per month · Share of costs) · Income · Result · the Dr. Filler counts (Buttons, Main buttons …
+ * Services, then the nine rarer ones) · Mine / test · Clinic. Brackets = `defaultHidden` (unticked in "Columns" until chosen). "Columns"
  * and the CSV list them in this order; `group` names their part of "Columns" (main, work, account).
- * Phone priorities: p1 = the card lines (Last active, Costs, Income, Result, Buttons); p2 and p3 sit behind
+ * Phone priorities: p1 = the card lines (Last active, Costs, Income, Result, Buttons, Main buttons); p2 and p3 sit behind
  * "More details". The Doctor column is pinned while the table scrolls sideways (`sticky`).
  * @param {{ ds: object, rows: object[], emailMode: 'off'|'click'|'list', emails: Map<string, object>,
  *   onReveal: (pid: string) => void, busy: boolean, onToggle: (pid: string, on: boolean) => void,

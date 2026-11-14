@@ -11,15 +11,17 @@ import { DAY_RE, PID_RE, WORK_COUNT_KEYS, validate } from '../api/contract.js';
 /**
  * @typedef {Record<'forms'|'formsAuto'|'inserts'|'referrals'|'rxNew'|'rxRep'|'rxSaved'|'fillRuns'|'services'|
  *   'servicesAuto'|'visitsDone'|'formsSaved'|'docs'|'dx'|'presses', number>} WorkCountValues
- * @typedef {WorkCountValues & { pid: string, days: number, buttons: Array<{ id: string, n: number }> }} WorkPerson
+ * @typedef {WorkCountValues & { pid: string, days: number, buttons: Array<{ id: string, n: number }>, mainPresses: number|null }} WorkPerson
  *   buttons: the person's presses per button, most first
+ *   mainPresses: their presses of the main buttons (`main`), null when the server does not mark them
  * @typedef {{
  *   fromDay: string|null, toDay: string|null, firstDay: string|null, rows: number,
  *   people: WorkPerson[], byPid: Map<string, WorkPerson>,
  *   deleted: (WorkCountValues & { days: number }) | null,
  *   totals: WorkCountValues & { people: number, days: number },
- *   buttons: Array<{ id: string, label: string, n: number }>,
+ *   buttons: Array<{ id: string, label: string, n: number, main: boolean }>,
  *   labels: Map<string, string>,
+ *   main: Set<string>|null,
  *   valid: boolean, errors: string[]
  * }} WorkCounts
  *   people   most presses first (then forms, then pid), like the server
@@ -27,6 +29,9 @@ import { DAY_RE, PID_RE, WORK_COUNT_KEYS, validate } from '../api/contract.js';
  *   totals   the server's totals (people, person-days, every count), erased accounts included
  *   buttons  every button pressed in the period, most first, with its English label
  *   labels   button id → its label, for a person's own list
+ *   main     the ids of the main buttons pressed in the period: the ones that do the work for the doctor (Express,
+ *            „Užpildyti visus“, services, TLK codes, ŠKL, F025 … and the answers to Dr. Filler's warnings; the backend's
+ *            registry MAIN_BUTTONS marks them). null = an older server that does not mark them ("—" on the page)
  *   valid    the answer matched the contract (api/contract.js workCounts); a broken entry is dropped either way
  */
 
@@ -104,14 +109,20 @@ export function normalizeWorkCounts(api) {
   }
 
   const labels = new Map();
-  const buttons = (Array.isArray(api.buttons) ? api.buttons : [])
-    .filter((b) => isMap(b) && text(b.id) && count(b.n) > 0)
+  const listed = (Array.isArray(api.buttons) ? api.buttons : []).filter((b) => isMap(b) && text(b.id) && count(b.n) > 0);
+  // The server marks every button it lists (true or false); an answer whose buttons carry no mark is an older
+  // server's. Nothing pressed: nothing to mark, so every count of main buttons is 0
+  const main = !listed.length || listed.some((b) => typeof b.main === 'boolean') ? new Set(listed.filter((b) => b.main === true).map((b) => b.id)) : null;
+  const buttons = listed
     .map((b) => {
       const label = text(b.en) ?? text(b.lt) ?? b.id;
       labels.set(b.id, label);
-      return { id: b.id, label, n: count(b.n) };
+      return { id: b.id, label, n: count(b.n), main: Boolean(main?.has(b.id)) };
     })
     .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+  people.forEach((person) => {
+    person.mainPresses = main ? person.buttons.reduce((n, b) => n + (main.has(b.id) ? b.n : 0), 0) : null;
+  });
 
   return {
     fromDay: dayOrNull(api.fromDay),
@@ -124,6 +135,7 @@ export function normalizeWorkCounts(api) {
     totals,
     buttons,
     labels,
+    main,
     valid: ok,
     errors,
   };
@@ -175,6 +187,18 @@ export const buttonLabel = (counts, id) => counts?.labels?.get(id) ?? id;
 export function personButtons(counts, pid) {
   const person = pid === 'deleted' ? null : counts?.byPid?.get(pid);
   return (person?.buttons ?? []).map(({ id, n }) => ({ id, label: buttonLabel(counts, id), n }));
+}
+
+/**
+ * Which main buttons a person pressed (`main`), most first, labelled. Empty when the server does not mark them, for
+ * the erased accounts' line and for someone without counts.
+ * @param {WorkCounts|null} counts
+ * @param {string} pid
+ * @returns {Array<{ id: string, label: string, n: number }>}
+ */
+export function personMainButtons(counts, pid) {
+  const main = counts?.main;
+  return main ? personButtons(counts, pid).filter((button) => main.has(button.id)) : [];
 }
 
 /**
